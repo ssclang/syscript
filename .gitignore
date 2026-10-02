@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# watchexec ignore
+dist
+rolldown.config.*.js
+.ssc/

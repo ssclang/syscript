@@ -1,0 +1,27 @@
+{
+  "name": "@syscript/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": "./dist/index.js",
+  "scripts": {
+    "build:dev": "rm -rf dist/ && pnpm check && NODE_ENV=development rolldown --config",
+    "build": "rm -rf dist/ && pnpm check && NODE_ENV=production rolldown --config",
+    "dev:node": "watchexec -rc -- 'pnpm build:dev && node dist/main.js'",
+    "dev:tsx": "watchexec -rc -- tsx src/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:cov": "vitest run --coverage",
+    "test:cov:watch": "vitest watch --coverage",
+    "test:debug": "vitest --inspect-brk --no-file-parallelism",
+    "check": "tsc --noEmit && eslint *.ts src test && prettier --check *.ts src test",
+    "format": "eslint *.ts src test --fix && prettier --write *.ts src test && pnpm check"
+  },
+  "dependencies": {
+    "@syscript/share": "workspace:^",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "rolldown-plugin-dts": "^0.28.6"
+  }
+}

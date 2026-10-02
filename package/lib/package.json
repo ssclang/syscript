@@ -1,0 +1,13 @@
+{
+  "name": "@syscript/lib",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf dist/ && pnpm check && rolldown --config",
+    "check": "tsc --noEmit && eslint *.ts src test && prettier --check *.ts src test",
+    "format": "eslint *.ts src test --fix && prettier --write *.ts src test && pnpm check"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

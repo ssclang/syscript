@@ -1,0 +1,14 @@
+packages:
+  - package/*
+
+allowBuilds:
+  esbuild: true
+
+# minimumReleaseAge: 0
+
+# minimumReleaseAgeExclude:
+#   - '@typescript/*'
+#   - typescript@7.1.0-dev.20260925.1
+
+catalog:
+  "zod": "^4.6.5"
