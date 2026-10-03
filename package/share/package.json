@@ -1,21 +1,19 @@
 {
   "name": "@syscript/share",
-  "private": true,
+  "version": "0.0.0",
   "type": "module",
+  "private": true,
+  "exports": {
+    "./type": "./dist/type.js",
+    "./util": "./dist/util.js",
+    "./zod": "./dist/zod.js"
+  },
   "scripts": {
-    "build": "rm -rf dist && tsc -b",
-    "auto-build": "watchexec --filter 'src/**' --clear -- pnpm build",
+    "build": "rm -rf dist/ && pnpm check && NODE_ENV=development rolldown --config",
     "check": "tsc --noEmit && eslint src && prettier --check src",
     "format": "eslint src --fix && prettier --write src && pnpm check"
   },
-  "dependencies": {
-    "zod": "catalog:"
-  },
-  "exports": {
-    ".": "./dist/share/src/index.js"
-  },
-  "sideEffects": false,
   "devDependencies": {
-    "tsx": "^4.23.0"
+    "zod": "catalog:"
   }
 }

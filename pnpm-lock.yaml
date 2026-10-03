@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    bignumber.js:
+      specifier: ^11.1.5
+      version: 11.1.5
     zod:
       specifier: ^4.6.5
       version: 4.6.5
@@ -42,6 +45,9 @@ importers:
       rolldown:
         specifier: ^1.2.9
         version: 1.2.9
+      rolldown-plugin-dts:
+        specifier: ^0.28.6
+        version: 0.28.6(rolldown@1.2.9)(typescript@6.0.3)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -57,43 +63,44 @@ importers:
 
   package/cli:
     dependencies:
-      '@syscript/share':
-        specifier: workspace:^
-        version: link:../share
       zod:
         specifier: 'catalog:'
         version: 4.6.5
     devDependencies:
-      rolldown-plugin-dts:
-        specifier: ^0.28.6
-        version: 0.28.6(rolldown@1.2.9)(typescript@6.0.3)
+      '@syscript/share':
+        specifier: workspace:^
+        version: link:../share
 
   package/compiler:
     dependencies:
       '@syscript/cli':
         specifier: workspace:^
         version: link:../cli
-      '@syscript/share':
-        specifier: workspace:^
-        version: link:../share
       bignumber.js:
-        specifier: ^11.1.5
+        specifier: 'catalog:'
         version: 11.1.5
       zod:
         specifier: 'catalog:'
         version: 4.6.5
+    devDependencies:
+      '@syscript/share':
+        specifier: workspace:^
+        version: link:../share
 
-  package/lib: {}
+  package/number:
+    devDependencies:
+      '@syscript/share':
+        specifier: workspace:^
+        version: link:../share
+      bignumber.js:
+        specifier: 'catalog:'
+        version: 11.1.5
 
   package/share:
-    dependencies:
+    devDependencies:
       zod:
         specifier: 'catalog:'
         version: 4.6.5
-    devDependencies:
-      tsx:
-        specifier: ^4.23.0
-        version: 4.23.15
 
 packages:
 

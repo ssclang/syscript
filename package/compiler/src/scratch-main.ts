@@ -29,7 +29,7 @@ async function parseInputFilePath(option: { label: string; path: string }) {
 async function main() {
   const entryPath = await parseInputFilePath({
     label: 'entry',
-    path: '/home/lsh/.claude/jobs/28743cdc/tmp/ts603/src/typescript/typescript.ts',
+    path: 'test/fixture/main.ts',
   });
   const configFilePath = undefined;
   const preludePath = await Path.real(

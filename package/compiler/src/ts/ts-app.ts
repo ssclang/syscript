@@ -1,4 +1,4 @@
-import { assert, Time } from '@syscript/share';
+import { assert, Time } from '@syscript/share/util';
 import * as ast from 'typescript7/unstable/ast';
 import * as ts from 'typescript7/unstable/sync';
 import { AppSourceFile, isSymbolFlagMatch, isTypeFlagMatch } from '~/ts/ts-node.js';
@@ -77,10 +77,17 @@ export class App {
   static initV2(parser: TsParser, log: 'log' | 'debug') {
     const app = new App(parser);
 
-    app.prefetchv2(log);
-    parser.close();
+    try {
+      app.prefetchv2(log);
+    } finally {
+      parser.close();
+    }
 
     return app;
+  }
+
+  private get parser() {
+    return this.#parser;
   }
 
   private get checker() {
@@ -88,8 +95,7 @@ export class App {
   }
 
   private prefetchv2(log: 'log' | 'debug') {
-    const { program } = this.#parser;
-
+    const { program } = this.parser;
     const sourceFilesResult = Time.measure(() => {
       return program.getSourceFileNames().map((f) => {
         const sourceFile = program.getSourceFile(f);
@@ -99,7 +105,18 @@ export class App {
     });
 
     if (log === 'debug') {
-      console.debug('Source files result:', Time.displayMeasureResult(sourceFilesResult, 'ms'));
+      console.debug('get source files:', Time.displayMeasureResult(sourceFilesResult, 'ms'));
+    }
+
+    const nodeResult = Time.measure(() => findPrefetchNodes(sourceFilesResult.result));
+
+    if (log === 'debug') {
+      const { typeNodes, identifiers, moduleSpecifiers } = nodeResult.result;
+      console.debug('get nodes:', Time.displayMeasureResult(nodeResult, 'ms'), '|', {
+        typeNodes: typeNodes.length,
+        identifiers: identifiers.length,
+        moduleSpecifiers: moduleSpecifiers.length,
+      });
     }
   }
 
@@ -433,4 +450,35 @@ export function moduleSpecifierOf(node: ast.Node) {
   }
 
   return undefined;
+}
+
+function findPrefetchNodes(sourceFiles: ast.SourceFile[]) {
+  const typeNodes: ast.TypeNode[] = [];
+  const identifiers: ast.Identifier[] = [];
+  const moduleSpecifiers: ast.StringLiteral[] = [];
+
+  const visit = (node: ast.Node) => {
+    // if (ast.isTypeNode(node)) {
+    //   typeNodes.push(node);
+    //   return;
+    // }
+
+    // if (ast.isIdentifier(node)) {
+    //   identifiers.push(node);
+    // }
+
+    // const specifier = moduleSpecifierOf(node);
+
+    // if (specifier) {
+    //   moduleSpecifiers.push(specifier);
+    // }
+
+    node.forEachChild(visit);
+  };
+
+  for (const sourceFile of sourceFiles) {
+    sourceFile.forEachChild(visit);
+  }
+
+  return { typeNodes, identifiers, moduleSpecifiers };
 }

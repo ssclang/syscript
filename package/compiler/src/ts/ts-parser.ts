@@ -1,4 +1,4 @@
-import { assert, Time } from '@syscript/share';
+import { assert, Time } from '@syscript/share/util';
 import { CliExitError } from '@syscript/cli';
 import path from 'path';
 import * as ast from 'typescript7/unstable/ast';

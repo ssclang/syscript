@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import * as ast from 'typescript7/unstable/ast';
 import { binary, call, CModule, CWriter, signature, unary } from '~/c/c-builder.js';
 import {

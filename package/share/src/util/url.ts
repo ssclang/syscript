@@ -1,4 +1,4 @@
-import { assert } from './assert.js';
+import { assert } from '~/util/assert.js';
 
 export class Url {
   static parse(url: string) {

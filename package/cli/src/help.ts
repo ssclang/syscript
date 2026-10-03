@@ -1,4 +1,5 @@
-import { assert, NonEmptyArray } from '@syscript/share';
+import { NonEmptyArray } from '@syscript/share/type';
+import { assert } from '@syscript/share/util';
 import { ArgumentNode, CommandNode, OptionNode, resolveAlias } from '~/command.js';
 
 export type FormatHelpOption = {

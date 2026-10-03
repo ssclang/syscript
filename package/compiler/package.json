@@ -20,9 +20,11 @@
     "format": "eslint *.ts src test --fix && prettier --write *.ts src test && pnpm check"
   },
   "dependencies": {
-    "@syscript/share": "workspace:^",
     "@syscript/cli": "workspace:^",
-    "bignumber.js": "^11.1.5",
+    "bignumber.js": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@syscript/share": "workspace:^"
   }
 }

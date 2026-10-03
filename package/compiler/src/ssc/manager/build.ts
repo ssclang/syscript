@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';

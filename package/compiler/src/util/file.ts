@@ -1,4 +1,4 @@
-import { assert, CustomMath, isError } from '@syscript/share';
+import { assert, CustomMath, isError } from '@syscript/share/util';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';

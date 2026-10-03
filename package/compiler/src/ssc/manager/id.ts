@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import crypto from 'crypto';
 import path from 'path';
 import z from 'zod';

@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
 import path from 'path';
 import * as ast from 'typescript7/unstable/ast';

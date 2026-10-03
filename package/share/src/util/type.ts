@@ -1,4 +1,4 @@
-import { Join, Replace } from '../type.js';
+import { Join, Replace } from '~/type.js';
 
 export class TypeUtil {
   static join<T extends string[], Separator extends string>(values: T, separator: Separator) {
@@ -30,5 +30,9 @@ export class TypeUtil {
 
   static asReadonly<T>(value: T[]): readonly T[] {
     return value;
+  }
+
+  static includes<T extends string>(list: T[] | readonly T[], value: string): value is T {
+    return list.some((item) => item === value);
   }
 }

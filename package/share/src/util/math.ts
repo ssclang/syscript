@@ -1,4 +1,4 @@
-import { MaybePromise } from '../type.js';
+import { MaybePromise } from '~/type.js';
 
 export class CustomMath {
   static sum(numbers: number[]) {

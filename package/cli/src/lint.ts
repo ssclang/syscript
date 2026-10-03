@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import util from 'util';
 import z from 'zod';
 import { logWarn } from '~/log.js';

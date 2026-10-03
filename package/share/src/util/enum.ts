@@ -1,4 +1,4 @@
-import { assert } from './assert.js';
+import { assert } from '~/util/assert.js';
 
 export class Enum {
   static parse<T extends Record<string, string>>(enumType: T, value: string): T[keyof T] {

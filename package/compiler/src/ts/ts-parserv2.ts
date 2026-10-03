@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 import { CliExitError } from '@syscript/cli';
 import nodePath from 'path';
 import * as ast from 'typescript7/unstable/ast';

@@ -8,6 +8,5 @@ export default defineConfig([
     input: 'src/index.ts',
     platform: 'node',
     output: { codeSplitting: false },
-    external: ['zod'],
   },
 ]);

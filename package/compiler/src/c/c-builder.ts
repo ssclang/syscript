@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share';
+import { assert } from '@syscript/share/util';
 
 /**
  * C 텍스트를 만드는 최소 빌더. IR과 달리 제어 흐름이 구조적이라 블록·종결자 개념이 없고,

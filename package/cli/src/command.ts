@@ -1,4 +1,6 @@
-import { assert, MaybePromise, NonEmptyArray, zNumberString } from '@syscript/share';
+import { MaybePromise, NonEmptyArray } from '@syscript/share/type';
+import { assert } from '@syscript/share/util';
+import { zNumberString } from '@syscript/share/zod';
 import { CliExitError } from '~/error.js';
 import { formatArgument, formatHelp, formatRequiredOption } from '~/help.js';
 

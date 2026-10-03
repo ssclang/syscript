@@ -1,4 +1,4 @@
-import { AbstractOrClassType } from '../type';
+import { AbstractOrClassType } from '~/type.js';
 
 export function assert(condition: unknown, message?: string): asserts condition {
   if (condition) {

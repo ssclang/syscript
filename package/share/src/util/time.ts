@@ -1,5 +1,5 @@
-import { MaybePromise } from '../type.js';
-import { assert } from './assert.js';
+import { MaybePromise } from '~/type.js';
+import { assert } from '~/util/assert.js';
 
 type MeasureResult<T> = {
   start: number;
@@ -58,7 +58,7 @@ export class Time {
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (unit === 'ms') {
-      return `${result.duration}ms`;
+      return `${result.duration.toFixed(2)}ms`;
     }
 
     throw new Error(unit);

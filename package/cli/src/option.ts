@@ -1,4 +1,4 @@
-import { MaybePromise } from '@syscript/share';
+import { MaybePromise } from '@syscript/share/type';
 import z from 'zod';
 
 export type InputCliOption = z.input<typeof ZCliOption>;

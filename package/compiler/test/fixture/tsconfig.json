@@ -9,10 +9,9 @@
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
     "target": "esnext",
-    // "types": [],
-    "types": ["./src/prelude/prelude.d.ts"],
+    "types": ["../../src/prelude/prelude.d.ts"],
     // For nodejs:
-    "lib": ["esnext"],
+    // "lib": ["esnext"],
     // "types": ["node"],
     // and npm install -D @types/node
 
@@ -28,8 +27,8 @@
     // Style Options
     "noImplicitReturns": true,
     "noImplicitOverride": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noPropertyAccessFromIndexSignature": true,
 

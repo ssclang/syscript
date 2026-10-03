@@ -12,3 +12,4 @@ allowBuilds:
 
 catalog:
   "zod": "^4.6.5"
+  "bignumber.js": "^11.1.5"
