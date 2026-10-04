@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "setup": "rm -rf node_modules/ package/*/node_modules/ && pnpm install --frozen-lockfile && pnpm build",
-    "build:dev": "pnpm --filter @syscript/share build && pnpm --filter @syscript/number build:dev && pnpm --filter @syscript/cli build:dev && pnpm --filter @syscript/compiler build"
+    "build:dev": "pnpm --filter @syscript/share build && pnpm --filter @syscript/cli build:dev && pnpm --filter @syscript/compiler build"
   },
   "dependencies": {
     "typescript7": "npm:typescript@7.1.0-dev.20261003.1"

@@ -87,15 +87,6 @@ importers:
         specifier: workspace:^
         version: link:../share
 
-  package/number:
-    devDependencies:
-      '@syscript/share':
-        specifier: workspace:^
-        version: link:../share
-      bignumber.js:
-        specifier: 'catalog:'
-        version: 11.1.5
-
   package/share:
     devDependencies:
       zod:
