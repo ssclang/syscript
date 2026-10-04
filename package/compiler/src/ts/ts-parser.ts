@@ -1,5 +1,5 @@
-import { assert, Time } from '@syscript/share/util';
 import { CliExitError } from '@syscript/cli';
+import { assert, Time } from '@syscript/share/util';
 import path from 'path';
 import * as ast from 'typescript7/unstable/ast';
 import { ModuleDetectionKind } from 'typescript7/unstable/proto';
@@ -9,6 +9,7 @@ import { AppSourceFile, isSymbolFlagMatch, isTypeFlagMatch } from '~/ts/ts-node.
 import { File } from '~/util/file.js';
 
 type TsParserInitOption = {
+  tsserverPath?: string;
   configFilePath?: string;
   filePaths?: readonly string[];
 };
@@ -93,8 +94,8 @@ export class TsParser {
   }
 
   private static async initContext(option: TsParserInitOption) {
-    const api = new ts.API();
-    const { configFilePath, filePaths = [] } = option;
+    const { tsserverPath, configFilePath, filePaths = [] } = option;
+    const api = new ts.API({ tsserverPath });
     const config = configFilePath ? await TsParser.findConfigFile(api, configFilePath) : undefined;
     const resolvedFilePaths: string[] = [];
 

@@ -4,5 +4,7 @@
   "/var/home/lsh/lsh/project/syscript/package/compiler/src/prelude/runtime.c": "5286bc23d4e14de6bc72cdcd38bef361",
   "/var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/add.ts": "bfd7f01980af48b0ba39d6c89a4b391b",
   "/var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/libc.d.ts": "1e6e8b8df0c640198e243bda7657f43f",
-  "/var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/main.ts": "ed3a30c7ebe849d2b1e6f878e9a1eded"
+  "/var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/main.ts": "ed3a30c7ebe849d2b1e6f878e9a1eded",
+  "/var/home/lsh/lsh/project/syscript/prelude/prelude.c": "a7104fc48b3f404797168a6747e6d244",
+  "/var/home/lsh/lsh/project/syscript/prelude/prelude.d.ts": "9c1df5d27c7c493a9c43820500c674d4"
 }

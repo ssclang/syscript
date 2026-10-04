@@ -5,7 +5,7 @@ declare function abs(x: i32): i32;
 
 declare function putchar(c: i32): i32;
 
-function date_now(): i64 {
+function _date_now(): i64 {
   return clock() / 1_000;
 }
 
@@ -187,12 +187,12 @@ function isOdd(n: i32): i32 {
 }
 
 export function main(): i32 {
-  const start = date_now();
+  // const start = date_now();
   const total = abs(0 - sum(5));
-  const elapsed = date_now() - start;
+  // const elapsed = date_now() - start;
 
   console_log(total);
-  console_log(elapsed);
+  // console_log(elapsed);
   console_log(fib(20));
   console_log(isEven(10));
   console_log(nanIsFalsy());
@@ -200,7 +200,8 @@ export function main(): i32 {
   console_log(logic(1, true));
   console_log(oddSum(10));
 
-  return total + elapsed;
+  return total;
+  // return total + elapsed;
 }
 
 export function probe(a: f64) {

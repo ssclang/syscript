@@ -1,5 +1,5 @@
-import { assert } from '@syscript/share/util';
 import { CliExitError } from '@syscript/cli';
+import { assert } from '@syscript/share/util';
 import nodePath from 'path';
 import * as ast from 'typescript7/unstable/ast';
 import { ModuleDetectionKind } from 'typescript7/unstable/proto';
@@ -10,6 +10,7 @@ import { File } from '~/util/file.js';
 import { AbsolutePath, Path, RealPath } from '~/util/path.js';
 
 type TsParserInitOption = {
+  tsserverPath?: string;
   entryPath: RealPath;
   configFilePath?: RealPath;
   preludePath: RealPath;
@@ -98,13 +99,14 @@ export class TsParser {
   }
 
   private static async initContext(option: TsParserInitOption) {
-    const api = new ts.API();
     const {
+      tsserverPath,
       entryPath,
       configFilePath: inputConfigFilePath,
       preludePath,
       tsconfigFileName = 'tsconfig.json',
     } = option;
+    const api = new ts.API({ tsserverPath });
     const config =
       inputConfigFilePath ?
         await TsParser.findConfigFile(api, inputConfigFilePath)

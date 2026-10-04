@@ -5,22 +5,21 @@
   "private": true,
   "exports": {
     ".": {
-      "types": "./package/compiler/src/prelude/prelude.d.ts"
+      "types": "./prelude/prelude.d.ts"
     }
   },
   "bin": {
     "ssc": "./package/compiler/dist/main.js"
   },
   "files": [
-    "package/compiler/src/prelude/prelude.d.ts",
-    "package/compiler/src/prelude/prelude.h"
+    "prelude/"
   ],
   "scripts": {
     "setup": "rm -rf node_modules/ package/*/node_modules/ && pnpm install --frozen-lockfile && pnpm build",
     "build:dev": "pnpm --filter @syscript/share build && pnpm --filter @syscript/number build:dev && pnpm --filter @syscript/cli build:dev && pnpm --filter @syscript/compiler build"
   },
   "dependencies": {
-    "typescript7": "npm:typescript@7.1.0-dev.20260925.1"
+    "typescript7": "npm:typescript@7.1.0-dev.20261003.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

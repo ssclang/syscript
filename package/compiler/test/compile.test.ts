@@ -23,7 +23,7 @@ test('main.ts', async () => {
     "// /var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/add.ts
 
     // include
-    #include "<buildDir>/module/header/c2586c67d63c4857934f4dca5ffc0ee7.h"
+    #include "<buildDir>/module/header/9c1df5d27c7c493a9c43820500c674d4.h"
     // /include
 
     // #pragma STDC FP_CONTRACT OFF
@@ -46,7 +46,7 @@ test('main.ts', async () => {
     // /var/home/lsh/lsh/project/syscript/package/compiler/test/fixture/main.ts
 
     // include
-    #include "<buildDir>/module/header/c2586c67d63c4857934f4dca5ffc0ee7.h"
+    #include "<buildDir>/module/header/9c1df5d27c7c493a9c43820500c674d4.h"
     #include "<buildDir>/module/header/1e6e8b8df0c640198e243bda7657f43f.h"
     // /include
 
@@ -54,7 +54,7 @@ test('main.ts', async () => {
     // #pragma clang fp contract(off)
 
     // declaration
-    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now(void);
+    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn___date_now(void);
     static ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__type__i32);
     ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__sum(ssc__type__i32);
     ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__countdown(ssc__type__i32);
@@ -80,7 +80,7 @@ test('main.ts', async () => {
     // /declaration
 
     // definition
-    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now(void) {
+    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn___date_now(void) {
       return (clock() / 1000);
     }
 
@@ -217,42 +217,39 @@ test('main.ts', async () => {
     }
 
     ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__main(void) {
-      const ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_38__start = ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now();
-      const ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_39__total = abs((0 - ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__sum(5)));
-      const ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_40__elapsed = (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now() - ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_38__start);
-      ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_39__total);
-      ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_40__elapsed);
+      const ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_38__total = abs((0 - ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__sum(5)));
+      ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_38__total);
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__fib(20));
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__isEven(10));
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__nanIsFalsy());
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__flags(1, true));
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__logic(1, true));
       ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__oddSum(10));
-      return (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_39__total + ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_40__elapsed);
+      return ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_38__total;
     }
 
-    ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__probe(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_41__a) {
+    ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__probe(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_39__a) {
+      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_40__x = ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_39__a;
+      return ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_40__x;
+    }
+
+    static ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__noExport(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_41__a) {
       const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_42__x = ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_41__a;
       return ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_42__x;
     }
 
-    static ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__noExport(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_43__a) {
-      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_44__x = ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_43__a;
-      return ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_44__x;
+    ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__plainNumber(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_43__a) {
+      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_44__num1 = (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_43__a * 2);
+      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_45__num2 = (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_43__a * 4);
+      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_46__num3 = 6;
+      return (((ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_44__num1 + ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_45__num2) + ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_46__num3) + 8);
     }
 
-    ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__plainNumber(ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_45__a) {
-      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_46__num1 = (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_45__a * 2);
-      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_47__num2 = (ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_45__a * 4);
-      const ssc__type__f64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_48__num3 = 6;
-      return (((ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_46__num1 + ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_47__num2) + ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_48__num3) + 8);
-    }
-
-    ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__plainBoolean(ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_49__a) {
-      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_50__bool1 = (!ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_49__a);
-      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_51__bool2 = (!ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_50__bool1);
-      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_52__bool3 = true;
-      return ((ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_50__bool1 != ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_51__bool2) == ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_52__bool3);
+    ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__plainBoolean(ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_47__a) {
+      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_48__bool1 = (!ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_47__a);
+      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_49__bool2 = (!ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_48__bool1);
+      const ssc__type__boolean ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_50__bool3 = true;
+      return ((ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_48__bool1 != ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_49__bool2) == ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_var_50__bool3);
     }
 
     void ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded(void) {

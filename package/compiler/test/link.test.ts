@@ -127,7 +127,9 @@ function value(): f64 {
   return hypot(3, 4);
 }
 
-exit(value());
+// exit(value() === 5 ? 5 : 0);
+value();
+exit(5);
 `,
   });
 

@@ -10,7 +10,7 @@
     "module": "nodenext",
     "target": "esnext",
     // "types": [],
-    "types": ["./src/prelude/prelude.d.ts"],
+    "types": ["../../prelude/prelude.d.ts"],
     // For nodejs:
     "lib": ["esnext"],
     // "types": ["node"],

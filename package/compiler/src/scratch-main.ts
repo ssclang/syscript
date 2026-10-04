@@ -35,10 +35,14 @@ async function main() {
   const preludePath = await Path.real(
     Path.absolute({
       baseDir: await Path.moduleDir(import.meta),
-      path: 'prelude/prelude.d.ts',
+      path: '../../../prelude/prelude.d.ts',
     }),
   );
-  const parser = await TsParser.init({ entryPath, configFilePath, preludePath });
+  const tsserverPath = Path.absolute({
+    baseDir: await Path.moduleDir(import.meta),
+    path: '../../../../ssclang/TypeScript/built/local/tsc',
+  });
+  const parser = await TsParser.init({ entryPath, configFilePath, preludePath, tsserverPath });
 
   App.initV2(parser, 'debug');
 }

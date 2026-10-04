@@ -54,8 +54,12 @@ export class SscBuildManager {
   readonly preludeDir =
     typeof _sscPreludeDir === 'string' ?
       path.join(import.meta.dirname, _sscPreludeDir)
-    : path.join(import.meta.dirname, '../../prelude/');
+    : path.join(import.meta.dirname, '../../../../../prelude/');
   readonly preludeTsDefinitionPath = path.join(this.preludeDir, 'prelude.d.ts');
+  readonly tsserverPath = path.join(
+    import.meta.dirname,
+    '../../../../../../ssclang/TypeScript/built/local/tsc',
+  );
 
   readonly outDir: string;
   readonly markerPath: string;
@@ -72,7 +76,10 @@ export class SscBuildManager {
   }
 
   async compile(entryPath: string) {
-    const parser = await TsParser.init({ filePaths: [this.preludeTsDefinitionPath, entryPath] });
+    const parser = await TsParser.init({
+      filePaths: [this.preludeTsDefinitionPath, entryPath],
+      tsserverPath: this.tsserverPath,
+    });
     const app = App.init(parser);
     const getModuleId = (path: string) => this.idManager.loadId(path);
     const prelude = app.sourceFiles.find((s) => s.fileName === this.preludeTsDefinitionPath);
