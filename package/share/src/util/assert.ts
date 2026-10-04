@@ -20,6 +20,10 @@ export function assert(condition: unknown, message?: string): asserts condition 
   throw error;
 }
 
+export function assertNever(never: never): never {
+  throw new Error(`assertNever: ${String(never)}`);
+}
+
 export function assertArrayIsDistinct(array: readonly unknown[]) {
   assert(array.length === new Set(array).size);
 }
