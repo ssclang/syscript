@@ -198,7 +198,6 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
   readonly isDeclared: boolean;
   readonly identifier: NodeIdentifier;
   readonly parameters: NodeParameterDeclaration[];
-  // readonly returnType: AppType;
   readonly block: NodeBlock | undefined;
 
   constructor(app: App, tsNode: ast.FunctionDeclaration) {
@@ -207,12 +206,6 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
     this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
     this.identifier = new NodeIdentifier(app, this.tsNode.name);
     this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
-
-    // const returnType = app.returnTypeOf(this.tsNode);
-
-    // assert(returnType, `returnType not found: ${this.identifier.text}`);
-
-    // this.returnType = returnType;
     this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
   }
 

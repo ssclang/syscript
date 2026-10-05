@@ -54,7 +54,7 @@ test('main.ts', async () => {
     // #pragma clang fp contract(off)
 
     // declaration
-    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn___date_now(void);
+    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now(void);
     static ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__console_log(ssc__type__i32);
     ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__sum(ssc__type__i32);
     ssc__type__i32 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__countdown(ssc__type__i32);
@@ -80,7 +80,7 @@ test('main.ts', async () => {
     // /declaration
 
     // definition
-    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn___date_now(void) {
+    static ssc__type__i64 ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now(void) {
       return (clock() / 1000);
     }
 
@@ -253,6 +253,8 @@ test('main.ts', async () => {
     }
 
     void ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded(void) {
+      ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__date_now();
+      ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__noExport(0);
       exit(ssc__module_ed3a30c7ebe849d2b1e6f878e9a1eded_fn__main());
     }
     // /definition"
