@@ -1,9 +1,10 @@
 import { NonEmptyArray } from '@syscript/share/type';
-import { assert } from '@syscript/share/util';
+import assert from 'node:assert/strict';
 import { ArgumentNode, CommandNode, OptionNode, resolveAlias } from '~/command.js';
 
 export type FormatHelpOption = {
   readonly version?: boolean;
+  readonly completion?: boolean;
 };
 
 export function formatHelp(commands: NonEmptyArray<CommandNode>, option: FormatHelpOption = {}) {
@@ -18,11 +19,12 @@ export function formatHelp(commands: NonEmptyArray<CommandNode>, option: FormatH
 
   sections.push(`Usage: ${formatUsage(commands)}`);
 
-  if (command.subcommands) {
-    const rows = command.subcommands.map(
+  if (command.subcommands || option.completion) {
+    const rows = (command.subcommands ?? []).map(
       (subcommand) =>
         [resolveAlias(subcommand, 'command').join(', '), subcommand.description] as const,
     );
+    if (option.completion) rows.push(['complete <shell>', 'Generate shell completion script']);
     sections.push(formatSection('Commands', rows));
   }
 

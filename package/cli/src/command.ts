@@ -1,6 +1,6 @@
 import { MaybePromise, NonEmptyArray } from '@syscript/share/type';
-import { assert } from '@syscript/share/util';
 import { zNumberString } from '@syscript/share/zod';
+import assert from 'node:assert/strict';
 import { CliExitError } from '~/error.js';
 import { formatArgument, formatHelp, formatRequiredOption } from '~/help.js';
 
@@ -10,6 +10,8 @@ import { formatArgument, formatHelp, formatRequiredOption } from '~/help.js';
 
 // z.ZodString;
 export type CliNode = CommandNode | ArgumentNode | OptionNode;
+
+export type CompletionSource = readonly string[] | 'file' | 'directory';
 
 type BaseNode = {
   readonly name: string;
@@ -34,6 +36,7 @@ export type CommandNode<
 export type ArgumentNode = BooleanArgumentNode | NumberArgumentNode | StringArgumentNode;
 
 export type BaseArgumentNode = BaseNode & {
+  readonly complete?: CompletionSource;
   readonly type: 'boolean' | 'number' | 'string';
   readonly allowMultiple?: true;
 };
@@ -90,6 +93,7 @@ export type OptionsOf<T extends readonly OptionNode[]> = {
 };
 
 export type BaseOptionNode = BaseNode & {
+  readonly complete?: CompletionSource;
   readonly type: 'boolean' | 'number' | 'string';
   /**
    * names used on the command line, replacing `name`
@@ -168,7 +172,7 @@ export function createCommand<
   return command;
 }
 
-function validateCommand(command: CommandNode) {
+export function validateCommand(command: CommandNode) {
   const multipleArgIndex = (command.args || []).findIndex((arg) => arg.allowMultiple);
   const argAfterMultiple = multipleArgIndex < 0 ? undefined : command.args?.[multipleArgIndex + 1];
 
@@ -204,6 +208,7 @@ function validateCommand(command: CommandNode) {
 
 export type ParseCliOption = {
   readonly version?: string | (() => MaybePromise<string>);
+  readonly completion?: boolean;
 };
 
 export async function parseCli(
@@ -319,7 +324,10 @@ export async function parseCli(
         const consumed = addOption(arg, inputArgs[index + 1]);
 
         if (consumed === 'help') {
-          const helpOption = { version: parseOption.version !== undefined };
+          const helpOption = {
+            version: parseOption.version !== undefined,
+            completion: parseOption.completion === true && subcommandPath.length === 0,
+          };
           process.stdout.write(formatHelp([command, ...subcommandPath], helpOption));
           return 0;
         }
@@ -409,7 +417,7 @@ export function resolveAlias(node: CommandNode | OptionNode, kind: 'command' | '
   return node.alias || [node.name];
 }
 
-function createCommandLookup(commands: readonly CommandNode[]) {
+export function createCommandLookup(commands: readonly CommandNode[]) {
   const lookup = new Map<string, CommandNode>();
 
   for (const command of commands) {
@@ -425,7 +433,7 @@ function createCommandLookup(commands: readonly CommandNode[]) {
   return lookup;
 }
 
-function createOptionLookup(options: readonly OptionNode[]) {
+export function createOptionLookup(options: readonly OptionNode[]) {
   const lookup = new Map<string, { option: OptionNode; value: boolean }>();
 
   const register = (name: string, option: OptionNode, value: boolean) => {
@@ -470,11 +478,11 @@ function isDoubleDash(arg: string): boolean {
   return arg === '--';
 }
 
-function isOption(arg: string): boolean {
+export function isOption(arg: string): boolean {
   return (arg.startsWith('--') && arg.length > 2) || (arg.startsWith('-') && arg.length > 1);
 }
 
-function parseOptionNames(arg: string) {
+export function parseOptionNames(arg: string) {
   if (arg.startsWith('--')) {
     const separator = arg.indexOf('=');
     const name = separator < 0 ? arg.slice(2) : arg.slice(2, separator);
@@ -494,7 +502,7 @@ function parseOptionNames(arg: string) {
   }));
 }
 
-function parseValue(
+export function parseValue(
   node: ArgumentNode | NumberOptionNode | StringOptionNode,
   value: string,
   display: string,
@@ -524,7 +532,7 @@ function parseValue(
   return Number(value);
 }
 
-function parseBoolish(value: string) {
+export function parseBoolish(value: string) {
   const truthyValues = new Set(['true', '1', 'on', 'yes', 'y', 'o', 'enable', 'enabled', 'active']);
   const falsyValues = new Set([
     'false',

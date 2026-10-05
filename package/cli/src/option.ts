@@ -9,7 +9,11 @@ export type LintKey = (typeof ZlintKeyEnum.options)[number];
 
 export const ZlintKeyEnum = z.enum(['unnecessary-option']);
 
+export const ZCompletionShell = z.enum(['zsh', 'bash', 'fish', 'powershell']);
+
 export const ZCliOption = z.strictObject({
+  /** Enable the built-in `complete` command. */
+  completion: z.boolean().default(false),
   /**
    * whether to set the exit code
    * @default true
