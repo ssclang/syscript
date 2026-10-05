@@ -11,7 +11,6 @@ _syscript_cli_setup() {
       exit 1
     }
     pnpm --filter @syscript/share build || exit 1
-    pnpm --filter @syscript/number build:dev || exit 1
     pnpm --filter @syscript/cli build:dev || exit 1
     pnpm --filter @syscript/cli test || exit 1
     cd package/compiler || exit 1
