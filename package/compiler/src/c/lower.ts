@@ -68,7 +68,7 @@ class LowerContext {
 
   constructor(sourceFile: AppSourceFile, option: LowerOption) {
     this.sourceFile = sourceFile;
-    this.module = new CModule(sourceFile.fileName);
+    this.module = new CModule(sourceFile.realPath);
     this.moduleId = option.moduleId;
     this.prelude = option.prelude;
     this.declarationFiles.add(option.prelude);
@@ -82,7 +82,7 @@ class LowerContext {
 export function lower(sourceFile: AppSourceFile, option: LowerOption) {
   assert(
     !sourceFile.isDeclarationFile,
-    `declaration file can not be lowered: ${sourceFile.fileName}`,
+    `declaration file can not be lowered: ${sourceFile.realPath}`,
   );
 
   const context = new LowerContext(sourceFile, option);
@@ -109,7 +109,7 @@ export function lower(sourceFile: AppSourceFile, option: LowerOption) {
       const { getHeaderPath } = cModuleLayout(buildDir);
       const headerPaths = context.declarationFiles
         .values()
-        .map((s) => getHeaderPath(context.moduleId(s.fileName)))
+        .map((s) => getHeaderPath(context.moduleId(s.realPath)))
         .toArray();
 
       return context.module.render(headerPaths);
@@ -136,7 +136,7 @@ function functionName(context: LowerContext, node: NodeFunctionDeclaration) {
 
   const sourceFile = node.app.loadSourceFile(node.getSourceFile());
 
-  return cModuleFunctionName(context.moduleId(sourceFile.fileName), name);
+  return cModuleFunctionName(context.moduleId(sourceFile.realPath), name);
 }
 
 function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
@@ -165,7 +165,7 @@ function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
 
 function lowerInit(context: LowerContext) {
   const { initWriter: writer, sourceFile } = context;
-  const name = cModuleName(context.moduleId(sourceFile.fileName));
+  const name = cModuleName(context.moduleId(sourceFile.realPath));
 
   context.module.declare(name, signature('', name, 'void', 'void'));
   writer.line(`${signature('', name, 'void', 'void')} {`);
@@ -196,7 +196,7 @@ function lowerInit(context: LowerContext) {
  */
 function declareGlobals(context: LowerContext) {
   const { sourceFile } = context;
-  const moduleId = context.moduleId(sourceFile.fileName);
+  const moduleId = context.moduleId(sourceFile.realPath);
   const tdzVariables = findTdzVariables(sourceFile);
 
   for (const statement of sourceFile.statements) {
@@ -473,7 +473,7 @@ function declareCallee(context: LowerContext, callee: NodeIdentifier) {
 
   if (!hasCIncludes(sourceFile)) {
     throw new Error(
-      `${callee.location()}: '${callee.text}' is declared in ${sourceFile.fileName}, but it has no '${sscIncludeDirectivePrefix}*' directive`,
+      `${callee.location()}: '${callee.text}' is declared in ${sourceFile.realPath}, but it has no '${sscIncludeDirectivePrefix}*' directive`,
     );
   }
 
@@ -484,7 +484,7 @@ function declareCallee(context: LowerContext, callee: NodeIdentifier) {
 }
 
 function declareName(context: LowerContext, identifier: NodeIdentifier) {
-  const moduleId = context.moduleId(context.sourceFile.fileName);
+  const moduleId = context.moduleId(context.sourceFile.realPath);
   const text = cModuleLocalVariableName(moduleId, ++context.localCount, cName(identifier));
 
   context.names.set(identifier.getSymbol().id, text);
@@ -529,7 +529,7 @@ function declareImportedGlobal(context: LowerContext, identifier: NodeIdentifier
   // import할 때 이름을 바꿨을 수 있어 선언의 이름으로 짓는다.
   const variable = new NodeVariableDeclaration(identifier.app, declaration);
   const sourceFile = identifier.app.loadSourceFile(declaration.getSourceFile());
-  const moduleId = context.moduleId(sourceFile.fileName);
+  const moduleId = context.moduleId(sourceFile.realPath);
   const { identifier: declarationIdentifier } = variable.bindingName;
   const value = cModuleVariableName(moduleId, cName(declarationIdentifier));
   const global = { value, tag: undefined };
@@ -613,10 +613,14 @@ function sscTypeName(context: LowerContext, type: ts.Type) {
 
   assert(symbol, `not implemented type: ${checker.typeToString(type)}`);
 
-  const fileName = symbol.declarations[0]?.resolve()?.getSourceFile().fileName;
+  const declarationFile = symbol.declarations[0]?.resolve()?.getSourceFile();
 
-  if (fileName !== context.prelude.fileName) {
-    throw new Error(`'${symbol.name}' is not the prelude type, it is declared in ${fileName}`);
+  assert(declarationFile, `declaration not found: ${symbol.name}`);
+
+  const realPath = context.sourceFile.app.parser.tsPathToRealPath(declarationFile.fileName);
+
+  if (realPath !== context.prelude.realPath) {
+    throw new Error(`'${symbol.name}' is not the prelude type, it is declared in ${realPath}`);
   }
 
   return symbol.name;

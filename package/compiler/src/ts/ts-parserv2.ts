@@ -83,6 +83,14 @@ export class TsParser {
     return this.context.checker;
   }
 
+  get preludePath() {
+    return this.context.preludePath;
+  }
+
+  get entryPath() {
+    return this.context.entryPath;
+  }
+
   static async init(option: TsParserInitOption) {
     const context = await TsParser.initContext(option);
     const diagnostics = context.program.emitToString(EmitOnly.OnlyDts).diagnostics;
@@ -126,22 +134,14 @@ export class TsParser {
       ...overrideTsConfigOption,
     });
     const { checker } = program.getProject();
+    const tsPathToRealPathMap = new Map<ast.RootedFilePath, RealPath>();
+    const realPathToTsPathsMap = new Map<RealPath, ast.RootedFilePath[]>();
     const paths = await Promise.all(
       program.getSourceFileNames().map(async (p) => ({
         tsPath: p,
         realPath: await Path.real(Path.absolute({ path: p })),
       })),
     );
-    const tsPathToRealPathMap = new Map<ast.RootedFilePath, RealPath>();
-    const realPathToTsPathsMap = new Map<RealPath, ast.RootedFilePath[]>();
-
-    const getSourceFile = (path: ast.RootedFilePath) => {
-      const sourceFile = program.getSourceFile(path);
-
-      assert(sourceFile, `source file not found: ${path}`);
-
-      return sourceFile;
-    };
 
     paths.forEach((p) => {
       const { tsPath, realPath } = p;
@@ -243,5 +243,19 @@ export class TsParser {
     assert(tsPaths, `ts path not found: ${path}`);
 
     return tsPaths;
+  }
+
+  getSourceFile(path: RealPath) {
+    const tsPaths = this.realPathToTsPaths(path);
+    const tsPath = tsPaths[0];
+
+    assert(tsPath, `ts path not found: ${path}`);
+    assert(tsPaths.length === 1, `multiple ts paths found: ${JSON.stringify(tsPaths)}`);
+
+    const sourceFile = this.context.program.getSourceFile(tsPath);
+
+    assert(sourceFile, `source file not found: ${tsPath}`);
+
+    return sourceFile;
   }
 }

@@ -5,7 +5,7 @@ declare function abs(x: i32): i32;
 
 declare function putchar(c: i32): i32;
 
-function _date_now(): i64 {
+function date_now(): i64 {
   return clock() / 1_000;
 }
 
@@ -210,7 +210,6 @@ export function probe(a: f64) {
 }
 
 // for test
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function noExport(a: f64) {
   const x = a;
   return x;
@@ -240,6 +239,9 @@ export function plainBoolean(a: boolean): boolean {
 
   return (bool1 !== bool2) === bool3;
 }
+
+date_now();
+noExport(0);
 
 // 종료 코드는 JS처럼 사용자 코드가 정한다. 최상단 실행문은 모듈 초기화 함수가 된다.
 exit(main());
