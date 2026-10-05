@@ -84,17 +84,13 @@ export class SscBuildManager {
     const parser = await TsParser.init({ tsserverPath, preludePath, entryPath });
     const app = App.init('log', parser);
     const getModuleId = (path: string) => this.idManager.loadId(path);
-    const preludeSourceFile = app.program.getSourceFile(preludePath);
-
-    assert(preludeSourceFile, `prelude not found: ${preludePath}`);
-
-    const option = { moduleId: getModuleId, prelude: app.loadSourceFile(preludeSourceFile) };
+    const option = { moduleId: getModuleId, prelude: app.preludeSourceFile };
 
     // 초기화 순서로 돌려준다. emit의 진입점이 이 순서대로 초기화 함수를 부른다.
-    const modules = SscBuildManager.loadModules(app.entrySourceFile).map((sourceFile) => ({
-      sourceFile,
-      id: getModuleId(sourceFile.fileName),
-      output: lower(sourceFile, option),
+    const modules = SscBuildManager.loadModules(app.entrySourceFile).map((s) => ({
+      sourceFile: s,
+      id: getModuleId(s.realPath),
+      output: lower(s, option),
     }));
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -144,7 +140,7 @@ export class SscBuildManager {
     } = option;
     const { buildDir, codeDir } = this;
     const binPath = path.join(buildDir, binName);
-    const rootDir = File.commonDir(modules.map((m) => m.sourceFile.fileName));
+    const rootDir = File.commonDir(modules.map((m) => m.sourceFile.realPath));
     const baseFlags = [
       '-std=gnu23',
       `-O${optLevel}`,
@@ -180,7 +176,7 @@ export class SscBuildManager {
     const oPaths: string[] = [];
 
     for (const { sourceFile, output } of modules) {
-      const relativePath = path.relative(rootDir, sourceFile.fileName);
+      const relativePath = path.relative(rootDir, sourceFile.realPath);
       const name = path.join(
         path.dirname(relativePath),
         path.basename(relativePath, path.extname(relativePath)),
@@ -298,11 +294,11 @@ export class SscBuildManager {
 
     const sourceFiles = first.sourceFile.app.sourceFiles
       .filter(hasCIncludes)
-      .toSorted((a, b) => (a.fileName < b.fileName ? -1 : 1));
+      .toSorted((a, b) => (a.realPath < b.realPath ? -1 : 1));
 
     const entries = sourceFiles.map((s) => ({
       sourceFile: s,
-      id: this.idManager.loadId(s.fileName),
+      id: this.idManager.loadId(s.realPath),
     }));
 
     for (const { sourceFile, id } of entries) {

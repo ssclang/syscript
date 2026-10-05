@@ -1,8 +1,8 @@
-import { assert } from '@syscript/share/util';
 import * as ast from 'typescript7/unstable/ast';
 import * as ts from 'typescript7/unstable/sync';
 import { AppSourceFile } from '~/ts/ts-node.js';
 import { TsParser } from '~/ts/ts-parserv2.js';
+import { RealPath } from '~/util/path.js';
 
 export class AppSymbol {
   readonly #sourceSymbol: ts.Symbol;
@@ -56,9 +56,11 @@ export class AppType {
 
 export class App {
   private readonly log: 'log' | 'debug';
-  private readonly parser: TsParser;
-  private readonly sourceFileMap = new Map<string, AppSourceFile>();
+  readonly parser: TsParser;
+  private readonly sourceFileMap = new Map<RealPath, AppSourceFile>();
   private sourceFileCounter = 0;
+
+  readonly preludeSourceFile: AppSourceFile;
   readonly entrySourceFile: AppSourceFile;
 
   // private readonly symbolRegistry = new SymbolRegistry();
@@ -75,11 +77,13 @@ export class App {
     this.parser = parser;
     this.log = log;
 
-    const entrySourceFile = parser.program.getSourceFile(parser.entryPath);
+    this.preludeSourceFile = this.loadSourceFile(parser.getSourceFile(parser.preludePath));
+    this.entrySourceFile = this.loadSourceFile(parser.getSourceFile(parser.entryPath));
 
-    assert(entrySourceFile, `entry source file not found: ${parser.entryPath}`);
-
-    this.entrySourceFile = this.loadSourceFile(entrySourceFile);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this.log) {
+      //
+    }
   }
 
   static init(log: App['log'], parser: TsParser) {
@@ -103,15 +107,16 @@ export class App {
   }
 
   loadSourceFile(tsSourceFile: ast.SourceFile) {
-    const cache = this.sourceFileMap.get(tsSourceFile.fileName);
+    const realPath = this.parser.tsPathToRealPath(tsSourceFile.fileName);
+    const cache = this.sourceFileMap.get(realPath);
 
     if (cache) {
       return cache;
     }
 
-    const sourceFile = new AppSourceFile(this, tsSourceFile, this.sourceFileCounter++);
+    const sourceFile = new AppSourceFile(this, tsSourceFile, this.sourceFileCounter++, realPath);
 
-    this.sourceFileMap.set(tsSourceFile.fileName, sourceFile);
+    this.sourceFileMap.set(realPath, sourceFile);
 
     return sourceFile;
   }
