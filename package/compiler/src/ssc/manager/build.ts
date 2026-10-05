@@ -18,6 +18,7 @@ import { TsParser } from '~/ts/ts-parserv2.js';
 import { File } from '~/util/file.js';
 import { Path } from '~/util/path.js';
 
+declare const _sscTsserverPath: string | undefined;
 declare const _sscPreludeDir: string | undefined;
 
 export type SscBuildProfile = 'dev' | 'release' | 'test';
@@ -53,15 +54,16 @@ type EmitOption = {
 const isDev = true;
 
 export class SscBuildManager {
+  readonly tsserverPath =
+    typeof _sscTsserverPath === 'string' ?
+      path.join(import.meta.dirname, _sscTsserverPath)
+    : path.join(import.meta.dirname, '../../../../../../ssclang/TypeScript/built/local/tsc');
+
   readonly preludeDir =
     typeof _sscPreludeDir === 'string' ?
       path.join(import.meta.dirname, _sscPreludeDir)
     : path.join(import.meta.dirname, '../../../../../prelude/');
   readonly preludePath = path.join(this.preludeDir, 'prelude.d.ts');
-  readonly tsserverPath = path.join(
-    import.meta.dirname,
-    '../../../../../../ssclang/TypeScript/built/local/tsc',
-  );
 
   readonly outDir: string;
   readonly markerPath: string;
