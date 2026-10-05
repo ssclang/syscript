@@ -39,7 +39,7 @@ This adds styles scoped to `ssc-cli`: described options appear one per line unde
 For a one-command local Zsh setup of the **CLI example**, run from the repository root:
 
 ```zsh
-source package/cli/setup.zsh
+source package/cli/src/completion/setup.zsh
 ```
 
 This reconciles dependencies with the frozen workspace lock, builds share and CLI in dependency order, runs CLI tests, checks the compiler source help command, and registers grouped `ssc-cli` completion for the current shell session. It leaves shell profiles untouched. Run `ssc-cli --help`, then try `ssc-cli --<TAB>`, `ssc-cli --profile=<TAB>`, and `ssc-cli ./<TAB>`. The example is in `test/fixture.ts` and prints its arguments; it does not compile or run a user program.

@@ -6,17 +6,17 @@ import {
   resolveAlias,
   validateCommand,
 } from '~/command.js';
-import { getCompletion } from '~/completion.js';
+import { getCompletion } from '~/completion/completion.js';
 import { CliExitError } from '~/error.js';
 import { tryLintUnnecessaryOption } from '~/lint.js';
 import { debugConsole, logError } from '~/log.js';
 import { InputCliOption, ZCliOption, ZCompletionShell } from '~/option.js';
-import { formatCompletion, printCompletionScript } from '~/tab.js';
+import { formatCompletion, printCompletionScript } from '~/completion/tab.js';
 
 export { createCommand } from '~/command.js';
 export { CliExitError } from '~/error.js';
-export { getCompletion } from '~/completion.js';
-export type { Completion, CompletionCandidate } from '~/completion.js';
+export { getCompletion } from '~/completion/completion.js';
+export type { Completion, CompletionCandidate } from '~/completion/completion.js';
 
 export async function runCli(command: CommandNode, option?: InputCliOption) {
   const normalizedOption = ZCliOption.parse(option || {});

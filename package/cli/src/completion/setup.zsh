@@ -1,7 +1,7 @@
-# Source this file from zsh: source package/cli/setup.zsh
+# Source this file from zsh: source package/cli/src/completion/setup.zsh
 _syscript_cli_setup() {
   local script_path=${(%):-%x}
-  local repo_root=${script_path:A:h:h:h}
+  local repo_root=${script_path:A:h:h:h:h:h}
   local completion_file
 
   if ! (

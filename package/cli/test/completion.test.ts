@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { CommandNode, createCommand, parseCli } from '~/command.js';
-import { getCompletion } from '~/completion.js';
+import { getCompletion } from '~/completion/completion.js';
 import { runCli } from '~/index.js';
 
 const run = vi.fn(() => 0);

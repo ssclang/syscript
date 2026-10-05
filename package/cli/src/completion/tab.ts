@@ -1,8 +1,8 @@
 import { RootCommand, ShellCompDirective } from '@bomb.sh/tab';
 import { CommandNode, createOptionLookup, resolveAlias } from '~/command.js';
-import { Completion } from '~/completion.js';
 import { CliExitError } from '~/error.js';
 import { ZCompletionShell } from '~/option.js';
+import { Completion } from './completion.js';
 
 export function printCompletionScript(
   name: string,

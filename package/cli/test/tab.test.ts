@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { describe, expect, test, vi } from 'vitest';
 import { createCommand } from '~/command.js';
-import { Completion } from '~/completion.js';
-import { formatCompletion, printCompletionScript } from '~/tab.js';
+import { Completion } from '~/completion/completion.js';
+import { formatCompletion, printCompletionScript } from '~/completion/tab.js';
 
 describe('tab adapter', () => {
   test('writes tab protocol rows and file directives', () => {
