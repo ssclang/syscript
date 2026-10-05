@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "scratch": "NODE_ENV=development pnpm tsx ./src/scratch-main.ts",
     "ssc:clean": "pnpm dev clean",
     "ssc:test": "pnpm dev test/fixture/main.ts --run",
     "build": "rm -rf dist/ && pnpm check && rolldown --config",

@@ -86,7 +86,7 @@ async function main({
       manager.outDir,
       manager.idManager.idJsonPath,
       manager.buildManager.preludeDir,
-      manager.buildManager.preludeTsDefinitionPath,
+      manager.buildManager.preludePath,
     ],
     debug,
   });

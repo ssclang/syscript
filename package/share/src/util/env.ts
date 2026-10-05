@@ -8,10 +8,6 @@ export class Env {
   static _log = console;
   static readonly nodeEnvs = ['development', 'production', 'test'] as const;
 
-  static {
-    Env.log('NODE_ENV');
-  }
-
   static get<T extends string>(key: AnyString<EnvKey>): AnyString<T> | undefined {
     return process.env[key];
   }

@@ -14,13 +14,12 @@ type References = {
  * 선언 뒤에만 호출되는 함수 때문에 검사가 붙는 경우만 있다. 이 판단은 아래 전제에서만 맞다.
  *
  * - 호출은 모두 이름으로 하는 직접 호출이다. 함수 값을 넘기는 기능이 생기면 다시 봐야 한다.
- * - 다른 모듈은 이 모듈의 변수에 닿지 않는다. 순환 import가 막혀 있어서, 가져온 모듈은 이
- *   모듈을 가져올 수 없다.
+ * - 다른 모듈은 이 모듈의 변수에 닿지 않는다. 순환 import에서는 틀리며 모듈 사이 검사는 아직 없다.
  * - 최상위 코드에서 선언보다 앞서 변수를 직접 쓰면 TS가 오류(TS2448)를 낸다.
  */
 export function findTdzVariables(sourceFile: AppSourceFile) {
   const { statements } = sourceFile.tsNode;
-  const symbolIdOf = (node: ast.Node) => sourceFile.app.symbolOf(node)?.id;
+  const symbolIdOf = (node: ast.Node) => sourceFile.app.checker.getSymbolAtLocation(node)?.id;
 
   const variables = new Set<number>();
   const functionBodies = new Map<number, ast.Node>();

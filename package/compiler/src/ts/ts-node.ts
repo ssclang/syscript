@@ -4,8 +4,8 @@ import path from 'path';
 import * as ast from 'typescript7/unstable/ast';
 import * as ts from 'typescript7/unstable/sync';
 import { printLine } from '~/log.js';
-import { App, AppSymbol, AppType, moduleSpecifierOf } from '~/ts/ts-parser.js';
 import { assertExpectedNode } from '~/util/assert.js';
+import { App } from './ts-app.js';
 
 // region abstract
 
@@ -27,14 +27,37 @@ export abstract class AbstractNode<T extends ast.Node> {
   }
 
   getSourceFile() {
-    return this.#tsNode.getSourceFile();
+    return this.tsNode.getSourceFile();
   }
 
   getText() {
     return this.tsNode.getText();
   }
 
-  /** 에러 메시지 앞에 붙이는 `파일:줄:칸`. 편집기가 바로 잡아낸다. */
+  getType() {
+    return this.app.checker.getTypeAtLocation(this.tsNode);
+  }
+
+  getSymbol() {
+    const { checker } = this.app;
+    const symbol = checker.getSymbolAtLocation(this.tsNode);
+
+    assert(symbol, `${this.location()}: symbol not found: ${this.getText()}`);
+
+    return isSymbolFlagMatch(symbol, ts.SymbolFlags.Alias) ?
+        checker.getAliasedSymbol(symbol)
+      : symbol;
+  }
+
+  getValueDeclaration() {
+    const declaration = this.getSymbol().valueDeclaration?.resolve();
+
+    assert(declaration, `${this.location()}: value declaration not found: ${this.getText()}`);
+
+    return declaration;
+  }
+
+  /** `path`:`line`:`col` */
   location() {
     const sourceFile = this.getSourceFile();
     const position = this.tsNode.getStart(sourceFile);
@@ -62,25 +85,17 @@ export abstract class AbstractStatement<
         return new NodeFunctionDeclaration(app, tsNode);
       }
 
-      // TODO: conflict test
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      // eslint-disable-next-line no-constant-condition, @typescript-eslint/no-unnecessary-condition
-      if ('test') {
-        throw new Error(`not implemented ambient statement: ${tsNode.getText()}`);
-      }
+      // if (ast.isTypeAliasDeclaration(tsNode)) {
+      //   return new NodeTypeAliasDeclaration(app, tsNode);
+      // }
 
-      if (ast.isTypeAliasDeclaration(tsNode)) {
-        return new NodeTypeAliasDeclaration(app, tsNode);
-      }
+      // if (ast.isInterfaceDeclaration(tsNode)) {
+      //   return new NodeInterfaceDeclaration(app, tsNode);
+      // }
 
-      if (ast.isInterfaceDeclaration(tsNode)) {
-        return new NodeInterfaceDeclaration(app, tsNode);
-      }
-
-      if (ast.isClassDeclaration(tsNode)) {
-        return new NodeClassDeclaration(app, tsNode);
-      }
+      // if (ast.isClassDeclaration(tsNode)) {
+      //   return new NodeClassDeclaration(app, tsNode);
+      // }
 
       throw new Error(`not implemented ambient statement: ${tsNode.getText()}`);
     }
@@ -182,7 +197,7 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
   readonly isDeclared: boolean;
   readonly identifier: NodeIdentifier;
   readonly parameters: NodeParameterDeclaration[];
-  readonly returnType: AppType;
+  // readonly returnType: AppType;
   readonly block: NodeBlock | undefined;
 
   constructor(app: App, tsNode: ast.FunctionDeclaration) {
@@ -192,12 +207,20 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
     this.identifier = new NodeIdentifier(app, this.tsNode.name);
     this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
 
-    const returnType = app.returnTypeOf(this.tsNode);
+    // const returnType = app.returnTypeOf(this.tsNode);
 
-    assert(returnType, `returnType not found: ${this.identifier.text}`);
+    // assert(returnType, `returnType not found: ${this.identifier.text}`);
 
-    this.returnType = returnType;
+    // this.returnType = returnType;
     this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
+  }
+
+  getSignature() {
+    return this.app.checker.getSignatureFromDeclaration(this.tsNode);
+  }
+
+  getReturnType() {
+    return this.getSignature().getReturnType();
   }
 }
 
@@ -240,10 +263,23 @@ export class NodeImportDeclaration extends AbstractStatement<ast.ImportDeclarati
 
     const { namedBindings } = importClause;
 
-    assert(namedBindings, `not namedBindings: ${importClause.getText()}`);
+    assert(namedBindings, `${this.location()}: not namedBindings: ${importClause.getText()}`);
     assertExpectedNode(namedBindings, ast.isNamedImports);
 
     this.identifiers = namedBindings.elements.map((i) => new NodeIdentifier(app, i.name));
+  }
+
+  loadTargetSourceFile() {
+    const { program } = this.app;
+    const module = program.getResolvedModuleFromModuleSpecifier(this.moduleSpecifier.tsNode);
+
+    assert(module, `${this.location()}: module not found: ${this.moduleSpecifier.getText()}`);
+
+    const sourceFile = program.getSourceFile(module.resolvedFileName);
+
+    assert(sourceFile, `${this.location()}: source file not found: ${module.resolvedFileName}`);
+
+    return this.app.loadSourceFile(sourceFile);
   }
 }
 
@@ -352,14 +388,20 @@ export class NodeWhileStatement extends AbstractStatement<ast.WhileStatement> {
 export class NodeBreakStatement extends AbstractStatement<ast.BreakStatement> {
   constructor(app: App, tsNode: ast.BreakStatement) {
     super(app, tsNode);
-    assert(!this.tsNode.label, `not implemented labeled break: ${this.getText()}`);
+    assert(
+      !this.tsNode.label,
+      `${this.location()}: not implemented labeled break: ${this.getText()}`,
+    );
   }
 }
 
 export class NodeContinueStatement extends AbstractStatement<ast.ContinueStatement> {
   constructor(app: App, tsNode: ast.ContinueStatement) {
     super(app, tsNode);
-    assert(!this.tsNode.label, `not implemented labeled continue: ${this.getText()}`);
+    assert(
+      !this.tsNode.label,
+      `${this.location()}: not implemented labeled continue: ${this.getText()}`,
+    );
   }
 }
 
@@ -393,8 +435,10 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
 export class NodeAmbientDeclaration extends AbstractStatement {
   constructor(app: App, tsNode: ast.Statement) {
     super(app, tsNode);
-    // source file (non-d.ts)'s declaration should not reach here
-    assert(this.tsNode.getSourceFile().isDeclarationFile);
+    assert(
+      this.tsNode.getSourceFile().isDeclarationFile,
+      `${this.location()}: source file's declaration should not reach here`,
+    );
   }
 }
 
@@ -402,17 +446,11 @@ export class NodeAmbientDeclaration extends AbstractStatement {
 
 export class NodeIdentifier extends AbstractExpression<ast.Identifier> {
   readonly text: string;
-  readonly symbol: AppSymbol;
 
   constructor(app: App, tsNode?: ast.Identifier) {
     assert(tsNode);
     super(app, tsNode);
     this.text = tsNode.text;
-    const symbol = app.symbolOf(this.tsNode);
-
-    assert(symbol, `symbol not found: ${tsNode.text}`);
-
-    this.symbol = symbol;
   }
 }
 
@@ -536,6 +574,36 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
     this.statements = tsNode.statements.map((s) => AbstractStatement.of(this.app, s));
   }
 
+  loadImportedSourceFiles() {
+    const { api, program } = this.app;
+    const specifiers = this.tsNode.imports.map((i) => {
+      assertExpectedNode(i, ast.isStringLiteralLikeNode);
+      return i;
+    });
+    const modules = api.batch(
+      ...specifiers.map((s) => program.getResolvedModuleFromModuleSpecifier.gen(s)),
+    );
+    const fileNames = modules.map((module, idx) => {
+      const specifier = specifiers[idx];
+      assert(specifier, `${this.location()}: specifier not found`);
+      assert(module, `${this.location()}: module not found: ${specifier.getText()}`);
+      return module.resolvedFileName;
+    });
+    const sourceFiles = api.batch(...fileNames.map((f) => program.getSourceFile.gen(f)));
+
+    return sourceFiles.map((s) => {
+      assert(s, `${this.location()}: source file not found`);
+      return this.app.loadSourceFile(s);
+    });
+  }
+
+  private getComments() {
+    const { text, statements, endOfFileToken } = this.tsNode;
+    return [...statements, endOfFileToken].flatMap(
+      (node) => ast.getLeadingCommentRanges(text, node.pos) || [],
+    );
+  }
+
   private getDirectives() {
     return this.getComments()
       .values()
@@ -562,7 +630,7 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
    * 한쪽만 있는 꺾쇠, 공백은 받지 않는다.
    */
   private parseLibOrPath(prefix: string, directive: string): SscLibOrPathDirective {
-    const message = `${this.fileName}: invalid '${prefix}*' directive: ${directive}`;
+    const message = `${this.location()}: invalid '${prefix}*' directive: ${directive}`;
 
     assert(directive.startsWith(prefix), message);
 
@@ -583,40 +651,33 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
     return { directive, libOrPath: resolvedPath, type: 'path' };
   }
 
-  private getComments() {
-    const { text, statements, endOfFileToken } = this.tsNode;
-    return [...statements, endOfFileToken].flatMap(
-      (node) => ast.getLeadingCommentRanges(text, node.pos) || [],
-    );
-  }
-
   /**
    * 이 파일이 정적으로 import하는 syscript 소스. 소스에 적힌 순서이며 JS의 모듈 평가도 이
    * 순서를 따른다. `import type`처럼 JS 출력에서 지워지는 것과 실행할 코드가 없는 `.d.ts`는
    * 뺀다. 타입으로만 쓰인 일반 import도 TS가 지우지만 아직 구분하지 않는다.
    */
-  getRuntimeImports() {
-    return this.tsNode.statements
-      .values()
-      .filter((s) => {
-        if (ast.isImportDeclaration(s)) {
-          return s.importClause?.phaseModifier !== ast.SyntaxKind.TypeKeyword;
-        }
+  // getRuntimeImports() {
+  //   return this.tsNode.statements
+  //     .values()
+  //     .filter((s) => {
+  //       if (ast.isImportDeclaration(s)) {
+  //         return s.importClause?.phaseModifier !== ast.SyntaxKind.TypeKeyword;
+  //       }
 
-        return !(ast.isExportDeclaration(s) && s.isTypeOnly);
-      })
-      .map(moduleSpecifierOf)
-      .filter((s) => s !== undefined)
-      .map((specifier) => {
-        const sourceFile = this.app.sourceFileOfModule(specifier);
+  //       return !(ast.isExportDeclaration(s) && s.isTypeOnly);
+  //     })
+  //     .map(moduleSpecifierOf)
+  //     .filter((s) => s !== undefined)
+  //     .map((specifier) => {
+  //       const sourceFile = this.app.sourceFileOfModule(specifier);
 
-        assert(sourceFile, `${this.fileName}: module not resolved: ${specifier.text}`);
+  //       assert(sourceFile, `${this.fileName}: module not resolved: ${specifier.text}`);
 
-        return sourceFile;
-      })
-      .filter((s) => !s.isDeclarationFile)
-      .toArray();
-  }
+  //       return sourceFile;
+  //     })
+  //     .filter((s) => !s.isDeclarationFile)
+  //     .toArray();
+  // }
 
   debugPrint() {
     console.log({
@@ -640,7 +701,6 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
   readonly isExported: boolean;
   readonly keyword: 'const' | 'let';
   readonly bindingName: NodeBindingName;
-  readonly type: AppType;
   readonly initializer: AbstractExpression;
 
   constructor(app: App, tsNode: ast.VariableDeclaration, isExported = false) {
@@ -671,29 +731,16 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
     }
 
     this.bindingName = new NodeBindingName(app, this.tsNode.name);
-
-    const type = app.typeOf(this.tsNode);
-
-    assert(type, `type not found: ${this.tsNode.name.getText()}`);
-
-    this.type = type;
     this.initializer = AbstractExpression.of(app, this.tsNode.initializer);
   }
 }
 
 export class NodeParameterDeclaration extends AbstractNode<ast.ParameterDeclaration> {
   readonly bindingName: NodeBindingName;
-  readonly type: AppType;
 
   constructor(app: App, tsNode: ast.ParameterDeclaration) {
     super(app, tsNode);
     this.bindingName = new NodeBindingName(app, this.tsNode.name);
-
-    const type = app.typeOf(this.tsNode);
-
-    assert(type, `type not found: ${this.tsNode.name.getText()}`);
-
-    this.type = type;
   }
 }
 

@@ -1,5 +1,6 @@
 import { CliExitError } from '@syscript/cli';
-import { logError, logWarn } from '~/log.js';
+import { Env } from '@syscript/share/util';
+import { logError, logWarn, printLine } from '~/log.js';
 import { App } from '~/ts/ts-app.js';
 import { TsParser } from '~/ts/ts-parserv2.js';
 import { File } from '~/util/file.js';
@@ -27,24 +28,35 @@ async function parseInputFilePath(option: { label: string; path: string }) {
 }
 
 async function main() {
-  const entryPath = await parseInputFilePath({
-    label: 'entry',
-    path: 'test/fixture/main.ts',
-  });
-  const configFilePath = undefined;
+  const log = 'debug' as const satisfies App['log'];
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (log === 'debug') {
+    printLine();
+    Env.log('NODE_ENV');
+    printLine();
+  }
+
+  const tsserverPath = await Path.real(
+    Path.absolute({
+      baseDir: await Path.moduleDir(import.meta),
+      path: '../../../../ssclang/TypeScript/built/local/tsc',
+    }),
+  );
   const preludePath = await Path.real(
     Path.absolute({
       baseDir: await Path.moduleDir(import.meta),
       path: '../../../prelude/prelude.d.ts',
     }),
   );
-  const tsserverPath = Path.absolute({
-    baseDir: await Path.moduleDir(import.meta),
-    path: '../../../../ssclang/TypeScript/built/local/tsc',
+  const entryPath = await parseInputFilePath({
+    label: 'entry',
+    path: 'test/fixture/main.ts',
   });
-  const parser = await TsParser.init({ entryPath, configFilePath, preludePath, tsserverPath });
+  const configFilePath = undefined;
+  const parser = await TsParser.init({ tsserverPath, preludePath, entryPath, configFilePath });
 
-  App.initV2(parser, 'debug');
+  App.init(log, parser);
 }
 
 await main().catch((e: unknown) => {

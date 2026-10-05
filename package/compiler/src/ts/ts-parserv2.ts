@@ -10,16 +10,15 @@ import { File } from '~/util/file.js';
 import { AbsolutePath, Path, RealPath } from '~/util/path.js';
 
 type TsParserInitOption = {
-  tsserverPath?: string;
+  tsserverPath: RealPath;
+  preludePath: RealPath;
   entryPath: RealPath;
   configFilePath?: RealPath;
-  preludePath: RealPath;
-
-  tsconfigFileName?: string;
 };
 
 type TsParserContext = {
   cwd: RealPath;
+  entryPath: RealPath;
   configFileDir?: RealPath;
   configFilePath?: RealPath;
   config?: ts.ParsedCommandLine;
@@ -73,6 +72,10 @@ export class TsParser {
     return this.context.api;
   }
 
+  get entryPath() {
+    return this.context.entryPath;
+  }
+
   get program() {
     return this.context.program;
   }
@@ -95,22 +98,18 @@ export class TsParser {
   }
 
   close() {
-    this.api.close();
+    // this.api.close();
   }
 
   private static async initContext(option: TsParserInitOption) {
-    const {
-      tsserverPath,
-      entryPath,
-      configFilePath: inputConfigFilePath,
-      preludePath,
-      tsconfigFileName = 'tsconfig.json',
-    } = option;
-    const api = new ts.API({ tsserverPath });
+    const { tsserverPath, preludePath, entryPath } = option;
+    const autoFindConfigFileName = 'tsconfig.json';
+    const inputConfigFilePath =
+      option.configFilePath
+      || (await TsParser.autoFindConfigFile(Path.dirname(entryPath), autoFindConfigFileName));
+    const api = new ts.API({ tsserverPath, cwd: Path.dirname(inputConfigFilePath || entryPath) });
     const config =
-      inputConfigFilePath ?
-        await TsParser.findConfigFile(api, inputConfigFilePath)
-      : await TsParser.autoFindConfigFile(api, Path.dirname(entryPath), tsconfigFileName);
+      inputConfigFilePath ? await TsParser.parseConfigFile(api, inputConfigFilePath) : undefined;
     const configFilePath = config?.configFilePath;
     const targetFilePaths: AbsolutePath[] = [entryPath];
 
@@ -118,7 +117,7 @@ export class TsParser {
       logSuccess(`config: ${configFilePath}`);
     } else {
       logWarn(
-        `${tsconfigFileName} not found, will use ssc config only and add prelude automatically`,
+        `${autoFindConfigFileName} not found, will use ssc config only and add prelude automatically`,
       );
       targetFilePaths.push(preludePath);
     }
@@ -160,6 +159,7 @@ export class TsParser {
 
     return {
       cwd: Path.initialCwd,
+      entryPath,
       configFileDir: configFilePath ? Path.dirname(configFilePath) : undefined,
       configFilePath,
       config: config?.config,
@@ -169,7 +169,7 @@ export class TsParser {
     } as const satisfies TsParserContext;
   }
 
-  private static async autoFindConfigFile(api: ts.API, dir: RealPath, configFileName: string) {
+  private static async autoFindConfigFile(dir: RealPath, configFileName: string) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (true) {
       const configFilePath = Path.absolute({ baseDir: dir, path: configFileName });
@@ -178,7 +178,7 @@ export class TsParser {
         const configFileRealPath = await Path.real(configFilePath);
 
         if (!(await File.exists(configFileRealPath, 'directory'))) {
-          return TsParser.findConfigFile(api, configFileRealPath);
+          return configFileRealPath;
         }
 
         logWarn(`${configFileName} is a directory: ${configFileRealPath}`);
@@ -192,7 +192,7 @@ export class TsParser {
     }
   }
 
-  private static async findConfigFile(api: ts.API, configFilePath: RealPath) {
+  private static async parseConfigFile(api: ts.API, configFilePath: RealPath) {
     const config = api.parseConfigFile(configFilePath);
 
     assert(!config.errors.length, JSON.stringify(config.errors));

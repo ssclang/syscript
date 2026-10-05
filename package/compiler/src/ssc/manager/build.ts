@@ -2,7 +2,6 @@ import { assert } from '@syscript/share/util';
 import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { lower } from '~/c/c-lower.js';
 import {
   cModuleLayout,
   hasCIncludes,
@@ -10,11 +9,14 @@ import {
   renderModuleHeader,
   renderModuleMap,
 } from '~/c/c-module.js';
+import { lower } from '~/c/lower.js';
 import { printLine } from '~/log.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
+import { App } from '~/ts/ts-app.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
-import { App, TsParser } from '~/ts/ts-parser.js';
+import { TsParser } from '~/ts/ts-parserv2.js';
 import { File } from '~/util/file.js';
+import { Path } from '~/util/path.js';
 
 declare const _sscPreludeDir: string | undefined;
 
@@ -30,7 +32,7 @@ type CompiledModule = {
   sourceFile: AppSourceFile;
   /** 모듈의 C 이름 공간에 쓰는 id. 진입점이 초기화 함수를 부를 때도 쓴다. */
   id: string;
-  output: NonNullable<ReturnType<typeof lower>>;
+  output: ReturnType<typeof lower>;
 };
 
 type EmitOption = {
@@ -55,7 +57,7 @@ export class SscBuildManager {
     typeof _sscPreludeDir === 'string' ?
       path.join(import.meta.dirname, _sscPreludeDir)
     : path.join(import.meta.dirname, '../../../../../prelude/');
-  readonly preludeTsDefinitionPath = path.join(this.preludeDir, 'prelude.d.ts');
+  readonly preludePath = path.join(this.preludeDir, 'prelude.d.ts');
   readonly tsserverPath = path.join(
     import.meta.dirname,
     '../../../../../../ssclang/TypeScript/built/local/tsc',
@@ -75,45 +77,37 @@ export class SscBuildManager {
     this.idManager = option.idManager;
   }
 
-  async compile(entryPath: string) {
-    const parser = await TsParser.init({
-      filePaths: [this.preludeTsDefinitionPath, entryPath],
-      tsserverPath: this.tsserverPath,
-    });
-    const app = App.init(parser);
+  async compile(inputEntryPath: string) {
+    const tsserverPath = await Path.real(Path.absolute({ path: this.tsserverPath }));
+    const preludePath = await Path.real(Path.absolute({ path: this.preludePath }));
+    const entryPath = await Path.real(Path.absolute({ path: inputEntryPath }));
+    const parser = await TsParser.init({ tsserverPath, preludePath, entryPath });
+    const app = App.init('log', parser);
     const getModuleId = (path: string) => this.idManager.loadId(path);
-    const prelude = app.sourceFiles.find((s) => s.fileName === this.preludeTsDefinitionPath);
+    const preludeSourceFile = app.program.getSourceFile(preludePath);
 
-    assert(prelude, `prelude not found: ${this.preludeTsDefinitionPath}`);
+    assert(preludeSourceFile, `prelude not found: ${preludePath}`);
 
-    const option = { moduleId: getModuleId, prelude };
-    const results = app.sourceFiles.map((s) => ({ sourceFile: s, output: lower(s, option) }));
+    const option = { moduleId: getModuleId, prelude: app.loadSourceFile(preludeSourceFile) };
+
+    // 초기화 순서로 돌려준다. emit의 진입점이 이 순서대로 초기화 함수를 부른다.
+    const modules = SscBuildManager.loadModules(app.entrySourceFile).map((sourceFile) => ({
+      sourceFile,
+      id: getModuleId(sourceFile.fileName),
+      output: lower(sourceFile, option),
+    }));
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (isDev) {
       printLine();
-      for (const r of results) {
-        const { sourceFile, output } = r;
+      for (const m of modules) {
+        const { sourceFile, output } = m;
         sourceFile.debugPrint();
         printLine();
-        console.log(output?.renderC('<buildDir>'));
+        console.log(output.renderC('<buildDir>'));
         printLine();
       }
     }
-
-    const outputs = new Map(results.map((r) => [r.sourceFile, r.output]));
-    const entry = app.sourceFiles.find((s) => s.fileName === path.resolve(entryPath));
-
-    assert(entry, `entry not found: ${entryPath}`);
-
-    // 초기화 순서로 돌려준다. emit의 진입점이 이 순서대로 초기화 함수를 부른다.
-    const modules = SscBuildManager.initOrder(entry).map((sourceFile) => {
-      const output = outputs.get(sourceFile);
-
-      assert(output, `not lowered: ${sourceFile.fileName}`);
-
-      return { sourceFile, id: getModuleId(sourceFile.fileName), output };
-    });
 
     // `ssc:link`의 C 소스도 모듈처럼 id로 오브젝트 이름을 짓는다. `id.json`에 남도록 여기서 발급한다.
     for (const directive of SscBuildManager.getUniqueLinkDirectives(app.sourceFiles)) {
@@ -264,34 +258,29 @@ export class SscBuildManager {
   }
 
   /**
-   * 엔트리부터 import를 깊이 우선으로 돌며 의존하는 파일을 먼저 놓는다. ES 모듈 평가 순서와
-   * 같다. 순환 import는 JS에서 초기화 전 접근(TDZ)이 생길 수 있는데 C에서는 조용히 0이
-   * 읽히므로 막는다.
+   * 엔트리부터 import를 깊이 우선으로 돌며 `.d.ts`까지 모두 App에 등록하고, `.ts`를 초기화
+   * 순서로 돌려준다. ES 모듈 평가 순서와 같아 순환 import는 방문 중인 파일을 건너뛴다.
    */
-  private static initOrder(entry: AppSourceFile) {
-    const order: AppSourceFile[] = [];
-    const visiting = new Set<AppSourceFile>();
-    const done = new Set<AppSourceFile>();
+  private static loadModules(entry: AppSourceFile) {
+    const modules: AppSourceFile[] = [];
+    const visited = new Set<AppSourceFile>();
 
     const visit = (sourceFile: AppSourceFile) => {
-      if (done.has(sourceFile)) {
+      if (visited.has(sourceFile)) {
         return;
       }
 
-      if (visiting.has(sourceFile)) {
-        throw new Error(`not implemented circular import: ${sourceFile.fileName}`);
-      }
+      visited.add(sourceFile);
+      sourceFile.loadImportedSourceFiles().forEach(visit);
 
-      visiting.add(sourceFile);
-      sourceFile.getRuntimeImports().forEach(visit);
-      visiting.delete(sourceFile);
-      done.add(sourceFile);
-      order.push(sourceFile);
+      if (!sourceFile.isDeclarationFile) {
+        modules.push(sourceFile);
+      }
     };
 
     visit(entry);
 
-    return order;
+    return modules;
   }
 
   /**
