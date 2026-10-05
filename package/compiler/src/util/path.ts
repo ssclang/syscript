@@ -33,6 +33,10 @@ export class Path {
     return fs.realpath(path).then((r) => r as RealPath);
   }
 
+  static realSync(path: AbsolutePath) {
+    return fsSync.realpathSync(path) as RealPath;
+  }
+
   static relative(option: { baseDir?: AbsolutePath; path: AbsolutePath }) {
     const { baseDir = Path.initialCwd, path } = option;
     return { baseDir, path: nodePath.relative(baseDir, path), absolutePath: path } as RelativePath;

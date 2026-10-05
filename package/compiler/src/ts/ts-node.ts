@@ -560,7 +560,7 @@ export type SscLibOrPathDirective = {
 
 export class AppSourceFile extends AbstractNode<ast.SourceFile> {
   readonly index: number;
-  readonly fileName: string;
+  readonly fileName: ast.RootedFilePath;
   readonly isDeclarationFile: boolean;
   readonly directives: readonly string[];
   readonly statements: readonly AbstractStatement[];

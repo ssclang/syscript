@@ -41,10 +41,11 @@ import {
   NodeWhileStatement,
   sscIncludeDirectivePrefix,
 } from '~/ts/ts-node.js';
+import { RealPath } from '~/util/path.js';
 
 type LowerOption = {
   /** 파일 경로 → 모듈 id */
-  moduleId: (fileName: string) => string;
+  moduleId: (path: RealPath) => string;
   /** 모든 TU가 include하는 prelude `.d.ts` */
   prelude: AppSourceFile;
 };
@@ -59,7 +60,7 @@ class LowerContext {
   readonly declarationFiles = new Set<AppSourceFile>();
   readonly initWriter = new CWriter();
   writer = this.initWriter;
-  readonly moduleId: (fileName: string) => string;
+  readonly moduleId: (path: RealPath) => string;
   /** 심볼 id → 최상위 변수. `tag`는 선언 전에 접근될 수 있는 변수에만 있다. */
   readonly globals = new Map<number, { value: string; tag: string | undefined }>();
   readonly prelude: AppSourceFile;
@@ -133,7 +134,9 @@ function functionName(context: LowerContext, node: NodeFunctionDeclaration) {
     return name;
   }
 
-  return cModuleFunctionName(context.moduleId(node.getSourceFile().fileName), name);
+  const sourceFile = node.app.loadSourceFile(node.getSourceFile());
+
+  return cModuleFunctionName(context.moduleId(sourceFile.fileName), name);
 }
 
 function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
@@ -525,7 +528,8 @@ function declareImportedGlobal(context: LowerContext, identifier: NodeIdentifier
 
   // import할 때 이름을 바꿨을 수 있어 선언의 이름으로 짓는다.
   const variable = new NodeVariableDeclaration(identifier.app, declaration);
-  const moduleId = context.moduleId(declaration.getSourceFile().fileName);
+  const sourceFile = identifier.app.loadSourceFile(declaration.getSourceFile());
+  const moduleId = context.moduleId(sourceFile.fileName);
   const { identifier: declarationIdentifier } = variable.bindingName;
   const value = cModuleVariableName(moduleId, cName(declarationIdentifier));
   const global = { value, tag: undefined };

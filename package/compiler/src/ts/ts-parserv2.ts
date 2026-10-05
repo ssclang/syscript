@@ -19,12 +19,15 @@ type TsParserInitOption = {
 type TsParserContext = {
   cwd: RealPath;
   entryPath: RealPath;
+  preludePath: RealPath;
   configFileDir?: RealPath;
   configFilePath?: RealPath;
   config?: ts.ParsedCommandLine;
   api: ts.API;
   program: ts.Program;
   checker: ts.Checker;
+  tsPathToRealPathMap: ReadonlyMap<ast.RootedFilePath, RealPath>;
+  realPathToTsPathsMap: ReadonlyMap<RealPath, readonly ast.RootedFilePath[]>;
 };
 
 const overrideTsConfigOption = {
@@ -70,10 +73,6 @@ export class TsParser {
 
   get api() {
     return this.context.api;
-  }
-
-  get entryPath() {
-    return this.context.entryPath;
   }
 
   get program() {
@@ -127,14 +126,32 @@ export class TsParser {
       ...overrideTsConfigOption,
     });
     const { checker } = program.getProject();
+    const paths = await Promise.all(
+      program.getSourceFileNames().map(async (p) => ({
+        tsPath: p,
+        realPath: await Path.real(Path.absolute({ path: p })),
+      })),
+    );
+    const tsPathToRealPathMap = new Map<ast.RootedFilePath, RealPath>();
+    const realPathToTsPathsMap = new Map<RealPath, ast.RootedFilePath[]>();
+
+    const getSourceFile = (path: ast.RootedFilePath) => {
+      const sourceFile = program.getSourceFile(path);
+
+      assert(sourceFile, `source file not found: ${path}`);
+
+      return sourceFile;
+    };
+
+    paths.forEach((p) => {
+      const { tsPath, realPath } = p;
+      tsPathToRealPathMap.set(tsPath, realPath);
+      const tsPaths = realPathToTsPathsMap.get(realPath) || [];
+      realPathToTsPathsMap.set(realPath, [...tsPaths, tsPath]);
+    });
 
     if (configFilePath) {
-      const sourceFileNames = program.getSourceFileNames();
-      const hasPrelude =
-        sourceFileNames.some((p) => Path.absolute({ path: p }) === preludePath)
-        || (
-          await Promise.all(sourceFileNames.map(async (p) => Path.real(Path.absolute({ path: p }))))
-        ).includes(preludePath);
+      const hasPrelude = realPathToTsPathsMap.has(preludePath);
 
       if (!hasPrelude) {
         const { path } = Path.relative({
@@ -160,12 +177,15 @@ export class TsParser {
     return {
       cwd: Path.initialCwd,
       entryPath,
+      preludePath,
       configFileDir: configFilePath ? Path.dirname(configFilePath) : undefined,
       configFilePath,
       config: config?.config,
       api,
       program,
       checker,
+      tsPathToRealPathMap,
+      realPathToTsPathsMap,
     } as const satisfies TsParserContext;
   }
 
@@ -209,12 +229,19 @@ export class TsParser {
     return { configFilePath: foundConfigFileRealPath, config };
   }
 
-  printContextInfo() {
-    const { cwd, configFileDir, configFilePath } = this.context;
-    console.log({
-      cwd,
-      configFileDir,
-      configFilePath,
-    });
+  tsPathToRealPath(path: ast.RootedFilePath) {
+    const realPath = this.context.tsPathToRealPathMap.get(path);
+
+    assert(realPath, `real path not found: ${path}`);
+
+    return realPath;
+  }
+
+  realPathToTsPaths(path: RealPath) {
+    const tsPaths = this.context.realPathToTsPathsMap.get(path);
+
+    assert(tsPaths, `ts path not found: ${path}`);
+
+    return tsPaths;
   }
 }
