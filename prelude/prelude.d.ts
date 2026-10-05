@@ -3,6 +3,8 @@
 // ssc:include:prelude.h
 // ssc:link:prelude.c
 
+/// <reference path="guard.ts" />
+
 export {};
 
 /*
