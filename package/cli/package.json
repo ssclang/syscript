@@ -18,6 +18,7 @@
     "format": "eslint *.ts src test --fix && prettier --write *.ts src test && pnpm check"
   },
   "dependencies": {
+    "@bomb.sh/tab": "0.0.22",
     "zod": "catalog:"
   },
   "devDependencies": {

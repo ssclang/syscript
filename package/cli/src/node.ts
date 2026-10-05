@@ -1,4 +1,4 @@
-import { assert } from '@syscript/share/util';
+import assert from 'node:assert/strict';
 import { CliNode, CommandNode } from '~/command.js';
 
 export type CliContextInit<T extends CliNode = CliNode> = {
