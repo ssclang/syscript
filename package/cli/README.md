@@ -6,7 +6,7 @@
 import { createCommand, runCli } from '@syscript/cli';
 
 const command = createCommand({
-  name: 'my-cli',
+  name: 'ssc-cli',
   args: [{ name: 'entry', type: 'string', complete: 'file' }],
   options: [{ name: 'profile', type: 'string', complete: ['dev', 'release'] }],
   run: (args, options) => {
@@ -18,12 +18,12 @@ const command = createCommand({
 await runCli(command, { completion: true });
 ```
 
-`complete` accepts a list of strings, `'file'`, or `'directory'`. Suggestions do not validate the value when the command executes. Completion is off by default, so an existing positional argument called `complete` retains its behavior until the application opts in. With completion enabled, `my-cli complete zsh` prints a registration script and `my-cli complete -- ...` answers shell requests without running the command. The generated script calls the same installed `my-cli` executable, so it must be available whenever the shell requests candidates.
+`complete` accepts a list of strings, `'file'`, or `'directory'`. Suggestions do not validate the value when the command executes. Completion is off by default, so an existing positional argument called `complete` retains its behavior until the application opts in. With completion enabled, `ssc-cli complete zsh` prints a registration script and `ssc-cli complete -- ...` answers shell requests without running the command. The generated script calls `ssc-cli` by name, so it must resolve to an installed command or shell function whenever the shell requests candidates.
 
 For a consumer using Zsh, capture and register the script in the current session after installing your CLI:
 
 ```zsh
-my-cli complete zsh > ./my-cli-completion.zsh && source ./my-cli-completion.zsh
+ssc-cli complete zsh > ./ssc-cli-completion.zsh && source ./ssc-cli-completion.zsh
 ```
 
 Script generation also accepts `bash`, `fish`, and `powershell`. Bash requires `bash-completion` for `_get_comp_words_by_ref`. The package does not install tab's separate package-manager CLI or edit shell profiles.
@@ -31,10 +31,10 @@ Script generation also accepts `bash`, `fish`, and `powershell`. Bash requires `
 For a grouped Zsh display, opt in when generating its script:
 
 ```zsh
-my-cli complete zsh --grouped > ./my-cli-completion.zsh && source ./my-cli-completion.zsh
+ssc-cli complete zsh --grouped > ./ssc-cli-completion.zsh && source ./ssc-cli-completion.zsh
 ```
 
-This adds styles scoped to `my-cli`: described options appear one per line under **Options**, built-in flags under **General**, and positional paths under **Files**. Zsh sorts names within each group. Group membership comes from the command's option and alias definitions. When a completion value has the same text as a flag, it remains completable without a potentially incorrect group heading. The styles do not change completion for other commands. All accepted aliases remain available.
+This adds styles scoped to `ssc-cli`: described options appear one per line under **Options**, built-in flags under **General**, and positional paths under **Files**. Zsh sorts names within each group. Group membership comes from the command's option and alias definitions. When a completion value has the same text as a flag, it remains completable without a potentially incorrect group heading. The styles do not change completion for other commands. All accepted aliases remain available.
 
 For a one-command local Zsh setup of the **CLI example**, run from the repository root:
 
