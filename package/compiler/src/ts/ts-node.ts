@@ -5,6 +5,7 @@ import * as ast from 'typescript7/unstable/ast';
 import * as ts from 'typescript7/unstable/sync';
 import { printLine } from '~/log.js';
 import { assertExpectedNode } from '~/util/assert.js';
+import { RealPath } from '~/util/path.js';
 import { App } from './ts-app.js';
 
 // region abstract
@@ -560,15 +561,17 @@ export type SscLibOrPathDirective = {
 
 export class AppSourceFile extends AbstractNode<ast.SourceFile> {
   readonly index: number;
-  readonly fileName: ast.RootedFilePath;
+  readonly realPath: RealPath;
+  // readonly fileName: string;
   readonly isDeclarationFile: boolean;
   readonly directives: readonly string[];
   readonly statements: readonly AbstractStatement[];
 
-  constructor(app: App, tsNode: ast.SourceFile, index: number) {
+  constructor(app: App, tsNode: ast.SourceFile, index: number, realPath: RealPath) {
     super(app, tsNode);
     this.index = index;
-    this.fileName = tsNode.fileName;
+    this.realPath = realPath;
+    // this.fileName = tsNode.fileName;
     this.isDeclarationFile = tsNode.isDeclarationFile;
     this.directives = this.getDirectives();
     this.statements = tsNode.statements.map((s) => AbstractStatement.of(this.app, s));
@@ -646,7 +649,7 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
 
     assert(value, message);
 
-    const resolvedPath = path.resolve(path.dirname(this.fileName), value);
+    const resolvedPath = path.resolve(path.dirname(this.realPath), value);
 
     return { directive, libOrPath: resolvedPath, type: 'path' };
   }
@@ -682,7 +685,8 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
   debugPrint() {
     console.log({
       index: this.index,
-      fileName: this.fileName,
+      realPath: this.realPath,
+      fileName: this.tsNode.fileName,
       isDeclarationFile: this.isDeclarationFile,
       directives: this.directives,
       statements: this.statements.length,

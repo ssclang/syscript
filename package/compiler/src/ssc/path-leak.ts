@@ -41,8 +41,8 @@ export async function checkPathLeak(option: PathLeakCheckOption) {
   const includeFiles = await readIncludedFiles(codeDir);
   const paths = await resolvePaths([
     os.homedir(),
-    ...sourceFiles.map((s) => path.dirname(s.fileName)),
-    // 경로로 지정한 링크 대상. `<이름>`은 시스템 라이브러리라 빌드 환경을 드러내지 않아 넣지 않는다.
+    ...sourceFiles.map((s) => path.dirname(s.realPath)),
+    ...sourceFiles.map((s) => path.dirname(s.tsNode.fileName)),
     ...sourceFiles
       .flatMap((s) => s.getLinkDirectives())
       .filter((d) => d.type === 'path')
