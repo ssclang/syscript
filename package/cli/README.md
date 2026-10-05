@@ -28,13 +28,23 @@ my-cli complete zsh > ./my-cli-completion.zsh && source ./my-cli-completion.zsh
 
 Script generation also accepts `bash`, `fish`, and `powershell`. Bash requires `bash-completion` for `_get_comp_words_by_ref`. The package does not install tab's separate package-manager CLI or edit shell profiles.
 
+For a grouped Zsh display, opt in when generating its script:
+
+```zsh
+my-cli complete zsh --grouped > ./my-cli-completion.zsh && source ./my-cli-completion.zsh
+```
+
+This adds styles scoped to `my-cli`: described options appear one per line under **Options**, built-in flags under **General**, and positional paths under **Files**. Zsh sorts names within each group. Group membership comes from the command's option and alias definitions. When a completion value has the same text as a flag, it remains completable without a potentially incorrect group heading. The styles do not change completion for other commands. All accepted aliases remain available.
+
 For a one-command local Zsh setup of the **CLI example**, run from the repository root:
 
 ```zsh
 source package/cli/setup.zsh
 ```
 
-This reconciles dependencies with the frozen workspace lock, builds share and CLI in dependency order, runs CLI tests, checks the compiler source help command, and registers `ssc-cli` for the current shell session. It leaves shell profiles untouched. Run `ssc-cli --help`, then try `ssc-cli --profile=<TAB>`. The example is in `test/fixture.ts` and does not compile or run a user program.
+This reconciles dependencies with the frozen workspace lock, builds share and CLI in dependency order, runs CLI tests, checks the compiler source help command, and registers grouped `ssc-cli` completion for the current shell session. It leaves shell profiles untouched. Run `ssc-cli --help`, then try `ssc-cli --<TAB>`, `ssc-cli --profile=<TAB>`, and `ssc-cli ./<TAB>`. The example is in `test/fixture.ts` and prints its arguments; it does not compile or run a user program.
+
+After changing the CLI, source the setup command again in the same Zsh session to replace its previous completion registration. The example also lists `--no-d` because its `dry` option defines that negative alias.
 
 The real compiler `ssc` is **not yet wired to completion**: its current source does not opt in or define value suggestions. Enabling it requires changes to the compiler's command definition.
 

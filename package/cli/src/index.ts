@@ -93,10 +93,17 @@ function runCompletion(command: CommandNode, args: readonly string[], version: b
     throw CliExitError.definitionError('reserved command name: complete');
   }
 
-  if (args.length !== 2 || args[1] === undefined) {
-    throw CliExitError.userError(`usage: complete <${ZCompletionShell.options.join('|')}>`);
+  const grouped = args.length === 3 && args[2] === '--grouped';
+  if ((args.length !== 2 && !grouped) || args[1] === undefined) {
+    throw CliExitError.userError(
+      `usage: complete <${ZCompletionShell.options.join('|')}> [--grouped]`,
+    );
   }
 
-  printCompletionScript(resolveAlias(command, 'command')[0], args[1]);
+  printCompletionScript(
+    resolveAlias(command, 'command')[0],
+    args[1],
+    grouped ? { command, version } : undefined,
+  );
   return 0;
 }

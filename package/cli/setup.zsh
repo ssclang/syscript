@@ -34,7 +34,7 @@ _syscript_cli_setup() {
     unfunction ssc-cli
     return 1
   }
-  if ! ssc-cli complete zsh > "$completion_file"; then
+  if ! ssc-cli complete zsh --grouped > "$completion_file"; then
     rm -f -- "$completion_file"
     unfunction ssc-cli
     print -u2 'Could not generate the demo completion script.'

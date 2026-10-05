@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { describe, expect, test, vi } from 'vitest';
+import { createCommand } from '~/command.js';
 import { Completion } from '~/completion.js';
 import { formatCompletion, printCompletionScript } from '~/tab.js';
 
@@ -51,6 +52,37 @@ describe('tab adapter', () => {
     },
   );
 
+  test.skipIf(Boolean(spawnSync('zsh', ['-c', ':']).error))(
+    'groups only unambiguous metadata in a command-scoped Zsh script',
+    () => {
+      const command = createCommand({
+        name: 'app',
+        args: [{ name: 'entry', type: 'string', complete: ['--dry', '--help'] }],
+        options: [
+          { name: 'dry', type: 'boolean' },
+          { name: 'profile', type: 'string' },
+        ],
+        run: () => 0,
+      });
+      const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      let script: string;
+      try {
+        printCompletionScript('app', 'zsh', { command, version: true });
+        script = log.mock.calls.map(([line]) => String(line)).join('\n');
+      } finally {
+        log.mockRestore();
+      }
+
+      expect(spawnSync('zsh', ['-n'], { input: script }).status).toBe(0);
+      expect(script).toContain("zstyle ':completion:*:*:app:*' list-grouped false");
+      expect(script).toContain("syscript-options' ignored-patterns '^(--profile)'");
+      expect(script).toContain("syscript-general' ignored-patterns '^(--version)'");
+      expect(script).toContain("syscript-other' ignored-patterns '(--profile|--version)'");
+      expect(script).toContain("argument-rest' format 'Files'");
+      expect(script).not.toContain("zstyle ':completion:*' ");
+    },
+  );
+
   test.skipIf(Boolean(spawnSync('bash', ['-c', ':']).error))(
     'Bash callback reaches the real CLI fixture',
     () => {
@@ -87,5 +119,11 @@ describe('tab adapter', () => {
   test('rejects shell injection in the program name', () => {
     expect(() => printCompletionScript('ssc;exit', 'zsh')).toThrow();
     expect(() => printCompletionScript('ssc', 'unknown')).toThrow();
+    expect(() =>
+      printCompletionScript('ssc', 'bash', {
+        command: createCommand({ name: 'ssc', run: () => 0 }),
+        version: false,
+      }),
+    ).toThrow('--grouped is supported only for zsh');
   });
 });

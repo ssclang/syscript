@@ -133,6 +133,8 @@ describe('semantic completion', () => {
       'fish',
       'powershell',
     ]);
+    expect(values(['complete', 'zsh', '--g'], { completion: true })).toEqual(['--grouped']);
+    expect(values(['complete', 'bash', '--g'], { completion: true })).toEqual([]);
   });
 
   test('does not execute handlers while asking for candidates', () => {

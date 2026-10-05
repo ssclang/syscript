@@ -24,7 +24,8 @@ export function formatHelp(commands: NonEmptyArray<CommandNode>, option: FormatH
       (subcommand) =>
         [resolveAlias(subcommand, 'command').join(', '), subcommand.description] as const,
     );
-    if (option.completion) rows.push(['complete <shell>', 'Generate shell completion script']);
+    if (option.completion)
+      rows.push(['complete <shell> [--grouped]', 'Generate shell completion script']);
     sections.push(formatSection('Commands', rows));
   }
 

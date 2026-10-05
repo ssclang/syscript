@@ -57,6 +57,9 @@ export function getCompletion(
   const current = words.at(-1) ?? '';
 
   if (option.completion && previous[0] === 'complete') {
+    if (previous.length === 2 && previous[1] === 'zsh') {
+      return getValuesCompletion(['--grouped'], current, 'Group Zsh completion display');
+    }
     if (previous.length !== 1) return empty;
     return getValuesCompletion(ZCompletionShell.options, current);
   }
