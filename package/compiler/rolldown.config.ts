@@ -8,7 +8,10 @@ export default defineConfig([
       codeSplitting: false,
       minify: true,
       sourcemap: true,
-      banner: `const _sscPreludeDir='../../../prelude/';`,
+      banner: [
+        `const _sscTsserverPath='../../../../ssclang/TypeScript/built/local/tsc';`,
+        `const _sscPreludeDir='../../../prelude/';`,
+      ].join(''),
     },
     external: ['typescript', /^typescript7/],
   },
