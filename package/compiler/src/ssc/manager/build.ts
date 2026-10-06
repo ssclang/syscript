@@ -14,7 +14,7 @@ import { printLine } from '~/log.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
 import { App } from '~/ts/ts-app.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
-import { TsParser } from '~/ts/ts-parserv2.js';
+import { TsParser } from '~/ts/ts-parser.js';
 import { File } from '~/util/file.js';
 import { Path } from '~/util/path.js';
 

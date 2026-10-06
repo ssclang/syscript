@@ -2,7 +2,7 @@ import { CliExitError } from '@syscript/cli';
 import { Env } from '@syscript/share/util';
 import { logError, logWarn, printLine } from '~/log.js';
 import { App } from '~/ts/ts-app.js';
-import { TsParser } from '~/ts/ts-parserv2.js';
+import { TsParser } from '~/ts/ts-parser.js';
 import { File } from '~/util/file.js';
 import { Path } from '~/util/path.js';
 
