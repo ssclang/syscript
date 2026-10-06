@@ -3,7 +3,7 @@
 // import fs from 'fs/promises';
 // import path from 'path';
 // import util from 'util';
-// import { SysAllType } from '~/sys/syscript-type.js';
+// import { SscAllType } from '~/sys/syscript-type.js';
 // import { File } from '~/util/file.js';
 
 // /** `dump.c`가 내는 JSON. 형식은 그쪽과 같이 바꾼다. */
@@ -36,7 +36,7 @@
 //  * 고정된다. `long`은 Windows에서 폭이 달라 아직 넣지 않았다. 표에 없는 타입을 쓰는 함수는
 //  * 틀린 바인딩을 내는 대신 건너뛰고 이유를 알린다.
 //  */
-// const primitiveTypes: Partial<Record<string, SysAllType>> = {
+// const primitiveTypes: Partial<Record<string, SscAllType>> = {
 //   Void: 'void',
 //   Bool: 'boolean',
 //   SChar: 'i8',
@@ -185,11 +185,11 @@
 // }
 
 // function toSysType(type: DumpType) {
-//   const sysType = primitiveTypes[type.kind];
+//   const sscType = primitiveTypes[type.kind];
 
-//   assert(sysType, `not implemented C type: '${type.spelling}' (${type.kind})`);
+//   assert(sscType, `not implemented C type: '${type.spelling}' (${type.kind})`);
 
-//   return sysType;
+//   return sscType;
 // }
 
 // /** 진단은 clang이 그대로 내보내는 게 읽기 좋다. 우리는 짧게만 던진다. */

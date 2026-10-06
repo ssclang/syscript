@@ -1,4 +1,4 @@
-import { includes, sysAllTypes } from '~/ssc/type.js';
+import { includes, sscAllTypes } from '~/ssc/type.js';
 import { NodeIdentifier } from '~/ts/ts-node.js';
 
 /**
@@ -98,7 +98,7 @@ export const cKeywords = [
  * 같은 이름 typedef나 매크로(`boolean`, `f64` 등)와 겹치지 않는다. `void`는 C 타입 그대로다.
  */
 export function toCTypeName(name: string) {
-  if (!includes(sysAllTypes, name)) {
+  if (!includes(sscAllTypes, name)) {
     throw new Error(`not implemented type: ${name}`);
   }
 
