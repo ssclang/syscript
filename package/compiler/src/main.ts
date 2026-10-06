@@ -136,4 +136,4 @@ const command = createCommand({
   },
 });
 
-await runCli(command, { completion: true });
+await runCli(command);
