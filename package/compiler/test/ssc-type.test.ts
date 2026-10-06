@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { includes, parseSafeNumber, SysNumberType, sysNumberTypes } from '~/ssc/type.js';
+import { includes, parseSafeNumber, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 
 /**
  * `NumericLiteral` 노드로 들어올 수 있는 모든 철자와, 그 값이 손실 없이 담기는 타입.
@@ -81,12 +81,12 @@ const cases = {
   '0.5': ['0.5', ['f32', 'f64']],
   '1.5': ['1.5', ['f32', 'f64']],
   '1e400': ['1e+400', []],
-} as const satisfies Record<string, readonly [string, readonly SysNumberType[]]>;
+} as const satisfies Record<string, readonly [string, readonly SscNumberType[]]>;
 
 test.each(Object.entries(cases))('%s', (...p) => {
   const [literal, [normalizedLiteral, safeTypes]] = p;
 
-  sysNumberTypes.forEach((t) => {
+  sscNumberTypes.forEach((t) => {
     const expected = includes(safeTypes, t) ? normalizedLiteral : undefined;
     expect(parseSafeNumber(literal, t)).toBe(expected);
   });

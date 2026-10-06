@@ -7,12 +7,6 @@
 
 export {};
 
-/*
- * `number` 그대로 두면 tsc가 전역 number 타입을 재사용해 별칭 정보를 잃는다.
- * `& {}`를 붙이면 교차 타입이라 타입 객체가 새로 생겨 aliasSymbol에 이름이 남는다.
- * `{}`는 요구 멤버가 없어 number를 그대로 받으므로 연산과 대입은 그대로 동작한다.
- */
-
 declare global {
   /** `-128` ~ `127` */
   type i8 = number & {};
@@ -41,6 +35,23 @@ declare global {
    */
   type f64 = number & {};
 
+  type SscSignedIntegerType = i8 | i16 | i32 | i64;
+  type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
+  type SscIntegerType = SscSignedIntegerType | SscUnsignedIntegerType;
+  type SscFloatType = f32 | f64;
+  type SscNumberType = SscIntegerType | SscFloatType;
+
+  function addWrap<T extends SscIntegerType>(left: T, right: T): T;
+  function subWrap<T extends SscIntegerType>(left: T, right: T): T;
+  function mulWrap<T extends SscIntegerType>(left: T, right: T): T;
+
+  class Pointer<V> {
+    static ref<T>(value: T): Pointer<T>;
+    read(): V;
+    write(value: V): void;
+  }
+
+  // js built-in
   interface Array {}
   interface Boolean {}
   interface CallableFunction {}
@@ -51,10 +62,4 @@ declare global {
   interface Object {}
   interface RegExp {}
   interface String {}
-
-  class Pointer<V> {
-    static ref<T>(value: T): Pointer<T>;
-    read(): V;
-    write(value: V): void;
-  }
 }

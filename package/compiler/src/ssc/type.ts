@@ -1,20 +1,20 @@
 import BigNumber from 'bignumber.js';
 
-export type SysIntegerType = (typeof sysIntegerTypes)[number];
-export const sysIntegerTypes = ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64'] as const;
+export type SscIntegerType = (typeof sscIntegerTypes)[number];
+export const sscIntegerTypes = ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64'] as const;
 
-export type SysFloatType = (typeof sysFloatTypes)[number];
-export const sysFloatTypes = ['f32', 'f64'] as const;
+export type SscFloatType = (typeof sscFloatTypes)[number];
+export const sscFloatTypes = ['f32', 'f64'] as const;
 
-export type SysOtherType = (typeof sysOtherTypes)[number];
-export const sysOtherTypes = ['boolean', 'void'] as const;
+export type SscOtherType = (typeof sscOtherTypes)[number];
+export const sscOtherTypes = ['boolean', 'void'] as const;
 
-export type SysNumberType = (typeof sysNumberTypes)[number];
-export const sysNumberTypes = [...sysIntegerTypes, ...sysFloatTypes] as const;
+export type SscNumberType = (typeof sscNumberTypes)[number];
+export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes] as const;
 
 // TODO: string
-export type SysAllType = (typeof sysAllTypes)[number];
-export const sysAllTypes = [...sysNumberTypes, ...sysOtherTypes] as const;
+export type SscAllType = (typeof sscAllTypes)[number];
+export const sscAllTypes = [...sscNumberTypes, ...sscOtherTypes] as const;
 
 const integerRanges = {
   i8: ['-128', '127'],
@@ -25,7 +25,7 @@ const integerRanges = {
   u16: ['0', '65535'],
   u32: ['0', '4294967295'],
   u64: ['0', '18446744073709551615'],
-} as const satisfies Record<SysIntegerType, readonly [string, string]>;
+} as const satisfies Record<SscIntegerType, readonly [string, string]>;
 
 /**
  * 값이 잘리지 않고 올라갈 수 있는 방향. 이 표에 없으면 암묵 변환을 막는다.
@@ -44,29 +44,29 @@ const widenings = {
   f64: [],
   boolean: ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64'], // 0 or 1
   void: [],
-} as const satisfies Record<SysAllType, readonly SysAllType[]>;
+} as const satisfies Record<SscAllType, readonly SscAllType[]>;
 
 export function includes<T extends string>(list: readonly T[], value: string): value is T {
   return list.some((item) => item === value);
 }
 
-export function parseSafeNumber(numericString: string, type: SysNumberType) {
-  if (includes(sysIntegerTypes, type)) {
+export function parseSafeNumber(numericString: string, type: SscNumberType) {
+  if (includes(sscIntegerTypes, type)) {
     return parseSafeInteger(numericString, type);
   }
 
-  if (includes(sysFloatTypes, type)) {
+  if (includes(sscFloatTypes, type)) {
     return parseSafeFloat(numericString, type);
   }
 
   throw new Error(type);
 }
 
-export function isSafeNumber(numericString: string, type: SysNumberType) {
+export function isSafeNumber(numericString: string, type: SscNumberType) {
   return parseSafeNumber(numericString, type) !== undefined;
 }
 
-function parseSafeInteger(numericString: string, type: SysIntegerType) {
+function parseSafeInteger(numericString: string, type: SscIntegerType) {
   const bigNumber = new BigNumber(numericString);
   const [min, max] = integerRanges[type];
 
@@ -77,7 +77,7 @@ function parseSafeInteger(numericString: string, type: SysIntegerType) {
   return bigNumber.toFixed();
 }
 
-function parseSafeFloat(numericString: string, type: SysFloatType) {
+function parseSafeFloat(numericString: string, type: SscFloatType) {
   const bigNumber = new BigNumber(numericString);
   const number = bigNumber.toNumber();
   const narrowed = type === 'f32' ? Math.fround(number) : number;
@@ -93,6 +93,6 @@ function parseSafeFloat(numericString: string, type: SysFloatType) {
  * `from`에서 `to`로 옮겨도 값이 잘리지 않는지. 값을 모르는 자리에서 타입만으로 판단한다.
  * 변수나 호출 결과가 여기 해당한다. 리터럴은 값을 아니까 `parseSafeNumber`를 쓴다.
  */
-export function canWiden(from: SysAllType, to: SysAllType) {
+export function canWiden(from: SscAllType, to: SscAllType) {
   return from === to || includes(widenings[from], to);
 }
