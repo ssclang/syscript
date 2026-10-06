@@ -1,7 +1,8 @@
 import { assert } from '@syscript/share/util';
+import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/unstable/ast';
 import * as ts from 'typescript7/unstable/sync';
-import { binary, call, CModule, CWriter, signature, unary } from '~/c/c-builder.js';
+import { binary, call, cast, CModule, CWriter, signature, unary } from '~/c/c-builder.js';
 import {
   cModuleFunctionName,
   cModuleLayout,
@@ -14,6 +15,14 @@ import {
 } from '~/c/c-module.js';
 import { findTdzVariables } from '~/c/c-tdz.js';
 import { cName, toCTypeName } from '~/c/c.js';
+import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
+import {
+  cNumericLiteral,
+  CommonTypeOperand,
+  commonType,
+  isLossless,
+  parseNumericLiteral,
+} from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
@@ -65,6 +74,8 @@ class LowerContext {
   readonly globals = new Map<number, { value: string; tag: string | undefined }>();
   readonly prelude: AppSourceFile;
   localCount = 0;
+  /** 내리고 있는 함수의 반환 타입. 최상위 코드에서는 없다. */
+  currentFnReturnType: string | undefined;
 
   constructor(sourceFile: AppSourceFile, option: LowerOption) {
     this.sourceFile = sourceFile;
@@ -155,7 +166,9 @@ function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
 
   writer.line(`${functionSignature(context, node, params)} {`);
   writer.indent();
+  context.currentFnReturnType = sscTypeName(context, node.getReturnType());
   lowerStatements(node.block.statements, context);
+  context.currentFnReturnType = undefined;
   writer.dedent();
   writer.line('}');
 
@@ -232,7 +245,9 @@ function lowerGlobalInit(node: NodeVariableDeclaration, context: LowerContext) {
 
   assert(global, `global not declared: ${identifier.text}`);
 
-  context.writer.line(`${global.value} = ${lowerExpression(node.initializer, context)};`);
+  const value = lowerValue(node.initializer, sscTypeName(context, identifier.getType()), context);
+
+  context.writer.line(`${global.value} = ${value};`);
 
   // 초깃값을 계산하는 동안에는 아직 TDZ라 대입이 끝난 뒤에 표시한다.
   if (global.tag) {
@@ -273,7 +288,8 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   }
 
   if (node instanceof NodeReturnStatement) {
-    writer.line(`return ${lowerExpression(node.expression, context)};`);
+    assert(context.currentFnReturnType, `${node.location()}: return outside of a function`);
+    writer.line(`return ${lowerValue(node.expression, context.currentFnReturnType, context)};`);
     return;
   }
 
@@ -353,7 +369,7 @@ function lowerIf(node: NodeIfStatement, context: LowerContext, isElseIf = false)
 
 function variableDeclarationText(node: NodeVariableDeclaration, context: LowerContext) {
   const { identifier } = node.bindingName;
-  const value = lowerExpression(node.initializer, context);
+  const value = lowerValue(node.initializer, sscTypeName(context, identifier.getType()), context);
   const name = declareName(context, identifier);
   const constness = node.keyword === 'const' ? 'const ' : '';
 
@@ -392,12 +408,15 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
     return call(`ssc__fn__truthy_${name}`, [text]);
   }
 
-  return binary(text, '!=', '0');
+  return binary(text, '!=', cNumericLiteral(new BigNumber(0), numberTypeOf(node, context)));
 }
 
 function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerContext): string {
-  if (node instanceof NodeNumericLiteral) {
-    return node.value;
+  // a literal without a place to take its type from is f64
+  const literal = numericLiteralOf(node);
+
+  if (literal) {
+    return cNumericLiteral(literal, 'f64');
   }
 
   if (node instanceof NodeBooleanLiteral) {
@@ -409,14 +428,36 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodePrefixUnaryExpression) {
-    return node.operator === ast.SyntaxKind.ExclamationToken ?
-        unary('!', lowerCondition(node.operand, context))
-      : unary(prefixOperatorText(node.operator), lowerExpression(node.operand, context));
+    if (node.operator === ast.SyntaxKind.ExclamationToken) {
+      return unary('!', lowerCondition(node.operand, context));
+    }
+
+    // `+x` is f64
+    if (node.operator === ast.SyntaxKind.PlusToken) {
+      return lowerNumber(node.operand, 'f64', context);
+    }
+
+    if (
+      node.operator === ast.SyntaxKind.PlusPlusToken
+      || node.operator === ast.SyntaxKind.MinusMinusToken
+    ) {
+      return lowerUpdate(node, context);
+    }
+
+    const type = numberTypeOf(node, context);
+    const operand = lowerNumber(node.operand, type, context);
+
+    if (node.operator === ast.SyntaxKind.MinusToken) {
+      return includes(sscFloatTypes, type) ?
+          unary('-', operand)
+        : call(`ssc__fn__sub_${type}`, [cNumericLiteral(new BigNumber(0), type), operand]);
+    }
+
+    return call(`ssc__fn__bitwise_not_${type}`, [operand]);
   }
 
   if (node instanceof NodePostfixUnaryExpression) {
-    const operator = node.operator === ast.SyntaxKind.PlusPlusToken ? '++' : '--';
-    return `${findName(context, node.operand)}${operator}`;
+    return lowerUpdate(node, context);
   }
 
   if (node instanceof NodeParenthesizedExpression) {
@@ -424,17 +465,27 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodeBinaryExpression) {
-    if (ast.isLogicalOperator(node.binaryOperatorToken.kind)) {
-      throw new Error(
-        `${node.location()}: '${operatorText(node.binaryOperatorToken.kind)}': not implemented logical operator`,
+    const { kind } = node.binaryOperatorToken;
+
+    if (ast.isLogicalOperator(kind)) {
+      const isBoolean = [node, node.left, node.right].every(
+        (n) => sscTypeName(context, n.getType()) === 'boolean',
+      );
+
+      if (!isBoolean) {
+        throw new Error(
+          `${node.location()}: '${operatorText(kind)}': not implemented logical operator on non-boolean`,
+        );
+      }
+
+      return binary(
+        lowerExpression(node.left, context),
+        operatorText(kind),
+        lowerExpression(node.right, context),
       );
     }
 
-    return binary(
-      lowerExpression(node.left, context),
-      operatorText(node.binaryOperatorToken.kind),
-      lowerExpression(node.right, context),
-    );
+    return lowerBinary(node, context);
   }
 
   if (node instanceof NodeCallExpression) {
@@ -442,15 +493,271 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
     assert(callee instanceof NodeIdentifier, `${node.location()}: only direct call is supported`);
 
+    const preludeFunction = preludeFunctionOf(context, callee);
+
+    if (preludeFunction) {
+      const [left, right] = node.arguments;
+
+      assert(left && right, `${node.location()}: '${callee.text}' takes two arguments`);
+
+      const type = commonType([operandOf(left, context), operandOf(right, context)]);
+      const resultType = sscTypeName(context, node.getType());
+
+      if (type !== resultType) {
+        throw new Error(`${node.location()}: common type ${type} does not match ${resultType}`);
+      }
+
+      return call(`ssc__fn__${preludeFunction}_${type}`, [
+        lowerNumber(left, type, context),
+        lowerNumber(right, type, context),
+      ]);
+    }
+
     const name = declareCallee(context, callee);
+    const declaration = callee.getValueDeclaration();
+
+    assert(ast.isFunctionDeclaration(declaration), `not function declaration: ${callee.text}`);
+
+    const { parameters } = new NodeFunctionDeclaration(callee.app, declaration);
 
     return call(
       name,
-      node.arguments.map((argument) => lowerExpression(argument, context)),
+      node.arguments.map((argument, index) => {
+        const parameter = parameters[index];
+
+        assert(parameter, `${argument.location()}: no parameter for the argument`);
+
+        return lowerValue(
+          argument,
+          sscTypeName(context, parameter.bindingName.identifier.getType()),
+          context,
+        );
+      }),
     );
   }
 
   throw new Error(`not implemented expression: ${node.getText()}`);
+}
+
+/** prelude `.d.ts`의 함수 → 타입별 C 함수(`ssc__fn__add_wrap_i32` 등)의 이름 */
+const preludeFunctions: Partial<Record<string, string>> = {
+  addWrap: 'add_wrap',
+  subWrap: 'sub_wrap',
+  mulWrap: 'mul_wrap',
+};
+
+/** prelude에 선언된 함수면 C 이름. 정수 타입마다 따로 있어 호출 자리에서 타입을 붙인다. */
+function preludeFunctionOf(context: LowerContext, callee: NodeIdentifier) {
+  const declarationFile = callee.getValueDeclaration().getSourceFile();
+  const realPath = context.sourceFile.app.parser.tsPathToRealPath(declarationFile.fileName);
+
+  if (realPath !== context.prelude.realPath) {
+    return undefined;
+  }
+
+  const name = preludeFunctions[callee.text];
+
+  if (!name) {
+    throw new Error(`${callee.location()}: not implemented prelude function: ${callee.text}`);
+  }
+
+  return name;
+}
+
+/** 정수 연산은 넘침을 검사하는 prelude 함수(`ssc__fn__add_i32` 등)로 내린다. */
+const arithmeticOperators: Partial<Record<ast.SyntaxKind, string>> = {
+  [ast.SyntaxKind.PlusToken]: 'add',
+  [ast.SyntaxKind.MinusToken]: 'sub',
+  [ast.SyntaxKind.AsteriskToken]: 'mul',
+  [ast.SyntaxKind.SlashToken]: 'div',
+  [ast.SyntaxKind.PercentToken]: 'rem',
+  [ast.SyntaxKind.AmpersandToken]: 'bitwise_and',
+  [ast.SyntaxKind.BarToken]: 'bitwise_or',
+  [ast.SyntaxKind.CaretToken]: 'bitwise_xor',
+};
+
+const comparisonOperators = [
+  ast.SyntaxKind.LessThanToken,
+  ast.SyntaxKind.LessThanEqualsToken,
+  ast.SyntaxKind.GreaterThanToken,
+  ast.SyntaxKind.GreaterThanEqualsToken,
+  ast.SyntaxKind.EqualsEqualsEqualsToken,
+  ast.SyntaxKind.ExclamationEqualsEqualsToken,
+];
+
+/** 복합 대입 → 그 산술 연산 */
+const compoundAssignmentOperators: Partial<Record<ast.SyntaxKind, ast.BinaryOperator>> = {
+  [ast.SyntaxKind.PlusEqualsToken]: ast.SyntaxKind.PlusToken,
+  [ast.SyntaxKind.MinusEqualsToken]: ast.SyntaxKind.MinusToken,
+  [ast.SyntaxKind.AsteriskEqualsToken]: ast.SyntaxKind.AsteriskToken,
+  [ast.SyntaxKind.SlashEqualsToken]: ast.SyntaxKind.SlashToken,
+  [ast.SyntaxKind.PercentEqualsToken]: ast.SyntaxKind.PercentToken,
+  [ast.SyntaxKind.AmpersandEqualsToken]: ast.SyntaxKind.AmpersandToken,
+  [ast.SyntaxKind.BarEqualsToken]: ast.SyntaxKind.BarToken,
+  [ast.SyntaxKind.CaretEqualsToken]: ast.SyntaxKind.CaretToken,
+};
+
+/**
+ * 산술과 비교는 두 피연산자를 공통 타입으로 맞춰 C의 정수 승격과 부호 변환 규칙을 피한다.
+ * 대입은 왼쪽 타입으로 맞춘다. 공통 타입은 checker와 같은 규칙으로 다시 계산한다.
+ */
+function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
+  const { kind } = node.binaryOperatorToken;
+  const operator = operatorText(kind);
+
+  if (kind in arithmeticOperators) {
+    const common = commonType([operandOf(node.left, context), operandOf(node.right, context)]);
+    const resultType = sscTypeName(context, node.getType());
+
+    if (common !== resultType) {
+      throw new Error(`${node.location()}: common type ${common} does not match ${resultType}`);
+    }
+
+    return arithmetic(
+      kind,
+      common,
+      lowerNumber(node.left, common, context),
+      lowerNumber(node.right, common, context),
+    );
+  }
+
+  if (comparisonOperators.includes(kind) && isNumber(node.left, context)) {
+    const common = commonType([operandOf(node.left, context), operandOf(node.right, context)]);
+
+    return binary(
+      lowerNumber(node.left, common, context),
+      operator,
+      lowerNumber(node.right, common, context),
+    );
+  }
+
+  if (kind === ast.SyntaxKind.EqualsToken) {
+    const target = sscTypeName(context, node.left.getType());
+
+    return binary(
+      lowerExpression(node.left, context),
+      operator,
+      lowerValue(node.right, target, context),
+    );
+  }
+
+  const compoundOperator = compoundAssignmentOperators[kind];
+
+  if (compoundOperator) {
+    const target = numberTypeOf(node.left, context);
+    const common = commonType([{ type: target }, operandOf(node.right, context)]);
+
+    if (common !== target) {
+      throw new Error(`${node.location()}: '${operator}' widens ${target} to ${common}`);
+    }
+
+    // 왼쪽을 두 번 쓰므로 부수 효과가 없는 식별자만 받는다.
+    assert(
+      node.left instanceof NodeIdentifier,
+      `${node.location()}: only identifier is assignable`,
+    );
+
+    const left = lowerExpression(node.left, context);
+
+    return binary(
+      left,
+      '=',
+      arithmetic(compoundOperator, target, left, lowerNumber(node.right, target, context)),
+    );
+  }
+
+  return binary(
+    lowerExpression(node.left, context),
+    operator,
+    lowerExpression(node.right, context),
+  );
+}
+
+/** 실수는 IEEE 754를 따르는 C 연산자를 그대로 쓴다. */
+function arithmetic(kind: ast.BinaryOperator, type: SscNumberType, left: string, right: string) {
+  const name = arithmeticOperators[kind];
+
+  assert(name, `not arithmetic operator: ${ast.SyntaxKind[kind]}`);
+
+  if (includes(sscFloatTypes, type)) {
+    return binary(left, operatorText(kind), right);
+  }
+
+  return call(`ssc__fn__${name}_${type}`, [left, right]);
+}
+
+/** 값을 `target` 자리에 맞춰 내린다. 숫자가 아닌 자리는 그대로 내린다. */
+function lowerValue(node: AbstractNode<ast.Expression>, target: string, context: LowerContext) {
+  return includes(sscNumberTypes, target) ?
+      lowerNumber(node, target, context)
+    : lowerExpression(node, context);
+}
+
+/** 리터럴은 `target`의 C 리터럴로, 나머지는 타입이 다르면 손실 없는 경우만 캐스트한다. */
+function lowerNumber(
+  node: AbstractNode<ast.Expression>,
+  target: SscNumberType,
+  context: LowerContext,
+) {
+  const literal = numericLiteralOf(node);
+
+  if (literal) {
+    return cNumericLiteral(literal, target);
+  }
+
+  const text = lowerExpression(node, context);
+  const source = numberTypeOf(node, context);
+
+  if (source === target) {
+    return text;
+  }
+
+  if (!isLossless(source, target)) {
+    throw new Error(`${node.location()}: ${source} can not be converted to ${target} without loss`);
+  }
+
+  return cast(toCTypeName(target), text);
+}
+
+function operandOf(node: AbstractNode<ast.Expression>, context: LowerContext): CommonTypeOperand {
+  const literal = numericLiteralOf(node);
+
+  return literal ? { literal } : { type: numberTypeOf(node, context) };
+}
+
+function isNumber(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  return !!numericLiteralOf(node) || includes(sscNumberTypes, sscTypeName(context, node.getType()));
+}
+
+function numberTypeOf(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  const name = sscTypeName(context, node.getType());
+
+  if (!includes(sscNumberTypes, name)) {
+    throw new Error(`${node.location()}: not a number: ${name}`);
+  }
+
+  return name;
+}
+
+/** 숫자 리터럴과 부호를 붙인 숫자 리터럴. 괄호는 벗겨서 본다. */
+function numericLiteralOf(node: AbstractNode<ast.Expression>): BigNumber | undefined {
+  if (node instanceof NodeParenthesizedExpression) {
+    return numericLiteralOf(node.expression);
+  }
+
+  if (node instanceof NodeNumericLiteral) {
+    return parseNumericLiteral(node.getText(), false);
+  }
+
+  if (
+    node instanceof NodePrefixUnaryExpression
+    && node.operand instanceof NodeNumericLiteral
+    && (node.operator === ast.SyntaxKind.MinusToken || node.operator === ast.SyntaxKind.PlusToken)
+  ) {
+    return parseNumericLiteral(node.operand.getText(), node.operator === ast.SyntaxKind.MinusToken);
+  }
+
+  return undefined;
 }
 
 /**
@@ -544,14 +851,27 @@ function declareImportedGlobal(context: LowerContext, identifier: NodeIdentifier
 }
 
 /** `++`, `--`는 대입 대상 검사가 없어 뺀다. */
-function prefixOperatorText(operator: ast.PrefixUnaryOperator) {
-  const allowOperators = ['-', '+', '!', '~'];
-  const text = ast.tokenToString(operator);
+function lowerUpdate(
+  node: NodePrefixUnaryExpression | NodePostfixUnaryExpression,
+  context: LowerContext,
+) {
+  const { operand } = node;
 
-  assert(text, `operator not found: ${operator}`);
-  assert(allowOperators.includes(text), `not implemented operator: ${text}`);
+  assert(operand instanceof NodeIdentifier, `${node.location()}: only identifier is assignable`);
 
-  return text;
+  const type = numberTypeOf(operand, context);
+  const name = findName(context, operand);
+  const isIncrement = node.operator === ast.SyntaxKind.PlusPlusToken;
+  const isPrefix = node instanceof NodePrefixUnaryExpression;
+
+  if (includes(sscFloatTypes, type)) {
+    const operator = isIncrement ? '++' : '--';
+    return isPrefix ? unary(operator, name) : `(${name}${operator})`;
+  }
+
+  const fn = `${isIncrement ? 'increment' : 'decrement'}_${isPrefix ? 'prefix' : 'postfix'}`;
+
+  return call(`ssc__fn__${fn}_${type}`, [unary('&', name)]);
 }
 
 function operatorText(kind: ast.BinaryOperator) {
@@ -570,6 +890,9 @@ const operatorMap = {
   [ast.SyntaxKind.AsteriskToken]: '*',
   [ast.SyntaxKind.SlashToken]: '/',
   [ast.SyntaxKind.PercentToken]: '%',
+  [ast.SyntaxKind.AmpersandToken]: '&',
+  [ast.SyntaxKind.BarToken]: '|',
+  [ast.SyntaxKind.CaretToken]: '^',
   [ast.SyntaxKind.LessThanToken]: '<',
   [ast.SyntaxKind.LessThanEqualsToken]: '<=',
   [ast.SyntaxKind.GreaterThanToken]: '>',
@@ -580,6 +903,11 @@ const operatorMap = {
   [ast.SyntaxKind.PlusEqualsToken]: '+=',
   [ast.SyntaxKind.MinusEqualsToken]: '-=',
   [ast.SyntaxKind.AsteriskEqualsToken]: '*=',
+  [ast.SyntaxKind.SlashEqualsToken]: '/=',
+  [ast.SyntaxKind.PercentEqualsToken]: '%=',
+  [ast.SyntaxKind.AmpersandEqualsToken]: '&=',
+  [ast.SyntaxKind.BarEqualsToken]: '|=',
+  [ast.SyntaxKind.CaretEqualsToken]: '^=',
 } as const;
 
 function toCType(context: LowerContext, type: ts.Type) {
