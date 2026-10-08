@@ -67,3 +67,20 @@ export function f(a: i8): i8 {
 
   await expect(compile(source, files)).rejects.toThrow("'i8' is not the prelude type");
 });
+
+test('moduleDetection이 force가 아닌 tsconfig', async () => {
+  const preludePath = path.join(import.meta.dirname, '../../../prelude/prelude.d.ts');
+  const tsconfig = (options: object) =>
+    JSON.stringify({ compilerOptions: { types: [preludePath], ...options } });
+  const source = 'export const a: i32 = 1;\n';
+
+  await expect(
+    compile(source, { 'tsconfig.json': tsconfig({ moduleDetection: 'auto' }) }),
+  ).rejects.toThrow(`'moduleDetection' must be "force"`);
+  await expect(compile(source, { 'tsconfig.json': tsconfig({}) })).rejects.toThrow(
+    `'moduleDetection' must be "force"`,
+  );
+  await expect(
+    compile(source, { 'tsconfig.json': tsconfig({ moduleDetection: 'force' }) }),
+  ).resolves.toBeDefined();
+});

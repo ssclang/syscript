@@ -121,6 +121,12 @@ export class TsParser {
     const targetFilePaths: AbsolutePath[] = [entryPath];
 
     if (configFilePath) {
+      if (config.config.options.moduleDetection !== ModuleDetectionKind.Force) {
+        throw CliExitError.userError(
+          `'moduleDetection' must be "force", add '"moduleDetection": "force"' to ${configFilePath}`,
+        );
+      }
+
       logSuccess(`config: ${configFilePath}`);
     } else {
       logWarn(
