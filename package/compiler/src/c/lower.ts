@@ -18,8 +18,9 @@ import { cName, toCTypeName } from '~/c/c.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 import {
   cNumericLiteral,
-  CommonTypeOperand,
   commonType,
+  CommonTypeOperand,
+  isLiteralInRange,
   isLossless,
   parseNumericLiteral,
 } from '~/ts/common-type.js';
@@ -40,11 +41,14 @@ import {
   NodeIdentifier,
   NodeIfStatement,
   NodeImportDeclaration,
+  NodeNullLiteral,
   NodeNumericLiteral,
   NodeParenthesizedExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
   NodeReturnStatement,
+  NodeStringLiteral,
+  NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
   NodeWhileStatement,
@@ -59,19 +63,22 @@ type LowerOption = {
   prelude: AppSourceFile;
 };
 
+/** C 변수. `type`은 C에 선언한 저장 타입이라 TS가 흐름으로 좁힌 타입과 다를 수 있다. */
+type Variable = { value: string; type: string };
+
 /** 번역 단위(소스 파일 하나)의 상태. 최상단 실행문은 초기화 함수 본문인 `initWriter`에 쓴다. */
 class LowerContext {
   readonly sourceFile: AppSourceFile;
   readonly module: CModule;
-  /** 심볼 id → 지역 변수의 C 식별자 */
-  readonly names = new Map<number, string>();
+  /** 심볼 id → 지역 변수의 C 식별자와 저장 타입 */
+  readonly names = new Map<number, Variable>();
   /** 이 TU가 include하는 `.d.ts` */
   readonly declarationFiles = new Set<AppSourceFile>();
   readonly initWriter = new CWriter();
   writer = this.initWriter;
   readonly moduleId: (path: RealPath) => string;
   /** 심볼 id → 최상위 변수. `tag`는 선언 전에 접근될 수 있는 변수에만 있다. */
-  readonly globals = new Map<number, { value: string; tag: string | undefined }>();
+  readonly globals = new Map<number, Variable & { tag: string | undefined }>();
   readonly prelude: AppSourceFile;
   localCount = 0;
   /** 내리고 있는 함수의 반환 타입. 최상위 코드에서는 없다. */
@@ -156,10 +163,9 @@ function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
   context.writer = writer;
 
   const params = node.parameters.map((parameter) => {
-    const { identifier } = parameter.bindingName;
-    const name = declareName(context, identifier);
+    const { value, type } = declareName(context, parameter.bindingName.identifier);
 
-    return `${toCType(context, identifier.getType())} ${name}`;
+    return `${toCTypeName(type)} ${value}`;
   });
 
   assert(node.block);
@@ -227,14 +233,15 @@ function declareGlobals(context: LowerContext) {
       const value = cModuleVariableName(moduleId, cName(identifier));
       const linkage = declaration.isExported ? '' : 'static ';
       const tag = tdzVariables.has(id) ? cModuleTagName(moduleId, cName(identifier)) : undefined;
+      const type = sscTypeName(context, identifier.getType());
 
-      context.module.declare(value, `${linkage}${toCType(context, identifier.getType())} ${value}`);
+      context.module.declare(value, `${linkage}${toCTypeName(type)} ${value}`);
 
       if (tag) {
         context.module.declare(tag, `static ssc__type__u8 ${tag}`);
       }
 
-      context.globals.set(id, { value, tag });
+      context.globals.set(id, { value, type, tag });
     }
   }
 }
@@ -245,7 +252,7 @@ function lowerGlobalInit(node: NodeVariableDeclaration, context: LowerContext) {
 
   assert(global, `global not declared: ${identifier.text}`);
 
-  const value = lowerValue(node.initializer, sscTypeName(context, identifier.getType()), context);
+  const value = lowerValue(node.initializer, global.type, context);
 
   context.writer.line(`${global.value} = ${value};`);
 
@@ -370,10 +377,10 @@ function lowerIf(node: NodeIfStatement, context: LowerContext, isElseIf = false)
 function variableDeclarationText(node: NodeVariableDeclaration, context: LowerContext) {
   const { identifier } = node.bindingName;
   const value = lowerValue(node.initializer, sscTypeName(context, identifier.getType()), context);
-  const name = declareName(context, identifier);
+  const variable = declareName(context, identifier);
   const constness = node.keyword === 'const' ? 'const ' : '';
 
-  return `${constness}${toCType(context, identifier.getType())} ${name} = ${value}`;
+  return `${constness}${toCTypeName(variable.type)} ${variable.value} = ${value}`;
 }
 
 /**
@@ -408,6 +415,10 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
     return call(`ssc__fn__truthy_${name}`, [text]);
   }
 
+  if (unionMembersOf(name)) {
+    throw new Error(`${node.location()}: not implemented truthiness of union: ${name}`);
+  }
+
   return binary(text, '!=', cNumericLiteral(new BigNumber(0), numberTypeOf(node, context)));
 }
 
@@ -423,8 +434,12 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return String(node.value);
   }
 
+  if (node instanceof NodeNullLiteral) {
+    return '(ssc__type__null){}';
+  }
+
   if (node instanceof NodeIdentifier) {
-    return findName(context, node);
+    return lowerIdentifier(node, context);
   }
 
   if (node instanceof NodePrefixUnaryExpression) {
@@ -621,6 +636,17 @@ function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
     );
   }
 
+  if (
+    kind === ast.SyntaxKind.EqualsEqualsEqualsToken
+    || kind === ast.SyntaxKind.ExclamationEqualsEqualsToken
+  ) {
+    const check = lowerTypeCheck(node, context);
+
+    if (check) {
+      return kind === ast.SyntaxKind.EqualsEqualsEqualsToken ? check : unary('!', check);
+    }
+  }
+
   if (comparisonOperators.includes(kind) && isNumber(node.left, context)) {
     const common = commonType([operandOf(node.left, context), operandOf(node.right, context)]);
 
@@ -632,13 +658,14 @@ function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
   }
 
   if (kind === ast.SyntaxKind.EqualsToken) {
-    const target = sscTypeName(context, node.left.getType());
-
-    return binary(
-      lowerExpression(node.left, context),
-      operator,
-      lowerValue(node.right, target, context),
+    assert(
+      node.left instanceof NodeIdentifier,
+      `${node.location()}: only identifier is assignable`,
     );
+
+    const variable = findName(context, node.left);
+
+    return binary(variable.value, operator, lowerValue(node.right, variable.type, context));
   }
 
   const compoundOperator = compoundAssignmentOperators[kind];
@@ -657,7 +684,11 @@ function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
       `${node.location()}: only identifier is assignable`,
     );
 
-    const left = lowerExpression(node.left, context);
+    const { value: left, type: storage } = findName(context, node.left);
+
+    if (storage !== target) {
+      throw new Error(`${node.location()}: '${operator}' on ${storage} is not implemented`);
+    }
 
     return binary(
       left,
@@ -686,11 +717,61 @@ function arithmetic(kind: ast.BinaryOperator, type: SscNumberType, left: string,
   return call(`ssc__fn__${name}_${type}`, [left, right]);
 }
 
-/** 값을 `target` 자리에 맞춰 내린다. 숫자가 아닌 자리는 그대로 내린다. */
+/** 값을 `target` 자리에 맞춰 내린다. 숫자와 유니온이 아닌 자리는 그대로 내린다. */
 function lowerValue(node: AbstractNode<ast.Expression>, target: string, context: LowerContext) {
+  const members = unionMembersOf(target);
+
+  if (members) {
+    return lowerUnion(node, members, context);
+  }
+
   return includes(sscNumberTypes, target) ?
       lowerNumber(node, target, context)
     : lowerExpression(node, context);
+}
+
+/**
+ * 값을 유니온 자리에 담는다. 유니온은 그대로 두고, 멤버가 아닌 숫자는 손실 없이 담기는 첫
+ * 멤버로 바꿔 담는다. 리터럴은 범위에 맞는 첫 멤버다.
+ */
+function lowerUnion(
+  node: AbstractNode<ast.Expression>,
+  members: readonly string[],
+  context: LowerContext,
+) {
+  const source = sscTypeName(context, node.getType());
+  const sourceMembers = unionMembersOf(source);
+  const literal = numericLiteralOf(node);
+  const target = `union:${members.join('|')}`;
+
+  if (sourceMembers) {
+    const missing = sourceMembers.find((m) => !members.includes(m));
+
+    if (missing) {
+      throw new Error(
+        `${node.location()}: not implemented union conversion: ${source} to ${target}`,
+      );
+    }
+
+    return lowerExpression(node, context);
+  }
+
+  if (!includes(sscNumberTypes, source) && members.includes(source)) {
+    return call(`ssc__fn__union_from_${source}`, [lowerExpression(node, context)]);
+  }
+
+  const numbers = members.filter((m) => includes(sscNumberTypes, m));
+  const member =
+    literal ? numbers.find((m) => isLiteralInRange(literal, m))
+    : includes(sscNumberTypes, source) ?
+      numbers.find((m) => m === source) || numbers.find((m) => isLossless(source, m))
+    : undefined;
+
+  if (!member) {
+    throw new Error(`${node.location()}: ${source} can not be put in ${target}`);
+  }
+
+  return call(`ssc__fn__union_from_${member}`, [lowerNumber(node, member, context)]);
 }
 
 /** 리터럴은 `target`의 C 리터럴로, 나머지는 타입이 다르면 손실 없는 경우만 캐스트한다. */
@@ -706,6 +787,20 @@ function lowerNumber(
   }
 
   const text = lowerExpression(node, context);
+  const members = unionMembersOf(sscTypeName(context, node.getType()));
+
+  if (members) {
+    const lossy = members.find((m) => !includes(sscNumberTypes, m) || !isLossless(m, target));
+
+    if (lossy) {
+      throw new Error(
+        `${node.location()}: ${lossy} in the union can not be converted to ${target}`,
+      );
+    }
+
+    return call(`ssc__fn__union_number_to_${target}`, [text]);
+  }
+
   const source = numberTypeOf(node, context);
 
   if (source === target) {
@@ -719,14 +814,31 @@ function lowerNumber(
   return cast(toCTypeName(target), text);
 }
 
+/** 숫자 유니온은 멤버들의 공통 타입인 피연산자다. */
 function operandOf(node: AbstractNode<ast.Expression>, context: LowerContext): CommonTypeOperand {
   const literal = numericLiteralOf(node);
+  const members = unionMembersOf(sscTypeName(context, node.getType()));
 
-  return literal ? { literal } : { type: numberTypeOf(node, context) };
+  if (literal) {
+    return { literal };
+  }
+
+  if (members?.every((m) => includes(sscNumberTypes, m))) {
+    return { type: commonType(members.map((type) => ({ type }))) };
+  }
+
+  return { type: numberTypeOf(node, context) };
 }
 
 function isNumber(node: AbstractNode<ast.Expression>, context: LowerContext) {
-  return !!numericLiteralOf(node) || includes(sscNumberTypes, sscTypeName(context, node.getType()));
+  const name = sscTypeName(context, node.getType());
+  const members = unionMembersOf(name);
+
+  return (
+    !!numericLiteralOf(node)
+    || includes(sscNumberTypes, name)
+    || !!members?.every((m) => includes(sscNumberTypes, m))
+  );
 }
 
 function numberTypeOf(node: AbstractNode<ast.Expression>, context: LowerContext) {
@@ -792,32 +904,119 @@ function declareCallee(context: LowerContext, callee: NodeIdentifier) {
 
 function declareName(context: LowerContext, identifier: NodeIdentifier) {
   const moduleId = context.moduleId(context.sourceFile.realPath);
-  const text = cModuleLocalVariableName(moduleId, ++context.localCount, cName(identifier));
+  const variable = {
+    value: cModuleLocalVariableName(moduleId, ++context.localCount, cName(identifier)),
+    type: sscTypeName(context, identifier.getType()),
+  };
 
-  context.names.set(identifier.getSymbol().id, text);
+  context.names.set(identifier.getSymbol().id, variable);
 
-  return text;
+  return variable;
+}
+
+/**
+ * 식별자를 값으로 읽는다. 유니온에 담긴 변수를 TS가 멤버 하나로 좁혔으면 그 멤버인지 확인하며
+ * 꺼낸다. 좁혔는지는 TS가 본 타입이 아니라 C에 선언한 저장 타입과 비교해 정한다.
+ */
+function lowerIdentifier(node: NodeIdentifier, context: LowerContext) {
+  const type = sscTypeName(context, node.getType());
+
+  if (type === 'undefined' && !node.getSymbol().valueDeclaration) {
+    return '(ssc__type__undefined){}';
+  }
+
+  const variable = findName(context, node);
+  const members = unionMembersOf(variable.type);
+
+  if (!members || unionMembersOf(type)) {
+    return variable.value;
+  }
+
+  if (!members.includes(type)) {
+    throw new Error(`${node.location()}: ${type} is not a member of ${variable.type}`);
+  }
+
+  return call(`ssc__fn__union_get_${type}`, [variable.value]);
+}
+
+/**
+ * 유니온 값의 타입을 묻는 비교. `x === undefined`와 `typeof x === '...'`는 유니온의 타입 id로
+ * 판정한다. 유니온이 아니면 타입이 정해져 있어 결과가 상수다.
+ */
+function lowerTypeCheck(node: NodeBinaryExpression, context: LowerContext) {
+  const { left, right } = node;
+  const typeOf =
+    left instanceof NodeTypeOfExpression && right instanceof NodeStringLiteral ? { left, right }
+    : right instanceof NodeTypeOfExpression && left instanceof NodeStringLiteral ?
+      { left: right, right: left }
+    : undefined;
+
+  if (typeOf) {
+    const { expression } = typeOf.left;
+    const name = typeOf.right.value;
+    const type = sscTypeName(context, expression.getType());
+
+    // JS의 `typeof null`은 'object'다. 객체가 아직 없어 'object'는 null뿐이다.
+    if (!unionMembersOf(type)) {
+      const jsType =
+        includes(sscNumberTypes, type) ? 'number'
+        : type === 'null' ? 'object'
+        : type;
+      return String(jsType === name);
+    }
+
+    const member =
+      name === 'object' ? 'null'
+      : name === 'undefined' || name === 'boolean' || name === 'number' ? name
+      : undefined;
+
+    return member ?
+        call(`ssc__fn__union_is_${member}`, [lowerExpression(expression, context)])
+      : 'false';
+  }
+
+  const leftType = sscTypeName(context, left.getType());
+  const rightType = sscTypeName(context, right.getType());
+  const nullish =
+    leftType === 'undefined' || leftType === 'null' ? leftType
+    : rightType === 'undefined' || rightType === 'null' ? rightType
+    : undefined;
+
+  if (!nullish) {
+    return undefined;
+  }
+
+  const [value, type] = nullish === leftType ? [right, rightType] : [left, leftType];
+
+  if (!unionMembersOf(type)) {
+    return String(type === nullish);
+  }
+
+  return call(`ssc__fn__union_is_${nullish}`, [lowerExpression(value, context)]);
 }
 
 /**
  * 식별자의 C lvalue. 지역 변수가 아니면 최상위 변수다. 선언 전에 접근될 수 있는 변수는 함수
  * 안에서만 검사한다. 최상위 코드는 선언 전에 쓰면 TS가 막는다(TS2448).
  */
-function findName(context: LowerContext, identifier: NodeIdentifier) {
+function findName(context: LowerContext, identifier: NodeIdentifier): Variable {
   const id = identifier.getSymbol().id;
-  const name = context.names.get(id);
+  const local = context.names.get(id);
 
-  if (name) {
-    return name;
+  if (local) {
+    return local;
   }
 
   const global = context.globals.get(id) || declareImportedGlobal(context, identifier, id);
 
   if (!global.tag || context.writer === context.initWriter) {
-    return global.value;
+    return global;
   }
 
-  return `(*(ssc__fn__validate_tdz(${global.tag} == ${CTag.Value}, "${identifier.text}"), &${global.value}))`;
+  return {
+    value: `(*(ssc__fn__validate_tdz(${global.tag} == ${CTag.Value}, "${identifier.text}"), &${global.value}))`,
+    type: global.type,
+  };
 }
 
 /**
@@ -839,12 +1038,13 @@ function declareImportedGlobal(context: LowerContext, identifier: NodeIdentifier
   const moduleId = context.moduleId(sourceFile.realPath);
   const { identifier: declarationIdentifier } = variable.bindingName;
   const value = cModuleVariableName(moduleId, cName(declarationIdentifier));
-  const global = { value, tag: undefined };
-
-  context.module.declare(
+  const global = {
     value,
-    `extern ${toCType(context, declarationIdentifier.getType())} ${value}`,
-  );
+    type: sscTypeName(context, declarationIdentifier.getType()),
+    tag: undefined,
+  };
+
+  context.module.declare(value, `extern ${toCTypeName(global.type)} ${value}`);
   context.globals.set(id, global);
 
   return global;
@@ -860,7 +1060,11 @@ function lowerUpdate(
   assert(operand instanceof NodeIdentifier, `${node.location()}: only identifier is assignable`);
 
   const type = numberTypeOf(operand, context);
-  const name = findName(context, operand);
+  const { value: name, type: storage } = findName(context, operand);
+
+  if (storage !== type) {
+    throw new Error(`${node.location()}: update on ${storage} is not implemented`);
+  }
   const isIncrement = node.operator === ast.SyntaxKind.PlusPlusToken;
   const isPrefix = node instanceof NodePrefixUnaryExpression;
 
@@ -910,6 +1114,14 @@ const operatorMap = {
   [ast.SyntaxKind.CaretEqualsToken]: '^=',
 } as const;
 
+/** 유니온 멤버로 쓸 수 있는 타입. 유니온 이름의 멤버 순서도 이 순서다. */
+const unionMemberTypes = ['undefined', 'null', 'boolean', ...sscNumberTypes] as const;
+
+/** `union:boolean|i32`의 멤버. 유니온이 아니면 없다. */
+function unionMembersOf(name: string) {
+  return name.startsWith('union:') ? name.slice('union:'.length).split('|') : undefined;
+}
+
 function toCType(context: LowerContext, type: ts.Type) {
   return toCTypeName(sscTypeName(context, type));
 }
@@ -918,13 +1130,21 @@ function toCType(context: LowerContext, type: ts.Type) {
  * lower가 타입을 구분할 때 쓰는 이름. `boolean`은 `true | false` 유니온이라 유니온보다 먼저
  * 본다. `number`와 숫자 리터럴은 `f64`다. 나머지는 prelude에 선언된 타입 별칭이어야 한다.
  */
-function sscTypeName(context: LowerContext, type: ts.Type) {
+function sscTypeName(context: LowerContext, type: ts.Type): string {
   if (isTypeFlagMatch(type, ts.TypeFlags.BooleanLike)) {
     return 'boolean';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Void)) {
     return 'void';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.Undefined)) {
+    return 'undefined';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.Null)) {
+    return 'null';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
@@ -934,7 +1154,18 @@ function sscTypeName(context: LowerContext, type: ts.Type) {
   const { checker } = context.sourceFile.app;
 
   if (type.isUnionType()) {
-    throw new Error(`not implemented union type: ${checker.typeToString(type)}`);
+    const members = new Set(type.getTypes().map((t) => sscTypeName(context, t)));
+    const unsupported = members.values().find((m) => !includes(unionMemberTypes, m));
+
+    if (unsupported) {
+      throw new Error(`not implemented union member ${unsupported}: ${checker.typeToString(type)}`);
+    }
+
+    const [first, ...rest] = unionMemberTypes.filter((m) => members.has(m));
+
+    assert(first, `empty union: ${checker.typeToString(type)}`);
+
+    return rest.length ? `union:${[first, ...rest].join('|')}` : first;
   }
 
   const symbol = type.getAliasSymbol();

@@ -98,6 +98,10 @@ export const cKeywords = [
  * 같은 이름 typedef나 매크로(`boolean`, `f64` 등)와 겹치지 않는다. `void`는 C 타입 그대로다.
  */
 export function toCTypeName(name: string) {
+  if (name.startsWith('union:')) {
+    return 'ssc__type__union';
+  }
+
   if (!includes(sscAllTypes, name)) {
     throw new Error(`not implemented type: ${name}`);
   }

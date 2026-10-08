@@ -171,20 +171,32 @@ export abstract class AbstractExpression<
       return new NodeCallExpression(app, tsNode);
     }
 
+    if (ast.isParenthesizedExpression(tsNode)) {
+      return new NodeParenthesizedExpression(app, tsNode);
+    }
+
+    if (ast.isTypeOfExpression(tsNode)) {
+      return new NodeTypeOfExpression(app, tsNode);
+    }
+
     if (ast.isIdentifier(tsNode)) {
       return new NodeIdentifier(app, tsNode);
+    }
+
+    if (ast.isNullLiteral(tsNode)) {
+      return new NodeNullLiteral(app, tsNode);
+    }
+
+    if (ast.isBooleanLiteral(tsNode)) {
+      return new NodeBooleanLiteral(app, tsNode);
     }
 
     if (ast.isNumericLiteral(tsNode)) {
       return new NodeNumericLiteral(app, tsNode);
     }
 
-    if (tsNode.kind === ast.SyntaxKind.TrueKeyword || tsNode.kind === ast.SyntaxKind.FalseKeyword) {
-      return new NodeBooleanLiteral(app, tsNode);
-    }
-
-    if (ast.isParenthesizedExpression(tsNode)) {
-      return new NodeParenthesizedExpression(app, tsNode);
+    if (ast.isStringLiteral(tsNode)) {
+      return new NodeStringLiteral(app, tsNode);
     }
 
     throw new Error(`not implemented expression: ${tsNode.getText()}`);
@@ -495,30 +507,12 @@ export class NodeCallExpression extends AbstractExpression<ast.CallExpression> {
   }
 }
 
-export class NodeNumericLiteral extends AbstractExpression<ast.NumericLiteral> {
-  readonly value: string;
+export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpression> {
+  readonly expression: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.NumericLiteral) {
+  constructor(app: App, tsNode: ast.TypeOfExpression) {
     super(app, tsNode);
-    this.value = new BigNumber(tsNode.getText()).toFixed();
-  }
-}
-
-export class NodeBooleanLiteral extends AbstractExpression {
-  readonly value: boolean;
-
-  constructor(app: App, tsNode: ast.Expression) {
-    super(app, tsNode);
-    this.value = tsNode.kind === ast.SyntaxKind.TrueKeyword;
-  }
-}
-
-export class NodeStringLiteral extends AbstractExpression<ast.StringLiteral> {
-  readonly value: string;
-
-  constructor(app: App, tsNode: ast.StringLiteral) {
-    super(app, tsNode);
-    this.value = tsNode.text;
+    this.expression = AbstractExpression.of(app, this.tsNode.expression);
   }
 }
 
@@ -528,6 +522,35 @@ export class NodeParenthesizedExpression extends AbstractExpression<ast.Parenthe
   constructor(app: App, tsNode: ast.ParenthesizedExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
+  }
+}
+
+export class NodeNullLiteral extends AbstractExpression<ast.NullLiteral> {}
+
+export class NodeBooleanLiteral extends AbstractExpression<ast.BooleanLiteral> {
+  readonly value: boolean;
+
+  constructor(app: App, tsNode: ast.BooleanLiteral) {
+    super(app, tsNode);
+    this.value = ast.isTrueLiteral(tsNode);
+  }
+}
+
+export class NodeNumericLiteral extends AbstractExpression<ast.NumericLiteral> {
+  readonly value: string;
+
+  constructor(app: App, tsNode: ast.NumericLiteral) {
+    super(app, tsNode);
+    this.value = new BigNumber(tsNode.getText()).toFixed();
+  }
+}
+
+export class NodeStringLiteral extends AbstractExpression<ast.StringLiteral> {
+  readonly value: string;
+
+  constructor(app: App, tsNode: ast.StringLiteral) {
+    super(app, tsNode);
+    this.value = tsNode.text;
   }
 }
 
