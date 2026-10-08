@@ -7,7 +7,7 @@ export type SscFloatType = (typeof sscFloatTypes)[number];
 export const sscFloatTypes = ['f32', 'f64'] as const;
 
 export type SscOtherType = (typeof sscOtherTypes)[number];
-export const sscOtherTypes = ['boolean', 'void'] as const;
+export const sscOtherTypes = ['undefined', 'null', 'boolean', 'void'] as const;
 
 export type SscNumberType = (typeof sscNumberTypes)[number];
 export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes] as const;
@@ -43,6 +43,8 @@ const widenings = {
   f32: ['f64'],
   f64: [],
   boolean: ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64'], // 0 or 1
+  undefined: [],
+  null: [],
   void: [],
 } as const satisfies Record<SscAllType, readonly SscAllType[]>;
 

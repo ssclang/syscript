@@ -14,3 +14,15 @@
   fprintf(stderr, "RangeError: %s\n", message);
   exit(1);
 }
+
+[[noreturn]] void ssc__fn__throw_union_error(const char *expected, ssc__type__u64 type_id) {
+  const char *name = type_id < _Countof(ssc__type_names) ? ssc__type_names[type_id] : nullptr; // TODO: string
+
+  if (name) {
+    fprintf(stderr, "TypeError: Type '%s' is not assignable to type '%s'\n", name, expected);
+  } else {
+    fprintf(stderr, "TypeError: Type '#%llu' is not assignable to type '%s'\n", (unsigned long long)type_id, expected);
+  }
+
+  exit(1);
+}

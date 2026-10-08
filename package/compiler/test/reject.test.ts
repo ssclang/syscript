@@ -84,3 +84,41 @@ test('moduleDetection이 force가 아닌 tsconfig', async () => {
     compile(source, { 'tsconfig.json': tsconfig({ moduleDetection: 'force' }) }),
   ).resolves.toBeDefined();
 });
+
+test('유니온의 참거짓 판정', async () => {
+  const source = `
+export function f(x: i32 | undefined): i32 {
+  if (x) {
+    return 1;
+  }
+  return 0;
+}
+`;
+
+  await expect(compile(source)).rejects.toThrow('not implemented truthiness of union');
+});
+
+test('유니온 변수의 증감', async () => {
+  const source = `
+export function f(): i32 {
+  let x: i32 | undefined = 1;
+  if (x !== undefined) {
+    x++;
+    return x;
+  }
+  return 0;
+}
+`;
+
+  await expect(compile(source)).rejects.toThrow('is not implemented');
+});
+
+test('멤버 표현이 다른 유니온으로 옮기기', async () => {
+  const source = `
+export function f(x: u8 | undefined): i32 | undefined {
+  return x;
+}
+`;
+
+  await expect(compile(source)).rejects.toThrow('not implemented union conversion');
+});
