@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, test } from 'vitest';
 import { SscManager } from '~/ssc/manager/ssc.js';
+import { runC } from './helper/run-c.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
 
@@ -206,43 +207,8 @@ exit(1);
   expect(status).toBe(0);
 });
 
+/* TS가 막아 소스로는 만들 수 없어 prelude 함수를 C에서 직접 부른다. */
 describe('reading a union as a type it does not hold stops', () => {
-  const preludeDir = path.join(import.meta.dirname, '../../../prelude');
-
-  /* TS가 막아 소스로는 만들 수 없어 prelude 함수를 C에서 직접 부른다. */
-  async function runC(body: string) {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
-
-    try {
-      const source = path.join(dir, 'main.c');
-      const binPath = path.join(dir, 'main');
-
-      await fs.writeFile(
-        source,
-        `#include "prelude.h"\nint main(void) {\n${body}\n  return 0;\n}\n`,
-      );
-
-      const build = spawnSync(
-        'clang',
-        [
-          '-std=gnu23',
-          `-I${preludeDir}`,
-          source,
-          path.join(preludeDir, 'prelude.c'),
-          '-o',
-          binPath,
-        ],
-        { encoding: 'utf8' },
-      );
-
-      expect(build.stderr).toBe('');
-
-      return spawnSync(binPath, { encoding: 'utf8' });
-    } finally {
-      await fs.rm(dir, { recursive: true, force: true });
-    }
-  }
-
   test.each([
     [
       'member',
