@@ -1,8 +1,8 @@
 import { assert } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
 import path from 'path';
-import * as ast from 'typescript7/unstable/ast';
-import * as ts from 'typescript7/unstable/sync';
+import * as ast from 'typescript7/ast';
+import * as ts from 'typescript7/sync';
 import { printLine } from '~/log.js';
 import { assertExpectedNode } from '~/util/assert.js';
 import { RealPath } from '~/util/path.js';

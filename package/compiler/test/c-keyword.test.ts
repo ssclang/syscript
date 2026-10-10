@@ -2,7 +2,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import * as ast from 'typescript7/unstable/ast';
+import * as ast from 'typescript7/ast';
 import { expect, test } from 'vitest';
 import { cKeywords } from '~/c/c.js';
 import { SscManager } from '~/ssc/manager/ssc.js';

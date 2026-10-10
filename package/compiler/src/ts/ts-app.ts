@@ -1,4 +1,4 @@
-import * as ast from 'typescript7/unstable/ast';
+import * as ast from 'typescript7/ast';
 import { AppSourceFile } from '~/ts/ts-node.js';
 import { TsParser } from '~/ts/ts-parser.js';
 import { RealPath } from '~/util/path.js';

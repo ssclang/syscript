@@ -1,5 +1,5 @@
 import { assert } from '@syscript/share/util';
-import * as ast from 'typescript7/unstable/ast';
+import * as ast from 'typescript7/ast';
 
 /**
  * 기대한 종류의 노드인지 확인한다. `ast.isBlock` 같은 타입 가드를 그대로 넘기면

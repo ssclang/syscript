@@ -1,10 +1,10 @@
 import { CliExitError } from '@syscript/cli';
 import { assert } from '@syscript/share/util';
 import nodePath from 'path';
-import * as ast from 'typescript7/unstable/ast';
-import { ModuleDetectionKind } from 'typescript7/unstable/proto';
-import * as ts from 'typescript7/unstable/sync';
-import { EmitOnly } from 'typescript7/unstable/sync';
+import * as ast from 'typescript7/ast';
+import { ModuleDetectionKind } from 'typescript7/proto';
+import * as ts from 'typescript7/sync';
+import { EmitOnly } from 'typescript7/sync';
 import { logSuccess, logWarn } from '~/log.js';
 import { File } from '~/util/file.js';
 import { AbsolutePath, Path, RealPath } from '~/util/path.js';
