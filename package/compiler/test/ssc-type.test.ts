@@ -86,8 +86,32 @@ const cases = {
 test.each(Object.entries(cases))('%s', (...p) => {
   const [literal, [normalizedLiteral, safeTypes]] = p;
 
-  sscNumberTypes.forEach((t) => {
-    const expected = includes(safeTypes, t) ? normalizedLiteral : undefined;
-    expect(parseSafeNumber(literal, t)).toBe(expected);
-  });
+  sscNumberTypes
+    .filter((t) => t !== 'char')
+    .forEach((t) => {
+      const expected = includes(safeTypes, t) ? normalizedLiteral : undefined;
+      expect(parseSafeNumber(literal, t)).toBe(expected);
+    });
+});
+
+/** `StringLiteral` 노드의 해석값과, 그 값이 문자 하나일 때의 코드 포인트. */
+const charCases = {
+  A: '65',
+  '0': '48',
+  '\0': '0',
+  '\uD7FF': '55295',
+  '\uE000': '57344',
+  한: '54620',
+  '👍': '128077',
+  '\u{10FFFF}': '1114111',
+  '': undefined,
+  AB: undefined,
+  '\uD800': undefined,
+  '\uDFFF': undefined,
+  '\uDC4D\uD83D': undefined,
+  '👍👍': undefined,
+} as const satisfies Record<string, string | undefined>;
+
+test.each(Object.entries(charCases))('char %j', (value, expected) => {
+  expect(parseSafeNumber(value, 'char')).toBe(expected);
 });

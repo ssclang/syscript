@@ -10,7 +10,7 @@ export type SscOtherType = (typeof sscOtherTypes)[number];
 export const sscOtherTypes = ['undefined', 'null', 'boolean', 'void'] as const;
 
 export type SscNumberType = (typeof sscNumberTypes)[number];
-export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes] as const;
+export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes, 'char'] as const;
 
 // TODO: string
 export type SscAllType = (typeof sscAllTypes)[number];
@@ -40,6 +40,7 @@ const widenings = {
   u16: ['u32', 'u64', 'i32', 'i64', 'f32', 'f64'],
   u32: ['u64', 'i64', 'f64'],
   u64: [],
+  char: ['u32', 'u64', 'i64', 'f64'],
   f32: ['f64'],
   f64: [],
   boolean: ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64'], // 0 or 1
@@ -53,6 +54,10 @@ export function includes<T extends string>(list: readonly T[], value: string): v
 }
 
 export function parseSafeNumber(numericString: string, type: SscNumberType) {
+  if (type === 'char') {
+    return parseSafeChar(numericString);
+  }
+
   if (includes(sscIntegerTypes, type)) {
     return parseSafeInteger(numericString, type);
   }
@@ -64,8 +69,18 @@ export function parseSafeNumber(numericString: string, type: SscNumberType) {
   throw new Error(type);
 }
 
-export function isSafeNumber(numericString: string, type: SscNumberType) {
-  return parseSafeNumber(numericString, type) !== undefined;
+function parseSafeChar(value: string) {
+  const codePoint = value.codePointAt(0);
+
+  if (
+    codePoint === undefined
+    || !value.isWellFormed()
+    || String.fromCodePoint(codePoint) !== value
+  ) {
+    return undefined;
+  }
+
+  return codePoint.toString();
 }
 
 function parseSafeInteger(numericString: string, type: SscIntegerType) {
@@ -89,6 +104,10 @@ function parseSafeFloat(numericString: string, type: SscFloatType) {
   }
 
   return bigNumber.toFixed();
+}
+
+export function isSafeNumber(numericString: string, type: SscNumberType) {
+  return parseSafeNumber(numericString, type) !== undefined;
 }
 
 /**
