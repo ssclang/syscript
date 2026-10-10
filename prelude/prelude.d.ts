@@ -7,33 +7,35 @@
 
 export {};
 
+declare const ssc: unique symbol;
+
 declare global {
   /** `-128` ~ `127` */
-  type i8 = number & {};
+  type i8 = number & { readonly [ssc]: 'i8' };
   /** `-32768` ~ `32767` */
-  type i16 = number & {};
+  type i16 = number & { readonly [ssc]: 'i16' };
   /** `-2147483648` ~ `2147483647` */
-  type i32 = number & {};
+  type i32 = number & { readonly [ssc]: 'i32' };
   /** `-9223372036854775808` ~ `9223372036854775807` */
-  type i64 = number & {};
+  type i64 = number & { readonly [ssc]: 'i64' };
 
   /** `0` ~ `255` */
-  type u8 = number & {};
+  type u8 = number & { readonly [ssc]: 'u8' };
   /** `0` ~ `65535` */
-  type u16 = number & {};
+  type u16 = number & { readonly [ssc]: 'u16' };
   /** `0` ~ `4294967295` */
-  type u32 = number & {};
+  type u32 = number & { readonly [ssc]: 'u32' };
   /** `0` ~ `18446744073709551615` */
-  type u64 = number & {};
+  type u64 = number & { readonly [ssc]: 'u64' };
 
   /** `-16777216` ~ `16777216` (exact integers)\
    * fractions may lose precision
    */
-  type f32 = number & {};
+  type f32 = number & { readonly [ssc]: 'f32' };
   /** `-9007199254740992` ~ `9007199254740992` (exact integers)\
    * fractions may lose precision
    */
-  type f64 = number & {};
+  type f64 = number & { readonly [ssc]: 'f64' };
 
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
