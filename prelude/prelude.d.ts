@@ -37,6 +37,9 @@ declare global {
    */
   type f64 = number & { readonly [ssc]: 'f64' };
 
+  /** `0` ~ `0xD7FF`, `0xE000` ~ `0x10FFFF` */
+  type char = number & { readonly [ssc]: 'char' };
+
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
   type SscIntegerType = SscSignedIntegerType | SscUnsignedIntegerType;
