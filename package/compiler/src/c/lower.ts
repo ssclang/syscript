@@ -15,7 +15,13 @@ import {
 } from '~/c/c-module.js';
 import { findTdzVariables } from '~/c/c-tdz.js';
 import { cName, toCTypeName } from '~/c/c.js';
-import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
+import {
+  includes,
+  parseSafeNumber,
+  sscFloatTypes,
+  SscNumberType,
+  sscNumberTypes,
+} from '~/ssc/type.js';
 import {
   cNumericLiteral,
   commonType,
@@ -431,7 +437,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodeBooleanLiteral) {
-    return String(node.value);
+    return node.value.toString();
   }
 
   if (node instanceof NodeNullLiteral) {
@@ -647,7 +653,10 @@ function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
     }
   }
 
-  if (comparisonOperators.includes(kind) && isNumber(node.left, context)) {
+  if (
+    comparisonOperators.includes(kind)
+    && (isNumber(node.left, context) || isNumber(node.right, context))
+  ) {
     const common = commonType([operandOf(node.left, context), operandOf(node.right, context)]);
 
     return binary(
@@ -739,6 +748,15 @@ function lowerUnion(
   members: readonly string[],
   context: LowerContext,
 ) {
+  if (node instanceof NodeStringLiteral && members.includes('char')) {
+    assert(
+      isLiteralInRange(node.value, 'char'),
+      `${node.location()}: '${node.getText()}' is not a char`,
+    );
+
+    return call('ssc__fn__union_from_char', [lowerNumber(node, 'char', context)]);
+  }
+
   const source = sscTypeName(context, node.getType());
   const sourceMembers = unionMembersOf(source);
   const literal = numericLiteralOf(node);
@@ -780,6 +798,20 @@ function lowerNumber(
   target: SscNumberType,
   context: LowerContext,
 ) {
+  if (node instanceof NodeStringLiteral) {
+    const codePoint = charCodePointOf(node);
+
+    assert(
+      isLiteralInRange(node.value, target),
+      `${node.location()}: '${node.getText()}' can not be converted to ${target}`,
+    );
+
+    return cast(
+      toCTypeName(target),
+      `U'\\U${Number(codePoint).toString(16).toUpperCase().padStart(8, '0')}'`,
+    );
+  }
+
   const literal = numericLiteralOf(node);
 
   if (literal) {
@@ -816,6 +848,10 @@ function lowerNumber(
 
 /** 숫자 유니온은 멤버들의 공통 타입인 피연산자다. */
 function operandOf(node: AbstractNode<ast.Expression>, context: LowerContext): CommonTypeOperand {
+  if (node instanceof NodeStringLiteral) {
+    return { literal: new BigNumber(charCodePointOf(node)) };
+  }
+
   const literal = numericLiteralOf(node);
   const members = unionMembersOf(sscTypeName(context, node.getType()));
 
@@ -831,6 +867,10 @@ function operandOf(node: AbstractNode<ast.Expression>, context: LowerContext): C
 }
 
 function isNumber(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  if (node instanceof NodeStringLiteral) {
+    return false;
+  }
+
   const name = sscTypeName(context, node.getType());
   const members = unionMembersOf(name);
 
@@ -849,6 +889,16 @@ function numberTypeOf(node: AbstractNode<ast.Expression>, context: LowerContext)
   }
 
   return name;
+}
+
+function charCodePointOf(node: NodeStringLiteral) {
+  const codePoint = parseSafeNumber(node.value, 'char');
+
+  if (codePoint === undefined) {
+    throw new Error(`${node.location()}: '${node.getText()}' is not a char`);
+  }
+
+  return codePoint;
 }
 
 /** 숫자 리터럴과 부호를 붙인 숫자 리터럴. 괄호는 벗겨서 본다. */
@@ -962,7 +1012,7 @@ function lowerTypeCheck(node: NodeBinaryExpression, context: LowerContext) {
         includes(sscNumberTypes, type) ? 'number'
         : type === 'null' ? 'object'
         : type;
-      return String(jsType === name);
+      return (jsType === name).toString();
     }
 
     const member =
@@ -973,6 +1023,10 @@ function lowerTypeCheck(node: NodeBinaryExpression, context: LowerContext) {
     return member ?
         call(`ssc__fn__union_is_${member}`, [lowerExpression(expression, context)])
       : 'false';
+  }
+
+  if (left instanceof NodeStringLiteral || right instanceof NodeStringLiteral) {
+    return undefined;
   }
 
   const leftType = sscTypeName(context, left.getType());
@@ -989,7 +1043,7 @@ function lowerTypeCheck(node: NodeBinaryExpression, context: LowerContext) {
   const [value, type] = nullish === leftType ? [right, rightType] : [left, leftType];
 
   if (!unionMembersOf(type)) {
-    return String(type === nullish);
+    return (type === nullish).toString();
   }
 
   return call(`ssc__fn__union_is_${nullish}`, [lowerExpression(value, context)]);
@@ -1065,6 +1119,11 @@ function lowerUpdate(
   if (storage !== type) {
     throw new Error(`${node.location()}: update on ${storage} is not implemented`);
   }
+
+  if (type === 'char') {
+    throw new Error(`${node.location()}: update on char is not allowed, use char() on the result`);
+  }
+
   const isIncrement = node.operator === ast.SyntaxKind.PlusPlusToken;
   const isPrefix = node instanceof NodePrefixUnaryExpression;
 

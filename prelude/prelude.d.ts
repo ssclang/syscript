@@ -28,6 +28,9 @@ declare global {
   /** `0` ~ `18446744073709551615` */
   type u64 = number & { readonly [ssc]: 'u64' };
 
+  /** `0` ~ `0xD7FF`, `0xE000` ~ `0x10FFFF` */
+  type char = number & { readonly [ssc]: 'char' };
+
   /** `-16777216` ~ `16777216` (exact integers)\
    * fractions may lose precision
    */
@@ -37,14 +40,11 @@ declare global {
    */
   type f64 = number & { readonly [ssc]: 'f64' };
 
-  /** `0` ~ `0xD7FF`, `0xE000` ~ `0x10FFFF` */
-  type char = number & { readonly [ssc]: 'char' };
-
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
   type SscIntegerType = SscSignedIntegerType | SscUnsignedIntegerType;
   type SscFloatType = f32 | f64;
-  type SscNumberType = SscIntegerType | SscFloatType;
+  type SscNumberType = SscIntegerType | SscFloatType | char;
 
   function addWrap<T extends SscIntegerType>(left: T, right: T): T;
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;

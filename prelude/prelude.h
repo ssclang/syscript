@@ -14,6 +14,7 @@ static_assert(__UINT64_MAX__ == 18446744073709551615U);
 
 typedef struct ssc__undefined {} ssc__type__undefined;
 typedef struct ssc__null {} ssc__type__null;
+typedef bool ssc__type__boolean;
 typedef __INT8_TYPE__ ssc__type__i8;
 typedef __INT16_TYPE__ ssc__type__i16;
 typedef __INT32_TYPE__ ssc__type__i32;
@@ -22,12 +23,13 @@ typedef __UINT8_TYPE__ ssc__type__u8;
 typedef __UINT16_TYPE__ ssc__type__u16;
 typedef __UINT32_TYPE__ ssc__type__u32;
 typedef __UINT64_TYPE__ ssc__type__u64;
+typedef ssc__type__u32 ssc__type__char;
 typedef float ssc__type__f32;
 typedef double ssc__type__f64;
-typedef bool ssc__type__boolean;
 
 static_assert(sizeof(ssc__type__undefined) == 0);
 static_assert(sizeof(ssc__type__null) == 0);
+static_assert(sizeof(ssc__type__boolean) == 1);
 static_assert(sizeof(ssc__type__i8) == 1);
 static_assert(sizeof(ssc__type__i16) == 2);
 static_assert(sizeof(ssc__type__i32) == 4);
@@ -36,9 +38,9 @@ static_assert(sizeof(ssc__type__u8) == 1);
 static_assert(sizeof(ssc__type__u16) == 2);
 static_assert(sizeof(ssc__type__u32) == 4);
 static_assert(sizeof(ssc__type__u64) == 8);
+static_assert(sizeof(ssc__type__char) == 4);
 static_assert(sizeof(ssc__type__f32) == 4);
 static_assert(sizeof(ssc__type__f64) == 8);
-static_assert(sizeof(ssc__type__boolean) == 1);
 
 /*
  * JS의 참거짓 판정. C의 `x != 0`은 NaN을 참으로 보지만 JS는 거짓으로 본다. 정수는 비교
@@ -206,6 +208,7 @@ enum : ssc__type__u64 {
   ssc__type_id__u16 = 22,
   ssc__type_id__u32 = 23,
   ssc__type_id__u64 = 24,
+  ssc__type_id__char = 25,
   // 32 ~ 47: float
   ssc__type_id__f32 = 32,
   ssc__type_id__f64 = 33,
@@ -226,6 +229,7 @@ static const char *const ssc__type_names[] = {
   [ssc__type_id__u16] = "u16",
   [ssc__type_id__u32] = "u32",
   [ssc__type_id__u64] = "u64",
+  [ssc__type_id__char] = "char",
   [ssc__type_id__f32] = "f32",
   [ssc__type_id__f64] = "f64",
 };
@@ -267,35 +271,37 @@ static inline ssc__type__boolean ssc__fn__union_is_boolean(ssc__type__union valu
 
 static inline ssc__type__boolean ssc__fn__union_is_number(ssc__type__union value) {
   return (ssc__type_id__i8 <= value.type && value.type <= ssc__type_id__u64)
+    || value.type == ssc__type_id__char
     || value.type == ssc__type_id__f32
     || value.type == ssc__type_id__f64;
 }
 
-#define SSC__MACRO__UNION_MEMBER_FN(SSC_TYPE) \
-  static inline ssc__type__union ssc__fn__union_from_##SSC_TYPE(ssc__type__##SSC_TYPE value) { \
-    return (ssc__type__union){.type = ssc__type_id__##SSC_TYPE, .value.SSC_TYPE = value}; \
+#define SSC__MACRO__UNION_MEMBER_FN(SSC_NAME, SSC_TYPE) \
+  static inline ssc__type__union ssc__fn__union_from_##SSC_NAME(ssc__type__##SSC_NAME value) { \
+    return (ssc__type__union){.type = ssc__type_id__##SSC_NAME, .value.SSC_TYPE = value}; \
   } \
 \
-  static inline ssc__type__##SSC_TYPE ssc__fn__union_get_##SSC_TYPE(ssc__type__union value) { \
-    if (__builtin_expect(value.type != ssc__type_id__##SSC_TYPE, false)) { \
-      ssc__fn__throw_union_error(#SSC_TYPE, value.type); \
+  static inline ssc__type__##SSC_NAME ssc__fn__union_get_##SSC_NAME(ssc__type__union value) { \
+    if (__builtin_expect(value.type != ssc__type_id__##SSC_NAME, false)) { \
+      ssc__fn__throw_union_error(#SSC_NAME, value.type); \
     } \
     return value.value.SSC_TYPE; \
   }
 
-SSC__MACRO__UNION_MEMBER_FN(undefined)
-SSC__MACRO__UNION_MEMBER_FN(null)
-SSC__MACRO__UNION_MEMBER_FN(boolean)
-SSC__MACRO__UNION_MEMBER_FN(i8)
-SSC__MACRO__UNION_MEMBER_FN(i16)
-SSC__MACRO__UNION_MEMBER_FN(i32)
-SSC__MACRO__UNION_MEMBER_FN(i64)
-SSC__MACRO__UNION_MEMBER_FN(u8)
-SSC__MACRO__UNION_MEMBER_FN(u16)
-SSC__MACRO__UNION_MEMBER_FN(u32)
-SSC__MACRO__UNION_MEMBER_FN(u64)
-SSC__MACRO__UNION_MEMBER_FN(f32)
-SSC__MACRO__UNION_MEMBER_FN(f64)
+SSC__MACRO__UNION_MEMBER_FN(undefined, undefined)
+SSC__MACRO__UNION_MEMBER_FN(null, null)
+SSC__MACRO__UNION_MEMBER_FN(boolean, boolean)
+SSC__MACRO__UNION_MEMBER_FN(i8, i8)
+SSC__MACRO__UNION_MEMBER_FN(i16, i16)
+SSC__MACRO__UNION_MEMBER_FN(i32, i32)
+SSC__MACRO__UNION_MEMBER_FN(i64, i64)
+SSC__MACRO__UNION_MEMBER_FN(u8, u8)
+SSC__MACRO__UNION_MEMBER_FN(u16, u16)
+SSC__MACRO__UNION_MEMBER_FN(u32, u32)
+SSC__MACRO__UNION_MEMBER_FN(u64, u64)
+SSC__MACRO__UNION_MEMBER_FN(f32, f32)
+SSC__MACRO__UNION_MEMBER_FN(f64, f64)
+SSC__MACRO__UNION_MEMBER_FN(char, u32)
 
 #undef SSC__MACRO__UNION_MEMBER_FN
 
@@ -331,6 +337,10 @@ SSC__MACRO__UNION_MEMBER_FN(f64)
 \
     if (value.type == ssc__type_id__u64) { \
       return (ssc__type__##SSC_TYPE)value.value.u64; \
+    } \
+\
+    if (value.type == ssc__type_id__char) { \
+      return (ssc__type__##SSC_TYPE)value.value.u32; \
     } \
 \
     if (value.type == ssc__type_id__f32) { \
