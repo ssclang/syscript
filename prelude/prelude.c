@@ -15,6 +15,11 @@
   exit(1);
 }
 
+[[noreturn]] void ssc__fn__throw_code_point_error(ssc__type__u32 code_point) {
+  fprintf(stderr, "RangeError: Invalid code point %lu\n", (unsigned long)code_point);
+  exit(1);
+}
+
 [[noreturn]] void ssc__fn__throw_union_error(const char *expected, ssc__type__u64 type_id) {
   const char *name = type_id < _Countof(ssc__type_names) ? ssc__type_names[type_id] : nullptr; // TODO: string
 

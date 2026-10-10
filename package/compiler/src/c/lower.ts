@@ -516,7 +516,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
     const preludeFunction = preludeFunctionOf(context, callee);
 
-    if (preludeFunction) {
+    if (preludeFunction && !includes(sscNumberTypes, preludeFunction)) {
       const [left, right] = node.arguments;
 
       assert(left && right, `${node.location()}: '${callee.text}' takes two arguments`);
@@ -534,7 +534,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       ]);
     }
 
-    const name = declareCallee(context, callee);
+    const name = preludeFunction ? `ssc__fn__${preludeFunction}` : declareCallee(context, callee);
     const declaration = callee.getValueDeclaration();
 
     assert(ast.isFunctionDeclaration(declaration), `not function declaration: ${callee.text}`);
@@ -565,6 +565,17 @@ const preludeFunctions: Partial<Record<string, string>> = {
   addWrap: 'add_wrap',
   subWrap: 'sub_wrap',
   mulWrap: 'mul_wrap',
+  i8: 'i8',
+  i16: 'i16',
+  i32: 'i32',
+  i64: 'i64',
+  u8: 'u8',
+  u16: 'u16',
+  u32: 'u32',
+  u64: 'u64',
+  char: 'char',
+  f32: 'f32',
+  f64: 'f64',
 };
 
 /** prelude에 선언된 함수면 C 이름. 정수 타입마다 따로 있어 호출 자리에서 타입을 붙인다. */

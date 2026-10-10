@@ -192,6 +192,34 @@ SSC__MACRO__ARITHMETIC_FN(u64, unsigned _BitInt(64), 0)
 
 #undef SSC__MACRO__ARITHMETIC_FN
 
+#define SSC__MACRO__CONSTRUCTOR_FN(SSC_TYPE) \
+  static inline ssc__type__##SSC_TYPE ssc__fn__##SSC_TYPE(ssc__type__##SSC_TYPE value) { \
+    return value; \
+  }
+
+SSC__MACRO__CONSTRUCTOR_FN(i8)
+SSC__MACRO__CONSTRUCTOR_FN(i16)
+SSC__MACRO__CONSTRUCTOR_FN(i32)
+SSC__MACRO__CONSTRUCTOR_FN(i64)
+SSC__MACRO__CONSTRUCTOR_FN(u8)
+SSC__MACRO__CONSTRUCTOR_FN(u16)
+SSC__MACRO__CONSTRUCTOR_FN(u32)
+SSC__MACRO__CONSTRUCTOR_FN(u64)
+SSC__MACRO__CONSTRUCTOR_FN(f32)
+SSC__MACRO__CONSTRUCTOR_FN(f64)
+
+#undef SSC__MACRO__CONSTRUCTOR_FN
+
+[[noreturn]] void ssc__fn__throw_code_point_error(ssc__type__u32 code_point);
+
+static inline ssc__type__char ssc__fn__char(ssc__type__u32 code_point) {
+  if (__builtin_expect((0xD800 <= code_point && code_point <= 0xDFFF) || 0x10FFFF < code_point, false)) {
+    ssc__fn__throw_code_point_error(code_point);
+  }
+
+  return code_point;
+}
+
 enum : ssc__type__u64 {
   // 0: uninitialized
   ssc__type_id__uninitialized = 0,
