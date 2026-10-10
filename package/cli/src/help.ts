@@ -120,7 +120,7 @@ function formatOptionDescription(option: OptionNode) {
   const defaultText =
     defaultValue === undefined ? undefined
     : typeof defaultValue === 'object' ? defaultValue.join(' ')
-    : String(defaultValue);
+    : defaultValue.toString();
 
   return [option.description, defaultText === undefined ? undefined : `[default: ${defaultText}]`]
     .filter(Boolean)
