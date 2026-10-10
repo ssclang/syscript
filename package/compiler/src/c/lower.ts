@@ -1,7 +1,7 @@
 import { assert } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
-import * as ast from 'typescript7/unstable/ast';
-import * as ts from 'typescript7/unstable/sync';
+import * as ast from 'typescript7/ast';
+import * as ts from 'typescript7/sync';
 import { binary, call, cast, CModule, CWriter, signature, unary } from '~/c/c-builder.js';
 import {
   cModuleFunctionName,
