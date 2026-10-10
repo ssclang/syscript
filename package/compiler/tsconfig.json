@@ -45,5 +45,6 @@
     "paths": {
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": ["test/fixture"]
 }

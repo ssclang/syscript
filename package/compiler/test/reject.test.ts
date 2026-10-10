@@ -65,6 +65,22 @@ export function f(a: i8): i8 {
 `;
   const files = { 'shadow.d.ts': 'export declare type i8 = number & {};\n' };
 
+  await expect(compile(source, files)).rejects.toThrow('not implemented type');
+});
+
+test('prelude 타입과 브랜드 모양만 같은 타입', async () => {
+  const source = `
+import { i8 } from './shadow.js';
+
+export function f(a: i8): i8 {
+  return a;
+}
+`;
+  const files = {
+    'shadow.d.ts':
+      "declare const ssc: unique symbol;\nexport declare type i8 = number & { readonly [ssc]: 'i8' };\n",
+  };
+
   await expect(compile(source, files)).rejects.toThrow("'i8' is not the prelude type");
 });
 

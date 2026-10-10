@@ -42,6 +42,21 @@ exit(1);
   expect(status).toBe(0);
 });
 
+test('a type that lost its alias is still the prelude type', async () => {
+  const { status, c } = await run(`
+function twice(v: i32 & {}): i32 {
+  return v + v;
+}
+if (twice(21) === 42) {
+  exit(0);
+}
+exit(1);
+`);
+
+  expect(status).toBe(0);
+  expect(c).toContain('ssc__fn__add_i32(');
+});
+
 test('mixed sign comparison compares in the common type', async () => {
   const { status } = await run(`
 function less(a: i32, b: u32): boolean {
