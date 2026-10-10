@@ -1168,7 +1168,15 @@ function sscTypeName(context: LowerContext, type: ts.Type): string {
     return rest.length ? `union:${[first, ...rest].join('|')}` : first;
   }
 
-  const symbol = type.getAliasSymbol();
+  const brand =
+    type.isIntersectionType() ?
+      type
+        .getTypes()
+        .find((t) => isTypeFlagMatch(t, ts.TypeFlags.Object))
+        ?.getSymbol()
+        ?.declarations[0]?.resolve()
+    : undefined;
+  const symbol = brand ? checker.getSymbolOfNode(brand.parent.parent) : undefined;
 
   assert(symbol, `not implemented type: ${checker.typeToString(type)}`);
 
