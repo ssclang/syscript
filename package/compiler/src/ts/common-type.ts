@@ -2,7 +2,13 @@ import { assert } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
 import { cast } from '~/c/c-builder.js';
 import { toCTypeName } from '~/c/c.js';
-import { includes, sscFloatTypes, SscIntegerType, SscNumberType } from '~/ssc/type.js';
+import {
+  includes,
+  isSafeNumber,
+  sscFloatTypes,
+  SscIntegerType,
+  SscNumberType,
+} from '~/ssc/type.js';
 
 /*
  * 패치한 TypeScript checker(ssc.go)의 공통 타입 규칙을 그대로 옮긴다. checker를 통과한
@@ -22,6 +28,7 @@ const losslessTargets = {
   u16: ['u16', 'u32', 'u64', 'i32', 'i64', 'f32', 'f64'],
   u32: ['u32', 'u64', 'i64', 'f64'],
   u64: ['u64'],
+  char: ['char', 'u32', 'u64', 'i64', 'f64'],
   f32: ['f32', 'f64'],
   f64: ['f64'],
 } as const satisfies Record<SscNumberType, readonly SscNumberType[]>;
@@ -67,7 +74,15 @@ export function literalInteger(literal: BigNumber) {
 }
 
 /** 실수는 IEEE 754로 반올림하므로 정수 타입만 리터럴을 제한한다. */
-export function isLiteralInRange(literal: BigNumber, type: SscNumberType) {
+export function isLiteralInRange(literal: BigNumber | string, type: SscNumberType) {
+  if (typeof literal === 'string') {
+    return isLossless('char', type) && isSafeNumber(literal, 'char');
+  }
+
+  if (type === 'char') {
+    return false;
+  }
+
   if (includes(sscFloatTypes, type)) {
     return true;
   }
