@@ -7,12 +7,11 @@ export type SscFloatType = (typeof sscFloatTypes)[number];
 export const sscFloatTypes = ['f32', 'f64'] as const;
 
 export type SscOtherType = (typeof sscOtherTypes)[number];
-export const sscOtherTypes = ['undefined', 'null', 'boolean', 'void'] as const;
+export const sscOtherTypes = ['undefined', 'null', 'boolean', 'void', 'string'] as const;
 
 export type SscNumberType = (typeof sscNumberTypes)[number];
 export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes, 'char'] as const;
 
-// TODO: string
 export type SscAllType = (typeof sscAllTypes)[number];
 export const sscAllTypes = [...sscNumberTypes, ...sscOtherTypes] as const;
 
@@ -47,6 +46,7 @@ const widenings = {
   undefined: [],
   null: [],
   void: [],
+  string: [],
 } as const satisfies Record<SscAllType, readonly SscAllType[]>;
 
 export function includes<T extends string>(list: readonly T[], value: string): value is T {

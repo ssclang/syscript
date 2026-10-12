@@ -171,6 +171,10 @@ export abstract class AbstractExpression<
       return new NodeCallExpression(app, tsNode);
     }
 
+    if (ast.isPropertyAccessExpression(tsNode)) {
+      return new NodePropertyAccessExpression(app, tsNode);
+    }
+
     if (ast.isParenthesizedExpression(tsNode)) {
       return new NodeParenthesizedExpression(app, tsNode);
     }
@@ -513,6 +517,17 @@ export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpressio
   constructor(app: App, tsNode: ast.TypeOfExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
+  }
+}
+
+export class NodePropertyAccessExpression extends AbstractExpression<ast.PropertyAccessExpression> {
+  readonly expression: AbstractExpression;
+  readonly name: string;
+
+  constructor(app: App, tsNode: ast.PropertyAccessExpression) {
+    super(app, tsNode);
+    this.expression = AbstractExpression.of(app, this.tsNode.expression);
+    this.name = this.tsNode.name.text;
   }
 }
 
