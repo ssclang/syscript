@@ -86,7 +86,25 @@ path.json,  setting.json, config.json 등
   `TypeError: The encoded data was not valid for encoding utf-8`
 - `str.isWellFormed()`, `str.toWellFormed()` 제공
 - `str + c`(char)는 문자를 이어 붙임. char가 문자로 다뤄지는 곳은 string과의 + 뿐
-- 메모리 표현 미정. 제안 B: `{length, bytes..., NUL}`을 가리키는 8바이트 포인터
+- 메모리 표현: `{length, bytes..., NUL}`을 가리키는 8바이트 포인터
+  - 다른 참조와 같은 8바이트라 union 값 칸, write barrier, 아레나 RC를 그대로 씀
+  - 항상 NUL로 끝나 C에 바이트 시작 위치를 그대로 넘김
+  - 리터럴은 static const 데이터
+  - 부분 문자열은 결과가 놓일 아레나에 복사함. 원본을 공유하면 아레나 사이 참조가 생겨 원본 아레나
+    전체가 살아남음(반복문 아레나는 rollback도 못 함)
+  - 복사 없는 부분 참조는 `str.view(start, end): StringView`로 명시적으로 만듦. StringView는 `{ptr, len}`
+    16바이트 값이고 원본 아레나를 참조함. 기본을 복사로 둔 이유: 잘못 쓰면 1번(복사 기본)은 복사 비용,
+    2번(참조 기본)은 아레나 전체를 붙잡는 누수라 찾기 어려움. C++(substr + string_view), Java와 같은 쪽
+  - StringView의 멤버, string으로 되돌리는 방법(복사), 인자 형태는 아직 정하지 않음
+- 리터럴 TU 간 병합(최적화): 지금은 모듈 안에서만 같은 값을 한 번 만듦. 필요하면 `-fmerge-all-constants`로
+  링크 시점에 합침. 문자열은 주소가 아니라 내용으로 비교하므로 C의 "다른 객체는 다른 주소" 규칙을 어겨도 됨
+- 짝 없는 서로게이트가 있는 리터럴(`'\uD800'`): UTF-8로 인코딩할 수 없어 지금은
+  `not implemented string with a lone surrogate`로 막음. 영구 거부(Rust, Go와 같음)와 WTF-8로 담기 중
+  정하고 에러 메시지를 맞춰야 함. 거부 추천
+  - 탈출하지 않는 부분 문자열은 컴파일러가 내부적으로 `{ptr, len}` 뷰로 복사를 생략할 수 있음(최적화)
+  - `s += x`에서 s가 아레나의 마지막 할당이면 bump를 늘려 제자리에서 이어 붙일 수 있음(최적화)
+  - 채택하지 않음: `{ptr, len}` 16바이트 값(Go, Zig, Rust &str 방식). 부분 문자열은 복사가 없지만 원본
+    아레나를 붙잡고, union 8바이트와 맞지 않고, NUL 종료가 보장되지 않음
 
 [메모리 모델]
 아레나 스코프
