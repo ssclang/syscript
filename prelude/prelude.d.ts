@@ -78,5 +78,7 @@ declare global {
   interface Number {}
   interface Object {}
   interface RegExp {}
-  interface String {}
+  interface String {
+    readonly length: u64;
+  }
 }

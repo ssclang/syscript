@@ -8,6 +8,7 @@ import {
   cModuleLayout,
   cModuleLocalVariableName,
   cModuleName,
+  cModuleStringName,
   cModuleTagName,
   cModuleVariableName,
   CTag,
@@ -52,6 +53,7 @@ import {
   NodeParenthesizedExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
+  NodePropertyAccessExpression,
   NodeReturnStatement,
   NodeStringLiteral,
   NodeTypeOfExpression,
@@ -85,6 +87,7 @@ class LowerContext {
   readonly moduleId: (path: RealPath) => string;
   /** 심볼 id → 최상위 변수. `tag`는 선언 전에 접근될 수 있는 변수에만 있다. */
   readonly globals = new Map<number, Variable & { tag: string | undefined }>();
+  readonly strings = new Map<string, string>();
   readonly prelude: AppSourceFile;
   localCount = 0;
   /** 내리고 있는 함수의 반환 타입. 최상위 코드에서는 없다. */
@@ -448,6 +451,20 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerIdentifier(node, context);
   }
 
+  if (node instanceof NodeStringLiteral) {
+    return lowerString(node, context);
+  }
+
+  if (node instanceof NodePropertyAccessExpression) {
+    const type = sscTypeName(context, node.expression.getType());
+
+    if (type === 'string' && node.name === 'length') {
+      return call('ssc__fn__string_length', [lowerExpression(node.expression, context)]);
+    }
+
+    throw new Error(`${node.location()}: not implemented property: ${type}.${node.name}`);
+  }
+
   if (node instanceof NodePrefixUnaryExpression) {
     if (node.operator === ast.SyntaxKind.ExclamationToken) {
       return unary('!', lowerCondition(node.operand, context));
@@ -677,6 +694,25 @@ function lowerBinary(node: NodeBinaryExpression, context: LowerContext) {
     );
   }
 
+  if (
+    comparisonOperators.includes(kind)
+    && sscTypeName(context, node.left.getType()) === 'string'
+    && sscTypeName(context, node.right.getType()) === 'string'
+  ) {
+    const left = lowerExpression(node.left, context);
+    const right = lowerExpression(node.right, context);
+
+    if (kind === ast.SyntaxKind.EqualsEqualsEqualsToken) {
+      return call('ssc__fn__string_equals', [left, right]);
+    }
+
+    if (kind === ast.SyntaxKind.ExclamationEqualsEqualsToken) {
+      return unary('!', call('ssc__fn__string_equals', [left, right]));
+    }
+
+    return binary(call('ssc__fn__string_compare', [left, right]), operator, '0');
+  }
+
   if (kind === ast.SyntaxKind.EqualsToken) {
     assert(
       node.left instanceof NodeIdentifier,
@@ -902,6 +938,34 @@ function numberTypeOf(node: AbstractNode<ast.Expression>, context: LowerContext)
   return name;
 }
 
+function lowerString(node: NodeStringLiteral, context: LowerContext) {
+  if (!node.value.isWellFormed()) {
+    throw new Error(`${node.location()}: not implemented string with a lone surrogate`);
+  }
+
+  const existing = context.strings.get(node.value);
+
+  if (existing) {
+    return unary('&', existing);
+  }
+
+  const name = cModuleStringName(
+    context.moduleId(context.sourceFile.realPath),
+    context.strings.size + 1,
+  );
+  const bytes = new TextEncoder().encode(node.value);
+  const text = Array.from(bytes, (byte) =>
+    0x20 <= byte && byte < 0x7f && byte !== 0x22 && byte !== 0x5c ?
+      String.fromCharCode(byte)
+    : `\\${byte.toString(8).padStart(3, '0')}`,
+  ).join('');
+
+  context.strings.set(node.value, name);
+  context.module.declare(name, `static const ssc__string ${name} = {${bytes.length}, "${text}"}`);
+
+  return unary('&', name);
+}
+
 function charCodePointOf(node: NodeStringLiteral) {
   const codePoint = parseSafeNumber(node.value, 'char');
 
@@ -1028,7 +1092,7 @@ function lowerTypeCheck(node: NodeBinaryExpression, context: LowerContext) {
 
     const member =
       name === 'object' ? 'null'
-      : name === 'undefined' || name === 'boolean' || name === 'number' ? name
+      : name === 'undefined' || name === 'boolean' || name === 'number' || name === 'string' ? name
       : undefined;
 
     return member ?
@@ -1185,7 +1249,7 @@ const operatorMap = {
 } as const;
 
 /** 유니온 멤버로 쓸 수 있는 타입. 유니온 이름의 멤버 순서도 이 순서다. */
-const unionMemberTypes = ['undefined', 'null', 'boolean', ...sscNumberTypes] as const;
+const unionMemberTypes = ['undefined', 'null', 'boolean', ...sscNumberTypes, 'string'] as const;
 
 /** `union:boolean|i32`의 멤버. 유니온이 아니면 없다. */
 function unionMembersOf(name: string) {
@@ -1219,6 +1283,10 @@ function sscTypeName(context: LowerContext, type: ts.Type): string {
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
     return 'f64';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.String | ts.TypeFlags.StringLiteral)) {
+    return 'string';
   }
 
   const { checker } = context.sourceFile.app;
