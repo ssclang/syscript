@@ -70,6 +70,11 @@ export enum CTag {
   Null = 3,
 }
 
+/** 문자열 리터럴의 정적 데이터. 모듈마다 같은 값은 한 번만 만든다. */
+export function cModuleStringName(id: string, index: number) {
+  return `${cModuleName(id)}_string__${index}`;
+}
+
 /** 최상위 변수의 태그. 선언 전에 접근될 수 있는 변수에만 있다. */
 export function cModuleTagName(id: string, name: string) {
   return `${cModuleName(id)}_tag_top__${name}`;

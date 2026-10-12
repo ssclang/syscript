@@ -26,6 +26,7 @@ typedef __UINT64_TYPE__ ssc__type__u64;
 typedef ssc__type__u32 ssc__type__char;
 typedef float ssc__type__f32;
 typedef double ssc__type__f64;
+typedef const struct ssc__string *ssc__type__string;
 
 static_assert(sizeof(ssc__type__undefined) == 0);
 static_assert(sizeof(ssc__type__null) == 0);
@@ -41,6 +42,7 @@ static_assert(sizeof(ssc__type__u64) == 8);
 static_assert(sizeof(ssc__type__char) == 4);
 static_assert(sizeof(ssc__type__f32) == 4);
 static_assert(sizeof(ssc__type__f64) == 8);
+static_assert(sizeof(ssc__type__string) == 8);
 
 /*
  * JS의 참거짓 판정. C의 `x != 0`은 NaN을 참으로 보지만 JS는 거짓으로 본다. 정수는 비교
@@ -240,7 +242,9 @@ enum : ssc__type__u64 {
   // 32 ~ 47: float
   ssc__type_id__f32 = 32,
   ssc__type_id__f64 = 33,
-  // 48 ~ 255: reserved
+  // 48 ~ 63: string
+  ssc__type_id__string = 48,
+  // 64 ~ 255: reserved
   // 256 ~: user
 };
 
@@ -260,6 +264,7 @@ static const char *const ssc__type_names[] = {
   [ssc__type_id__char] = "char",
   [ssc__type_id__f32] = "f32",
   [ssc__type_id__f64] = "f64",
+  [ssc__type_id__string] = "string",
 };
 
 typedef struct ssc__union {
@@ -278,6 +283,7 @@ typedef struct ssc__union {
     ssc__type__u64 u64;
     ssc__type__f32 f32;
     ssc__type__f64 f64;
+    ssc__type__string string;
   } value;
 } ssc__type__union;
 
@@ -295,6 +301,10 @@ static inline ssc__type__boolean ssc__fn__union_is_null(ssc__type__union value) 
 
 static inline ssc__type__boolean ssc__fn__union_is_boolean(ssc__type__union value) {
   return value.type == ssc__type_id__boolean;
+}
+
+static inline ssc__type__boolean ssc__fn__union_is_string(ssc__type__union value) {
+  return value.type == ssc__type_id__string;
 }
 
 static inline ssc__type__boolean ssc__fn__union_is_number(ssc__type__union value) {
@@ -330,6 +340,7 @@ SSC__MACRO__UNION_MEMBER_FN(u64, u64)
 SSC__MACRO__UNION_MEMBER_FN(f32, f32)
 SSC__MACRO__UNION_MEMBER_FN(f64, f64)
 SSC__MACRO__UNION_MEMBER_FN(char, u32)
+SSC__MACRO__UNION_MEMBER_FN(string, string)
 
 #undef SSC__MACRO__UNION_MEMBER_FN
 
@@ -396,3 +407,4 @@ SSC__MACRO__UNION_NUMBER_TO_FN(f64)
 #undef SSC__MACRO__UNION_NUMBER_TO_FN
 
 #include "arena.h"
+#include "string.h"
