@@ -2,12 +2,12 @@
 
 #include "prelude.h"
 
-typedef struct ssc__string {
+typedef struct ssc__struct__string {
   ssc__type__u64 length;
   char bytes[];
-} ssc__string;
+} ssc__struct__string;
 
-static_assert(sizeof(ssc__string) == 8);
+static_assert(sizeof(ssc__struct__string) == 8);
 
 static inline ssc__type__u64 ssc__fn__string_length(ssc__type__string value) {
   return value->length;
