@@ -961,7 +961,10 @@ function lowerString(node: NodeStringLiteral, context: LowerContext) {
   ).join('');
 
   context.strings.set(node.value, name);
-  context.module.declare(name, `static const ssc__string ${name} = {${bytes.length}, "${text}"}`);
+  context.module.declare(
+    name,
+    `static const ssc__struct__string ${name} = {${bytes.length}, "${text}"}`,
+  );
 
   return unary('&', name);
 }
