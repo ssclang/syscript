@@ -26,7 +26,7 @@ typedef __UINT64_TYPE__ ssc__type__u64;
 typedef ssc__type__u32 ssc__type__char;
 typedef float ssc__type__f32;
 typedef double ssc__type__f64;
-typedef const struct ssc__string *ssc__type__string;
+typedef const struct ssc__struct__string *ssc__type__string;
 
 static_assert(sizeof(ssc__type__undefined) == 0);
 static_assert(sizeof(ssc__type__null) == 0);
