@@ -100,6 +100,43 @@ C23 정수 접미사(`uwb`)만 바꿔서 같은 파일을 두 모드로 컴파�
 - 무거운 std 사용은 런타임(한 번만 컴파일)에 두고, 생성 코드는 런타임의 구체 함수를 부르게 한다.
 - brew LLVM에 `include/c++/v1/module.modulemap`과 `share/libc++/v1/std.cppm`이 있다.
 
+### 2.7 증분 빌드
+
+C++ 언어 자체에는 증분 빌드 기능이 없다. 빌드 시스템(우리는 ssc 빌드 매니저)이 맡는다. 최근 clang의 모듈 기능이 이를 돕는다.
+
+- **Reduced BMI** (clang 22부터 기본값, 우리 clang 23도 해당)
+  - BMI에 inline이 아닌 함수 본문, inline이 아닌 변수 정의, 쓰이지 않는 전역 모듈 영역 선언을 넣지 않는다.
+  - 함수 본문만 바꾸면 BMI가 바뀌지 않아, import하는 쪽을 다시 컴파일할 필요가 없다.
+  - 플래그는 `-fmodules-reduced-bmi`, `--precompile-reduced-bmi`이고, 되돌릴 때는 `-fno-modules-reduced-bmi`.
+- **연쇄되지 않는 변경** (clang 19부터 실험적)
+  - clang은 BMI 안에 영향을 줄 수 있는 BMI들의 해시를 기록한다.
+  - 빌드 시스템은 직접 import한 모듈의 BMI가 실제로 바뀌었을 때만 다시 컴파일한다. 간접 의존이 바뀌어도 직접 의존의 BMI 내용이 같으면 넘어간다("바뀐 경우에만 덮어쓰기").
+  - 컴파일러 버그 가능성 때문에 끌 수 있는 옵션으로 두라고 권장한다.
+- **모듈 의존성 스캔(P1689)**: CMake 4.0과 Ninja가 컴파일러에게 의존성을 묻는다. 우리는 import 그래프를 이미 알아서 필요 없다.
+- **1단계(`-fmodule-output`)와 2단계(`--precompile` → 오브젝트)**: 2단계가 병렬성이 높고, 1단계가 구현이 단순하다.
+- **ThinLTO 캐시**: Release는 링크 단계에서 기계어를 만든다. `-Wl,--thinlto-cache-dir=...`로 바뀌지 않은 모듈의 결과를 재사용한다. C와 C++ 모두 해당한다.
+
+우리 구조(인터페이스는 선언만, 구현은 본문)에 적용하면 다음과 같다.
+
+| 변경 | 다시 컴파일할 것 |
+|---|---|
+| 함수 본문만 수정 | 그 파일의 구현 TU 하나 |
+| 비공개 함수 추가/수정 | 그 파일의 구현 TU 하나 |
+| 공개 함수 시그니처 수정 | 그 파일의 인터페이스 + 그 모듈을 직접 import하는 구현 TU들 |
+| 바뀌지 않은 파일 | 없음(생성 코드 해시가 같으면 건너뜀) |
+
+- C 백엔드에서도 "생성 코드 해시 + 선언 부분 분리"로 비슷하게 할 수 있다. C++ 모듈은 이 구조를 컴파일러(reduced BMI, BMI 해시)가 받쳐 준다는 점이 다르다.
+- 초기 버전은 다음 세 가지와 병렬 컴파일 정도로 충분히 실용적이다.
+  - 생성 코드가 바뀐 TU만 재컴파일
+  - 인터페이스 BMI가 바뀌었을 때만 import하는 쪽 재컴파일
+  - ThinLTO 캐시
+- 참고 자료
+  - https://clang.llvm.org/docs/StandardCPlusPlusModules.html
+  - https://releases.llvm.org/22.1.0/tools/clang/docs/ReleaseNotes.html
+  - https://holyblackcat.github.io/blog/2026/03/09/compiling-modules.html
+  - https://cmake.org/cmake/help/latest/manual/cmake-cxxmodules.7.html
+  - https://www.kitware.com/import-cmake-the-experiment-is-over/
+
 ## 3. 제네릭과 템플릿
 
 ### 3.1 인스턴스화 전략 (제네릭 컨테이너, 메서드 30개, 타입 10개, 100개 TU가 모두 사용)
@@ -378,6 +415,7 @@ C++ 클래스는 힙을 전제로 하지 않는다. 스택, 정적 영역, 아�
 6. 호출은 완전히 한정(`::ssc::f(...)`)해서 ADL 비용을 뺀다. 전방 선언은 필요한 것만 낸다.
 7. `-fno-exceptions`, 코루틴 프레임은 아레나 할당, 빌드 후 할당 심볼 검사로 숨은 할당을 막는다.
 8. libc++는 정적 링크한다.
+9. 증분 빌드: 생성 코드 해시로 바뀐 TU만 재컴파일하고, 인터페이스 BMI가 바뀌었을 때만 import하는 쪽을 재컴파일하고, ThinLTO 캐시를 켠다.
 
 ## 13. 재구현 순서 (전환 시)
 
