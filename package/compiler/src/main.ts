@@ -2,11 +2,11 @@ import { CliExitError, createCommand, runCli } from '@syscript/cli';
 import cp from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { logError, logSuccess, logWarn, printLine } from '~/log.js';
 import { SscBuildManager } from '~/ssc/manager/build.js';
 import { SscManager } from '~/ssc/manager/ssc.js';
 import { checkPathLeak } from '~/ssc/path-leak.js';
 import { File } from '~/util/file.js';
+import { logError, logSuccess, logWarn, printLine } from './util/log.js';
 
 async function clean(buildManager: SscBuildManager) {
   const { outDir, markerPath } = buildManager;
