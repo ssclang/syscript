@@ -2,7 +2,7 @@ import { assert, CustomMath, isError } from '@syscript/share/util';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { logWarn } from '~/log.js';
+import { logWarn } from '~/util/log.js';
 
 type FileType = 'file' | 'directory' | 'symbolicLink';
 

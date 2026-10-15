@@ -4,9 +4,9 @@ import nodePath from 'path';
 import * as ast from 'typescript7/ast';
 import { ModuleDetectionKind } from 'typescript7/proto';
 import * as ts from 'typescript7/sync';
-import { EmitOnly } from 'typescript7/sync';
-import { logSuccess, logWarn } from '~/log.js';
+import { CheckerApi, ProgramApi, TsApi } from '~/ts/api.js';
 import { File } from '~/util/file.js';
+import { logSuccess, logWarn } from '~/util/log.js';
 import { AbsolutePath, Path, RealPath } from '~/util/path.js';
 
 type TsParserInitOption = {
@@ -23,9 +23,9 @@ type TsParserContext = {
   configFileDir?: RealPath;
   configFilePath?: RealPath;
   config?: ts.ParsedCommandLine;
-  api: ts.API;
-  program: ts.Program;
-  checker: ts.Checker;
+  api: TsApi;
+  program: ProgramApi;
+  checker: CheckerApi;
   tsPathToRealPathMap: ReadonlyMap<ast.RootedFilePath, RealPath>;
   realPathToTsPathsMap: ReadonlyMap<RealPath, readonly ast.RootedFilePath[]>;
 };
@@ -91,21 +91,16 @@ export class TsParser {
     return this.context.entryPath;
   }
 
+  // close() {
+  //   this.context.tsc.close();
+  // }
+
   static async init(option: TsParserInitOption) {
     const context = await TsParser.initContext(option);
-    const diagnostics = context.program.emitToString(EmitOnly.OnlyDts).diagnostics;
 
-    if (diagnostics.length) {
-      context.api.close();
-      console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics, context.program));
-      throw CliExitError.default(`${diagnostics.length} typescript errors with ssc config`);
-    }
+    context.api.checkCompileError(context.program);
 
     return new TsParser(context);
-  }
-
-  close() {
-    // this.api.close();
   }
 
   private static async initContext(option: TsParserInitOption) {
@@ -114,7 +109,7 @@ export class TsParser {
     const inputConfigFilePath =
       option.configFilePath
       || (await TsParser.autoFindConfigFile(Path.dirname(entryPath), autoFindConfigFileName));
-    const api = new ts.API({ tsserverPath, cwd: Path.dirname(inputConfigFilePath || entryPath) });
+    const api = new TsApi({ tsserverPath, cwd: Path.dirname(inputConfigFilePath || entryPath) });
     const config =
       inputConfigFilePath ? await TsParser.parseConfigFile(api, inputConfigFilePath) : undefined;
     const configFilePath = config?.configFilePath;
@@ -139,7 +134,7 @@ export class TsParser {
       ...config?.config.options,
       ...overrideTsConfigOption,
     });
-    const { checker } = program.getProject();
+    const checker = program.getChecker();
     const tsPathToRealPathMap = new Map<ast.RootedFilePath, RealPath>();
     const realPathToTsPathsMap = new Map<RealPath, ast.RootedFilePath[]>();
     const paths = await Promise.all(
@@ -218,7 +213,7 @@ export class TsParser {
     }
   }
 
-  private static async parseConfigFile(api: ts.API, configFilePath: RealPath) {
+  private static async parseConfigFile(api: TsApi, configFilePath: RealPath) {
     const config = api.parseConfigFile(configFilePath);
 
     assert(!config.errors.length, JSON.stringify(config.errors));

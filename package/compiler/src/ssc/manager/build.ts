@@ -16,6 +16,7 @@ import { App } from '~/ts/ts-app.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
 import { TsParser } from '~/ts/ts-parser.js';
 import { File } from '~/util/file.js';
+import { PathResolver } from '~/util/path-resolver.js';
 import { Path } from '~/util/path.js';
 
 declare const _sscTsserverPath: string | undefined;
@@ -54,16 +55,9 @@ type EmitOption = {
 const isDev = true;
 
 export class SscBuildManager {
-  readonly tsserverPath =
-    typeof _sscTsserverPath === 'string' ?
-      path.join(import.meta.dirname, _sscTsserverPath)
-    : path.join(import.meta.dirname, '../../../../../../ssclang/TypeScript/built/local/tsc');
-
-  readonly preludeDir =
-    typeof _sscPreludeDir === 'string' ?
-      path.join(import.meta.dirname, _sscPreludeDir)
-    : path.join(import.meta.dirname, '../../../../../prelude/');
-  readonly preludePath = path.join(this.preludeDir, 'prelude.d.ts');
+  readonly tsserverPath = PathResolver.tsServerPath();
+  readonly preludeDir = PathResolver.preludeDir();
+  readonly preludePath = PathResolver.preludePath();
 
   readonly outDir: string;
   readonly markerPath: string;
