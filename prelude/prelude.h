@@ -405,6 +405,3 @@ SSC__MACRO__UNION_NUMBER_TO_FN(f32)
 SSC__MACRO__UNION_NUMBER_TO_FN(f64)
 
 #undef SSC__MACRO__UNION_NUMBER_TO_FN
-
-#include "arena.h"
-#include "string.h"
