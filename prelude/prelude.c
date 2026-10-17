@@ -31,6 +31,3 @@
 
   exit(1);
 }
-
-#include "arena.c"
-#include "string.c"
