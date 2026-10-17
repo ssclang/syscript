@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import path from 'path';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
-import { printLine } from '~/log.js';
+import { printLine } from '~/util/log.js';
 import { assertExpectedNode } from '~/util/assert.js';
 import { RealPath } from '~/util/path.js';
 import { App } from './ts-app.js';

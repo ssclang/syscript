@@ -3,3 +3,5 @@ dist/
 rolldown.config.*.js
 .ssc/
 .DS_Store
+
+/tmp/
