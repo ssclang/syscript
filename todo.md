@@ -72,11 +72,13 @@ path.json,  setting.json, config.json 등
 └─────────────────┴──────────────────────────────────────────────────────────────────────────────────────────┘
 
 [다음 작업 순서]
-1. 메모리 할당 ✅ (prelude/arena.h, arena.c)
+1. 메모리 할당 ✅ (prelude/arena.h, arena.c) → 객체별 RC로 전환하며 대체됨
 2. 문자열
-3. 아레나 스코프 관리
+3. 아레나 스코프 관리 → 객체별 RC로 전환하며 필요 없어짐
 
 [문자열]
+(메모리 모델을 객체별 RC로 바꿈. 아래의 아레나 전제 근거는 다시 봐야 함. 특히 StringView를 따로 둔 이유인
+"원본 아레나 전체를 붙잡는 누수"는 RC에서는 원본 문자열 하나만 붙잡는 문제로 바뀜)
 - 인코딩은 UTF-8. `.length`는 바이트 길이
 - `str[i]`는 선언하지 않아 막힘. noLib라 prelude에 선언한 멤버만 존재
 - `for (const ch of str)`는 코드 포인트 하나짜리 string을 돌려주는 iterator
@@ -107,55 +109,198 @@ path.json,  setting.json, config.json 등
     아레나를 붙잡고, union 8바이트와 맞지 않고, NUL 종료가 보장되지 않음
 
 [메모리 모델]
-아레나 스코프
-- 함수 아레나: 할당이 있는 함수에만 만듦. 함수 스코프가 곧 아레나 스코프
-- 반복문 아레나: 반복문마다 따로 두고, 매 반복마다 체크포인트로 되돌림(rollback)
-- `using` 블록: 블록이 끝나면 그 아레나를 해제
-- 명시적 메모리 관리는 아레나 단위로만 함. 값 단위 해제나 ID 집합은 쓰지 않음
+기본: 객체별 참조 카운트(RC) + RAII (아레나 모델을 대체함)
+- 할당과 해제는 컴파일러가 자동으로 넣음. 사용자에게 노출하지 않음
+- 참조 타입은 RC 핸들 클래스로 내림. 복사 생성자 = +1, 소멸자 = -1(0이면 해제),
+  이동 생성자 = 증감 없이 소유권만 넘김(마지막 사용에서 RC 연산 생략)
+- 같은 계열: Swift ARC, Nim ARC, Koka Perceus
+- 객체 헤더에 RC 8바이트
+- 멀티스레드에서는 원자 연산 비용이 생김(biased RC 검토)
 
-스택과 아레나
-- 전체 프로그램 정적 탈출 분석으로 스택에 둘지 아레나에 둘지 정함
+전환 이유
+- C++의 복사·이동·소멸자가 RC 규칙과 1:1로 맞아 lower가 단순해짐
+- 아레나 모델은 탈출 분석, write barrier, 아레나 풀, 주소 → 아레나 테이블이 필요해 복잡함
+- 성능 차이 측정(glibc malloc, -O2, 16~24바이트 객체 1천만 개): bump 아레나 3.7ns,
+  malloc + RC 증감 + free 6.6ns, malloc 전부 → free 전부 10.9ns(객체당).
+  2~3배 차이지만 절대값은 객체당 3~7ns라 할당이 지배적인 프로그램이 아니면 작음
+- 할당이 많은 경우는 할당기 교체(크기별 풀, mimalloc 방식)와 명시적 아레나 API로 보완
+
+스택과 힙
+- 전체 프로그램 정적 탈출 분석으로 스택에 둘지 힙에 둘지 정함
 - 콜백과 함수 값도 재귀적으로 분석함. 외부 C 호출은 보수적으로 탈출한 것으로 봄
-
-아레나 단위 참조 카운트(RC)
-- 아레나 밖(스택, 다른 아레나)에서 들어오는 참조만 셈. 같은 아레나 안의 참조는 세지 않음
-- 함수 프레임은 자기 아레나에 대한 참조 하나를 가짐
-- 자기 프레임의 아레나를 가리키는 지역 변수는 세지 않음
-- 힙 슬롯이 덮어써지거나, 그 슬롯을 담은 아레나가 해제되면 감소
-- 슬롯 단위 write barrier가 아레나 밖을 가리키는 슬롯을 기록함
-- 그래서 아레나를 스코프 사이로 옮길(move) 필요가 없음
-- 비용은 감수하기로 함. 멀티스레드에서는 원자 연산 비용이 생김(biased RC 검토)
+- 스택 객체도 첫 필드가 오브젝트 헤더이고 RC를 0(불멸)으로 둠. union, 복사, 이동에서 RC 연산이 무시되어
+  힙 객체와 같은 코드로 다룸. 해제는 범위가 끝날 때 스택에서 일어남
+- union에 담긴 값도 추적함. union이 탈출하면 담긴 객체도 탈출한 것으로 보고 힙에 둠(Go의 interface와 같음)
 
 순환
-- 보류. 나중에 trial deletion 방식 수집기(가능하면 non-stop)
+- 우선순위 낮음. 셀프호스팅까지는 순환이 누수됨(컴파일러는 짧게 끝나는 프로세스라 문제없음)
+- 나중에 순환 수집기 추가: Nim ORC 방식. RC가 줄었지만 0이 아닌 객체를 후보로 모았다가
+  trial deletion(Bacon–Rajan)으로 순환만 해제. 순환이 불가능한 타입은 후보에서 제외
+- 사용자에게 weak 표시를 요구하지 않음(JS의 일반 참조는 모두 강한 참조)
 
 참조
 - 8바이트 포인터. 세대(generation) 검사 없음
 
-주소 → 아레나 (Go 방식 2단 테이블)
-- 64MB 세그먼트를 정렬해서 필요할 때 매핑
-- L1은 BSS의 `ssc__slab_segments[1<<22]`로 48비트 주소 공간을 덮음
-- 세그먼트마다 아레나를 가리키는 `pages[16384]`(4KB 페이지)와 `classes[]`
-- 한 번에 크게 예약하는 방식과 비교한 벤치마크에서 손해가 없었음
-
-할당기 (직접 구현한 C bump 할당기)
-- 위쪽으로 bump, 최소 정렬 8
-- 첫 청크 4KB, 두 배씩 늘려 최대 64MB
-- rollback한 뒤 청크를 재사용
-- 아레나 풀: 해제하면 첫 청크만 남기고 나머지 청크는 slab free list로 돌려줌.
-  아레나 구조체는 첫 청크 안에 있음
-- 메모리 부족: `FATAL ERROR: Allocation failed - out of memory`
-- 지금은 단일 스레드 전역 상태
-
-명시적 API (계획)
-- `arena`: 현재 함수의 아레나
-- `new Arena()`
-- `arena.add(() => value)`: 콜백 안의 할당은 모두 그 아레나에 함
+명시적 아레나 API (선택 기능, 나중에)
+- 할당이 많은 코드만 프렐류드의 아레나 객체나 함수로 대량 할당·일괄 해제
+- 안전성 방식은 그때 정함: 아레나 자체에 RC(밖에서 가리키면 해제를 미룸), 해제 시점 검사 후 예외,
+  콜백 안에서만 쓰게 해서 탈출을 컴파일러가 막기
+- Go의 arena 실험은 use-after-free 문제로 보류됨. Zig, Rust bumpalo, C++ pmr은 사용자 책임
 
 채택하지 않은 방식
+- 기본 모델로서의 아레나 + 아레나 단위 RC (C 백엔드 때의 설계. prelude/arena.h, arena.c)
 - destination passing (이전 프로젝트의 결정은 반영하지 않음)
 - 세대 검사용 fat pointer, tagged pointer
 - 격리(quarantine) + GC
-- 키 없는 주소 맵
-- 값 단위 수동 해제, ID 집합
-- obstack, tsoding/arena (더 느림. tsoding은 패치가 필요하고 아레나별 backend context가 없음)
+- 값 단위 수동 해제를 사용자에게 노출, ID 집합
+
+[객체 표현]
+객체 헤더
+- rc 8바이트 + 서술자 포인터 8바이트 = 16바이트(CPython, Swift와 같은 수준. Rust는 헤더 0, `Rc`는 16)
+- 모든 참조의 첫 8바이트가 rc라서 RC 처리는 실제 타입을 몰라도 됨
+- 문자열을 포함한 모든 참조가 이 헤더를 가짐. 문자열은 헤더 뒤에 length, bytes(V8, CPython과 같음)
+  - TS는 문자열을 `{ length: number }` 같은 구조적 타입 자리에 넣을 수 있어 서술자와 shape가 필요함
+  - `typeof x === 'string'`은 서술자의 종류로 판별. union에 문자열 전용 id가 필요 없음
+  - 정적으로 string 타입인 곳의 메서드 호출은 서술자 없이 직접 호출
+
+shape
+- (이름, 타입)을 정렬한 목록으로 레이아웃을 정함. TS 구조적 타입은 필드 순서를 보지 않음
+- 같은 shape는 오프셋 표를 공유. class 인스턴스와 plain object도 shape가 같으면 레이아웃이 같음
+- 정리 목록(ref 필드 오프셋, union 필드 오프셋)은 레이아웃에서 나오므로 shape가 가짐. 서술자 N개가 shape 하나를 공유
+- 나중에 필드 정보(이름, 오프셋, 종류)를 추가. 이름은 TS의 원래 이름을 정적 바이트 + 길이(span)로 담음.
+  첫 소비자(구조적 타입 접근, `JSON.stringify` 등)와 함께 추가
+
+서술자
+- (shape, 키 순서) 조합마다 하나. 객체는 서술자 포인터만 가짐. 서술자는 shape를 가리킴
+- 키 순서: JS는 열거·직렬화(`Object.keys`, `for...in`, 스프레드, `JSON.stringify`)에서 삽입 순서를 드러냄
+  (정수 키는 오름차순으로 앞). `{ a, b }`와 `{ b, a }`는 shape는 같고 서술자는 다름
+- class는 필드 선언 순서가 고정이라 클래스당 서술자 하나. 클래스 표를 겸함(`instanceof`, 메서드 등)
+- plain object의 서술자는 클래스가 없음(익명)
+- V8의 Map(hidden class)과 같은 구조. 다른 점은 TS가 속성 추가를 막아 실행 중에 shape가 바뀌지 않는 것
+
+필드 접근
+- 정적 오프셋: shape가 같거나, 자식 클래스가 부모 필드를 앞에 그대로 둔 경우. id를 읽지 않음
+- 동적 경로: 필드가 더 많은 객체가 들어온 경우(변수로 넘기면 초과 속성 허용) 서술자 → 오프셋 표 → 필드
+- `private`/`protected` 멤버가 있는 클래스는 명목적으로 비교되어 plain object가 들어오지 않음
+
+실행 중에 정해지는 서술자
+- 스프레드(`{ ...a, ...b }`)는 입력의 실제 키 순서를 따름. 입력 서술자 조합별로 만들어 캐시(V8의 transition과 같음)
+
+프렐류드 반영
+- `ssc__core__struct__object_header`: rc + 서술자 포인터 (16바이트)
+- `ssc__core__struct__descriptor`: shape 포인터 (8바이트)
+- `ssc__core__struct__shape`: ref 필드 오프셋 span, union 필드 오프셋 span (32바이트)
+- `ssc__core__struct__span<Type>`: 길이 + 원소 포인터. 정적 배열을 길이와 함께 가리킴(`std::span`과 같은 구조).
+  프렐류드 내부의 몇 가지 원소 타입에만 써서 템플릿으로 둠
+- `drop_rc`: RC가 0이 되면 shape의 두 목록을 돌며 각 위치의 `~ref()`, `~union()`을 호출(하위 참조로 전파)한 뒤 `free`.
+  범용 함수 하나라 클래스마다 소멸 함수를 만들지 않음(Go, Java GC의 포인터 지도와 같은 방식)
+  - 클래스별 소멸 함수와 비교(ref 3, union 1, 숫자 2 필드 객체 500만 개 해제, free 포함): 클래스별 5.1~5.6ns,
+    범용 ref/union 목록 5.9~6.0ns, 범용 전체 필드 + 종류 분기 7.5ns, 목록 하나 + 항목마다 종류 분기 6.7~7.1ns
+  - 정리가 재귀라 아주 긴 연결 리스트를 해제하면 스택이 넘칠 수 있음(Rust `Box` 리스트와 같은 문제)
+- 모든 객체는 서술자를 가져야 함(`drop_rc`가 null 확인 없이 따라감). 문자열 서술자는 문자열 생성 함수를 만들 때 위치를 정함
+- 대입 연산자(ref, union의 복사·이동)는 `other`의 값을 `drop_rc` 전에 꺼내 둠. `other`가 왼쪽 객체 안의 필드면
+  (`node = node.next`) 왼쪽 해제와 함께 사라지기 때문. 이 순서로 자기 대입도 분기 없이 안전함
+- 이동된 union의 `type_id`는 0(uninitialized). undefined는 정상 값이라 실수로 쓰면 버그가 숨음
+- union 템플릿 생성자는 `requires(type_id<Type> != 0)`로 등록된 프렐류드 타입만 받음(16바이트 구조체를 8바이트 칸에
+  복사하는 버그 방지)
+- `ssc__core__type__ref`: 런타임의 논리적 참조(RC 관리). 내부에 C++ 포인터(`object_header *`) 하나를 담고 템플릿이 없음.
+  템플릿이면 클래스마다 인스턴스가 생겨 컴파일 +52%, -O0 크기 2.5배(클래스 5,000개 측정, -O1 이상 결과물은 같음)
+- union `type_id`는 참조 타입 전체가 48(ref) 하나. 실제 종류는 서술자가 앎
+- 필드 접근은 생성 코드가 `object_header *`를 실제 구조체로 캐스트
+
+미정
+- 동적 경로 비용 측정
+- 내장 컨테이너(Array, Map, Set): 원소 수가 실행 중에 정해져 정적 목록으로 정리할 수 없음. 서술자에 내장 타입 전용
+  소멸 함수(null 가능)를 두고 std 컨테이너 소멸자에 정리를 맡기는 방향. 원소 shape별로 몇 개만 생김
+- 힙 객체 생성: placement new 없이 `ref` 필드를 가진 객체를 만드는 방법(테스트는 `__builtin_memcpy`로 만듦)
+
+[제네릭]
+방향: shape별 단일 구현(Go 1.18+의 GC shape stenciling + dictionary 방식)
+- 참조 타입은 모두 같은 shape(`ref` 8바이트)라 구현 하나를 공유. `Array<User>`, `Array<string>`이 같은 코드
+- 기본 타입(i8~u64, f32, f64, boolean, char)은 크기와 연산이 달라 shape별로 따로 생성. 최대 십여 개로 고정
+- 타입별 정보(서술자, 비교, 해시 등)는 객체의 서술자나 숨은 사전 인자로 넘김
+- 증분 빌드: 제네릭 함수가 정의된 모듈의 `.o`에만 들어가, 본문을 고쳐도 그 모듈만 다시 컴파일함
+- 성능이 필요한 곳은 LTO의 인라인·특수화로 보완
+
+비교
+- C++ 템플릿, Rust: 타입마다 생성. 실행 비용 0, 대신 인스턴스가 사용 타입 수만큼 늘고 본문 변경 시 쓰는 모듈 전부 재컴파일
+- Java(타입 소거), OCaml: 단일 구현 + 박싱. 기본 타입까지 박싱되어 `Array<i32>`가 원소당 16바이트 이상
+- Swift: 단일 구현 + witness table, 보이는 곳은 컴파일러가 특수화
+
+채택하지 않음
+- 기본 타입까지 하나로 합치기: `Array<i32>` 원소가 union(16바이트)이나 박싱 객체가 되어 메모리 4배, 숫자 연산이 느려짐
+
+[C++ 백엔드]
+언어 버전
+- `-std=c++26`. clang 23 기준 구현된 기능만 씀. reflection, contracts, `#embed` 등은 clang 미구현
+- C++23과의 실제 차이: `_` 변수, pack indexing, `= delete("이유")`, 구조 분해 확장, 더 엄격한 검사.
+  무한 루프 UB 제거는 DR이라 C++23에도 적용됨
+
+프렐류드 (`prelude/prelude.cppm`)
+- `export module ssc;`. 생성 코드는 `import ssc;`로 가져옴. include는 쓰지 않음
+- 숫자 타입과 boolean만 있음. 타입은 `using` 별칭이라 심볼을 만들지 않음
+- char는 `char32_t`. C++ 내장 타입이라 u32와 다른 타입으로 구분됨(오버로드 가능)
+- `prelude.h`와 같은 정적 검사: 64비트 플랫폼, 정수 최댓값, 타입 크기
+- undefined, null, void, string, union은 그 기능을 내릴 때 추가
+
+이름 규칙
+- 프렐류드: `ssc__core__<종류>__<이름>` (예: `ssc__core__type__i32`)
+- syscript 소스: `ssc__src__<종류>__<이름>` (예: `ssc__src__fn__add`)
+- 종류: `var`(변수, 매개변수), `fn`, `class`, `type`(인터페이스, 타입 별칭, 제네릭 타입 매개변수),
+  `member`(필드, 메서드), `label`
+- 이유
+  - C++ 키워드는 위치와 상관없이 예약됨. 필드와 메서드 이름도 못 씀(`map.delete`, `promise.catch`).
+    C++에는 Rust `r#`, Swift 백틱 같은 탈출 문법이 없음
+  - TS는 타입과 값의 이름공간이 분리되어 `type Point`와 `const Point`가 공존함 → 종류로 구분
+  - 멤버는 하나로 둠. TS는 구조적 타입이라 메서드 `run()`과 함수 값 필드 `run`이 서로 대입됨
+  - 항상 붙이는 고정 접두사라 원래 이름을 바로 되돌림. `obj["key"]`, `Object.keys`, reflection도 같은 규칙
+- `__`가 든 이름은 C++ 표준상 구현 예약이지만 clang은 기본으로 경고하지 않음
+  (`-Wreserved-identifier`에서만). clang 버전을 고정하므로 씀
+- 모듈 사이 격리는 C++ 모듈이 보장(strong ownership, 심볼에 모듈 이름 포함). 이름에 모듈 id를 넣지 않음
+- 이름 길이에 따른 컴파일 시간 차이는 1~2%(함수 2만 개 기준)
+
+tsgo 연결
+- fork의 `tsc/cmd/sscapi`를 N-API 애드온(`built/local/tsc.node`)으로 빌드해 같은 프로세스에서 호출.
+  셀프호스팅 후에는 같은 패키지를 c-archive로 정적 링크
+- `ApiClient.request(method, params)`: `typescript7/proto`의 `APIMethodInfo`로 타입이 붙은 JSON 요청.
+  소스 파일도 JSON(`{ data: base64 }`)으로 받음
+- 동기 호출. 이벤트 루프와 async는 셀프호스팅 뒤에 언어 기능으로 따로 설계
+- 지금 컴파일러는 라이브러리(`typescript7/sync`) 수준으로 구현하고, `TsApi`·`ProgramApi`·`CheckerApi`
+  메서드만 거침. 라이브러리 객체의 메서드(`type.getTypes()`, `symbol.declarations` 등)는 쓰지 않음
+- 원시 요청으로 바꿀 때 남은 일: 바이너리 AST 해석, Type·Symbol을 응답 데이터(`TypeResponse` 등)로 교체
+
+예외
+- C++ 예외(표 기반)를 그대로 씀. TS `throw`/`try`/`catch`가 1:1로 내려가고 JS 의미가 보존됨
+- 링크: `-fexceptions -nostdlib++ --rtlib=compiler-rt --unwindlib=none` + LLVM 배포판의
+  `libc++abi.a`, `libunwind.a` 정적 링크. 동적 의존은 libc, libm만 남음
+- 지원 대상: 리눅스, 맥, 윈도우, 안드로이드. 임베디드는 보류(필요하면 `-fno-exceptions` + throw 시 종료 모드)
+- 측정(x86-64, -O2, strip)
+  - 크기: 예외 없음 5.7KB, 배포판 그대로 + `--gc-sections` 231KB. 프로그램 크기와 무관한 고정 비용.
+    대부분 libc++abi의 demangler(약 115KB, 잡히지 않은 예외 메시지용).
+    `LIBCXXABI_NON_DEMANGLING_TERMINATE`로 직접 빌드하면 약 56KB
+  - 참고: Rust std 바이너리 약 306KB, musl 정적 printf 22KB
+  - 오류 없을 때 호출 비용: C++ 예외 +0~3%, 반환값 방식 +12~75%, Swift 오류 레지스터 방식 +1~74%
+  - throw 비용: 깊이 10에서 throw 후 catch 1회 약 10μs(반환값 방식 7.8ns). 예외를 흐름 제어로 많이 쓰는 코드는 느림
+- 반환값·변수(thread_local) 방식은 호출마다 검사가 필요해 식을 쪼개야 함 → 1:1 대응이 깨지고 숨은 동작이 생김.
+  문장 끝에서 한 번 검사하면 throw 뒤의 호출이 실행되어 JS 의미가 달라짐
+- 범위 밖 배열 접근은 예외가 아니라 `undefined` 반환(`noUncheckedIndexedAccess` 강제). 정수 0 나누기 등 UB가 되는
+  연산은 검사 후 throw. 메모리 부족과 스택 넘침 처리는 미정
+
+빌드 플래그 (`SscBuildManager.clangCompileFlag`, `clangEmitFlag`, `clangCommonFlag`)
+- 공통(컴파일과 링크 모두): `-O{optLevel}`, `-flto=thin`. 링크에 `-flto`가 없으면 `-O`가 lld에 전달되지 않아
+  조용히 lld 기본값 -O2로 동작함(측정 확인). ThinLTO는 컴파일(파일 단위 정리)과 링크(합친 뒤 최적화, 기계어) 모두
+  최적화 수준을 씀. 사용자에게는 optLevel 하나로 둠(clang, Rust와 같음)
+- 컴파일: `-std=c++26`, `-fexceptions`, `-ffp-contract=off`, `-Wno-parentheses-equality`, debug면 `-g`
+- 링크: `-fuse-ld=lld`, `-nostdlib++`, `--rtlib=compiler-rt`, `--unwindlib=none`, `libc++abi.a`, `libunwind.a`
+  - lld, compiler-rt: 빌드할 때 시스템 binutils, GCC에 의존하지 않고 LLVM 하나로 완결(결과물 의존성은 같음)
+  - `--unwindlib=none` 명시: 생략하면 안드로이드, AIX, clang 설정 파일에서 libunwind가 자동으로 붙어 겹침
+- clang 실행 파일과 런타임 경로는 `PathResolver`(`clangPath`, `libcxxabiPath`, `libunwindPath`)에서만 정함
+
+std 사용
+- 편해지는 부분은 적극 활용. 최적화가 필요해지면 그때 의존을 줄임
+- `import std;`로 가져옴(배포판에 `std.cppm` 있음). 측정: std.pcm 빌드 약 1초(한 번), import만 하면 컴파일 +0.001s,
+  vector 사용 0.038s(`#include <vector>`는 0.137s). 실행 파일은 쓴 것만 들어감(import만 하면 크기 변화 없음)
+- vector는 예외 런타임 위에 +2KB. `<charconv>`(숫자 ↔ 문자열, 가장 짧은 표현)는 +142KB
+- 피할 것: `<iostream>`, locale, `<format>`(큼), `std::regex`(JS 의미와 다름), `std::unordered_map`(삽입 순서 없음).
+  JS `Map`은 엔트리 배열(삽입 순서) + 해시 인덱스로 직접 구현(V8 OrderedHashMap, CPython dict 방식)
+- 아직 빌드 경로에 연결하지 않음. 처음 필요한 시점에 std.pcm 빌드와 `libc++.a` 링크를 추가

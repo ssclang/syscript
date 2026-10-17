@@ -10,12 +10,12 @@ import {
   renderModuleMap,
 } from '~/c/c-module.js';
 import { lower } from '~/c/lower.js';
-import { printLine } from '~/log.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
 import { App } from '~/ts/ts-app.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
 import { TsParser } from '~/ts/ts-parser.js';
 import { File } from '~/util/file.js';
+import { printLine } from '~/util/log.js';
 import { PathResolver } from '~/util/path-resolver.js';
 import { Path } from '~/util/path.js';
 
@@ -51,6 +51,16 @@ type EmitOption = {
   /** 켜면 `-g`로 디버그 정보를 남긴다. 아직 생성된 C 기준이라 원본과는 이어지지 않는다. */
   debug?: boolean;
 };
+
+type ClangCommonOption = {
+  optLevel: '0' | '1' | '2' | '3';
+};
+
+type ClangCompileOption = ClangCommonOption & {
+  debug: boolean;
+};
+
+type ClangEmitOption = ClangCommonOption & {};
 
 const isDev = true;
 
@@ -135,29 +145,14 @@ export class SscBuildManager {
       debug = false,
     } = option;
     const { buildDir, codeDir } = this;
+    const clang = PathResolver.clangPath();
     const binPath = path.join(buildDir, binName);
     const rootDir = File.commonDir(modules.map((m) => m.sourceFile.realPath));
-    const baseFlags = [
-      '-std=gnu23',
-      `-O${optLevel}`,
-      '-flto=thin',
-
-      '-ffp-contract=off',
-      '-Wno-parentheses-equality',
-
-      // `.comment`에 clang 버전을 남기지 않는다. 시스템 crt 오브젝트가 남기는 GCC 버전과
-      // `.annobin.notes`, `.gnu.build.attributes`는 링크 후에 따로 지워야 한다.
-      // '-fno-ident',
-    ];
-
-    if (debug) {
-      baseFlags.push('-g');
-    }
 
     // 모듈맵과 모듈 캐시는 빌드 사이에 유지한다.
     const layout = cModuleLayout(buildDir);
     const compileFlags = [
-      ...baseFlags,
+      ...SscBuildManager.clangCompileFlag({ optLevel, debug }),
       '-fmodules',
       `-fmodule-map-file=${layout.moduleMapPath}`,
       `-fmodules-cache-path=${layout.moduleCacheDir}`,
@@ -181,7 +176,7 @@ export class SscBuildManager {
       const oPath = path.join(codeDir, `${name}.o`);
 
       await File.write(cPath, output.renderC(buildDir), true);
-      SscBuildManager.run('clang', [...compileFlags, '-c', cPath, '-o', oPath]);
+      SscBuildManager.run(clang, [...compileFlags, '-c', cPath, '-o', oPath]);
 
       oPaths.push(oPath);
     }
@@ -191,7 +186,7 @@ export class SscBuildManager {
     const entryOPath = path.join(codeDir, 'ssc__main.o');
 
     await File.write(entryCPath, renderEntryC(modules.map((m) => m.id)), true);
-    SscBuildManager.run('clang', [...compileFlags, '-c', entryCPath, '-o', entryOPath]);
+    SscBuildManager.run(clang, [...compileFlags, '-c', entryCPath, '-o', entryOPath]);
     oPaths.push(entryOPath);
 
     // TODO: experimental: c 통합 poc 단계. 재설계 고려
@@ -220,14 +215,64 @@ export class SscBuildManager {
       const oPath = path.join(codeDir, 'link', `${this.idManager.loadId(libOrPath)}.o`);
 
       await fs.mkdir(path.dirname(oPath), { recursive: true });
-      SscBuildManager.run('clang', [...compileFlags, '-c', libOrPath, '-o', oPath]);
+      SscBuildManager.run(clang, [...compileFlags, '-c', libOrPath, '-o', oPath]);
       oPaths.push(oPath);
     }
 
     await fs.mkdir(path.dirname(binPath), { recursive: true });
-    SscBuildManager.run('clang', [...baseFlags, ...oPaths, ...linkArgs, '-o', binPath]);
+    SscBuildManager.run(clang, [
+      ...SscBuildManager.clangEmitFlag({ optLevel }),
+      ...oPaths,
+      ...linkArgs,
+      '-o',
+      binPath,
+    ]);
 
     return binPath;
+  }
+
+  private static clangCommonFlag(override: Partial<ClangCommonOption> = {}) {
+    const option: ClangCommonOption = { optLevel: '1', ...override };
+    return [`-O${option.optLevel}`, '-flto=thin'];
+  }
+
+  static clangCompileFlag(override: Partial<ClangCompileOption> = {}) {
+    const option: ClangCompileOption = {
+      optLevel: '1',
+      debug: false,
+      ...override,
+    };
+    const flags = [
+      ...SscBuildManager.clangCommonFlag(option),
+      '-std=c++26',
+      '-fexceptions',
+
+      // used in c backend
+      '-ffp-contract=off',
+      '-Wno-parentheses-equality',
+
+      // `.comment`에 clang 버전을 남기지 않는다. 시스템 crt 오브젝트가 남기는 GCC 버전과
+      // `.annobin.notes`, `.gnu.build.attributes`는 링크 후에 따로 지워야 한다.
+      // '-fno-ident',
+    ];
+
+    if (option.debug) {
+      flags.push('-g');
+    }
+
+    return flags;
+  }
+
+  static clangEmitFlag(override: Partial<ClangEmitOption> = {}) {
+    return [
+      ...SscBuildManager.clangCommonFlag(override),
+      '-fuse-ld=lld',
+      '-nostdlib++',
+      '--rtlib=compiler-rt',
+      '--unwindlib=none',
+      PathResolver.libcxxabiPath(),
+      PathResolver.libunwindPath(),
+    ];
   }
 
   /** 프로그램 전체 `.d.ts`의 `ssc:link`. 같은 대상이 여러 번 나오면 처음 것만 남긴다. */

@@ -2,7 +2,7 @@ import { assert } from '@syscript/share/util';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { logWarn, printLine } from '~/log.js';
+import { logWarn, printLine } from '~/util/log.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
 import { File } from '~/util/file.js';
 

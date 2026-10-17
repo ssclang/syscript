@@ -2,3 +2,5 @@ node_modules/
 dist/
 rolldown.config.*.js
 .ssc/
+
+/tmp/
