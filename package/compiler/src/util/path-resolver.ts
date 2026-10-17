@@ -24,4 +24,24 @@ export class PathResolver {
   static tscAddonPath() {
     return path.join(import.meta.dirname, '../../../../../ssclang/TypeScript/built/local/tsc.node');
   }
+
+  static llvmBinDir() {
+    return path.join(import.meta.dirname, '../../../../../../tool/llvm/bin');
+  }
+
+  static llvmLibDir() {
+    return path.join(import.meta.dirname, '../../../../../../tool/llvm/lib');
+  }
+
+  static clangPath() {
+    return path.join(PathResolver.llvmBinDir(), 'clang++');
+  }
+
+  static libcxxabiPath() {
+    return path.join(PathResolver.llvmLibDir(), 'x86_64-unknown-linux-gnu', 'libc++abi.a');
+  }
+
+  static libunwindPath() {
+    return path.join(PathResolver.llvmLibDir(), 'x86_64-unknown-linux-gnu', 'libunwind.a');
+  }
 }
