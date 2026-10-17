@@ -42,7 +42,7 @@ test.each(['rc'])('%s', (name) => {
     ...compileFlags,
     `-fmodule-file=ssc=${path.join(buildDir, 'ssc.pcm')}`,
     '-c',
-    path.join(preludeDir, 'test', `${name}.cpp`),
+    path.join(import.meta.dirname, 'fixture/prelude', `${name}.cpp`),
     '-o',
     objectPath,
   ]);
