@@ -16,7 +16,7 @@ import {
   NodeNumericLiteral,
   NodeParameterDeclaration,
   NodeReturnStatement,
-} from '~/ts/ts-node.js';
+} from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
 
 type LowerContext = {

@@ -1,5 +1,5 @@
 import path from 'path';
-import { AppSourceFile } from '~/ts/ts-node.js';
+import { AppSourceFile } from '~/ts/node.js';
 
 /*
  * include 지시문이 있는 `.d.ts`는 clang 모듈 하나가 된다. 지시문의 헤더를 순서대로 담은
