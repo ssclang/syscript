@@ -12,13 +12,10 @@ extern "C" void free(void* pointer) noexcept {
   }
 }
 
-static const ssc__core__struct__shape stringShape{};
-static const ssc__core__struct__descriptor stringDescriptor{&stringShape};
-
 static ssc__core__struct__string* makeString(ssc__core__type__u64 refcount) {
   auto* data = static_cast<ssc__core__struct__string*>(malloc(sizeof(ssc__core__struct__string) + 1));
   data->ssc__core__member__object_header.ssc__core__member__rc = refcount;
-  data->ssc__core__member__object_header.ssc__core__member__descriptor_pointer = &stringDescriptor;
+  data->ssc__core__member__object_header.ssc__core__member__descriptor_pointer = &ssc__core__var__string_descriptor;
   data->ssc__core__member__length = 0;
   data->ssc__core__member__bytes[0] = 0;
   return data;

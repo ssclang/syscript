@@ -19,6 +19,19 @@ const signedTypes = ['i8', 'i16', 'i32', 'i64'] as const satisfies readonly SscI
 
 const unsignedTypes = ['u8', 'u16', 'u32', 'u64'] as const satisfies readonly SscIntegerType[];
 
+export const sortedTypes = [
+  'i8',
+  'u8',
+  'i16',
+  'u16',
+  'i32',
+  'u32',
+  'i64',
+  'u64',
+  'f32',
+  'f64',
+] as const satisfies readonly SscNumberType[];
+
 const losslessTargets = {
   i8: ['i8', 'i16', 'i32', 'i64', 'f32', 'f64'],
   i16: ['i16', 'i32', 'i64', 'f32', 'f64'],

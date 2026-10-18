@@ -34,7 +34,7 @@ afterAll(async () => {
   await fs.rm(buildDir, { recursive: true, force: true });
 });
 
-test.each(['rc'])('%s', (name) => {
+test.each(['rc', 'truthy'])('%s', (name) => {
   const objectPath = path.join(buildDir, `${name}.o`);
   const binaryPath = path.join(buildDir, name);
 

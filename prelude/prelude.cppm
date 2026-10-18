@@ -174,7 +174,7 @@ public:
     if constexpr (ssc__core__var__type_id<Type> == ssc__core__var__type_id<ssc__core__type__ref>) {
       ssc__core__member__value.ssc__core__member__object_header_pointer = value.ssc__core__member__detach();
     } else {
-      __builtin_memcpy(&ssc__core__member__value, &value, sizeof(Type));
+      __builtin_memcpy(__builtin_addressof(ssc__core__member__value), __builtin_addressof(value), sizeof(Type));
     }
   }
 
@@ -256,5 +256,89 @@ static_assert(sizeof(ssc__core__struct__object_header) == 16);
 static_assert(sizeof(ssc__core__struct__shape) == 32);
 static_assert(sizeof(ssc__core__struct__descriptor) == 8);
 
-export constexpr ssc__core__type__undefined ssc__core__var__undefined{};
-export constexpr ssc__core__type__null ssc__core__var__null{};
+export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
+export inline constexpr ssc__core__type__null ssc__core__var__null{};
+
+export inline constexpr ssc__core__struct__shape ssc__core__var__string_shape{};
+export inline constexpr ssc__core__struct__descriptor ssc__core__var__string_descriptor{__builtin_addressof(ssc__core__var__string_shape)};
+
+export inline ssc__core__type__boolean ssc__core__fn__truthy_f32(ssc__core__type__f32 value) noexcept {
+  return !__builtin_isnan(value) && value != 0;
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__truthy_f64(ssc__core__type__f64 value) noexcept {
+  return !__builtin_isnan(value) && value != 0;
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__truthy_union(const ssc__core__type__union& value) noexcept {
+  const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
+  const auto& member = value.ssc__core__member__value;
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__undefined>) {
+    return false;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__null>) {
+    return false;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__boolean>) {
+    return member.ssc__core__member__boolean;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i8>) {
+    return member.ssc__core__member__i8 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i16>) {
+    return member.ssc__core__member__i16 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i32>) {
+    return member.ssc__core__member__i32 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i64>) {
+    return member.ssc__core__member__i64 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u8>) {
+    return member.ssc__core__member__u8 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u16>) {
+    return member.ssc__core__member__u16 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u32>) {
+    return member.ssc__core__member__u32 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u64>) {
+    return member.ssc__core__member__u64 != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__char>) {
+    return member.ssc__core__member__char != 0;
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f32>) {
+    return ssc__core__fn__truthy_f32(member.ssc__core__member__f32);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
+    return ssc__core__fn__truthy_f64(member.ssc__core__member__f64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
+    const ssc__core__struct__object_header* object_header_pointer = member.ssc__core__member__object_header_pointer;
+
+    if (object_header_pointer->ssc__core__member__descriptor_pointer != __builtin_addressof(ssc__core__var__string_descriptor)) {
+      return true;
+    }
+
+    return reinterpret_cast<const ssc__core__struct__string*>(object_header_pointer)->ssc__core__member__length != 0;
+  }
+
+  __builtin_trap();
+}

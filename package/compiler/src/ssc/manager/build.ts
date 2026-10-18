@@ -317,6 +317,7 @@ export class SscBuildManager {
       ...SscBuildManager.clangCommonFlag(option),
       '-std=c++26',
       '-fexceptions',
+      '-Werror=sign-compare', // check dangerous conversion
 
       // used in c backend
       '-ffp-contract=off',
