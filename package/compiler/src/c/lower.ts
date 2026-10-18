@@ -61,7 +61,7 @@ import {
   NodeVariableStatement,
   NodeWhileStatement,
   sscIncludeDirectivePrefix,
-} from '~/ts/ts-node.js';
+} from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
 
 type LowerOption = {

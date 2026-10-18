@@ -1,5 +1,5 @@
 import { includes, sscAllTypes } from '~/ssc/type.js';
-import { NodeIdentifier } from '~/ts/ts-node.js';
+import { NodeIdentifier } from '~/ts/node.js';
 
 /**
  * C 키워드. 표준 판본별로 나눠 적는다. 밑줄로 시작하는 철자도 TS에서는 합법인 식별자라

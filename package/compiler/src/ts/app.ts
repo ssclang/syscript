@@ -1,6 +1,6 @@
 import * as ast from 'typescript7/ast';
+import { AppSourceFile } from '~/ts/node.js';
 import { TsParser } from '~/ts/parser.js';
-import { AppSourceFile } from '~/ts/ts-node.js';
 import { RealPath } from '~/util/path.js';
 
 export class TsApp {

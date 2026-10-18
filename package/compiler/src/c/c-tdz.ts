@@ -1,5 +1,5 @@
 import * as ast from 'typescript7/ast';
-import { AppSourceFile } from '~/ts/ts-node.js';
+import { AppSourceFile } from '~/ts/node.js';
 
 type References = {
   variables: Set<number>;
