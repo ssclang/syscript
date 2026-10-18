@@ -79,6 +79,13 @@ export class ProgramApi {
     return this.program.getSourceFile(file);
   }
 
+  getResolvedModuleFromModuleSpecifier(
+    moduleSpecifier: ast.StringLiteralLikeNode,
+    sourceFile?: ts.DocumentIdentifier,
+  ) {
+    return this.program.getResolvedModuleFromModuleSpecifier(moduleSpecifier, sourceFile);
+  }
+
   emitToString(emitOnly: ts.EmitOnly) {
     return this.program.emitToString(emitOnly);
   }
@@ -113,6 +120,10 @@ export class CheckerApi {
 
   getSignatureFromDeclaration(node: ast.Node) {
     return this.checker.getSignatureFromDeclaration(node);
+  }
+
+  getContextualType(node: ast.Expression) {
+    return this.checker.getContextualType(node);
   }
 
   typeToString(type: ts.Type) {

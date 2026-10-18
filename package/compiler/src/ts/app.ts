@@ -1,9 +1,9 @@
 import * as ast from 'typescript7/ast';
+import { TsParser } from '~/ts/parser.js';
 import { AppSourceFile } from '~/ts/ts-node.js';
-import { TsParser } from '~/ts/ts-parser.js';
 import { RealPath } from '~/util/path.js';
 
-export class App {
+export class TsApp {
   private readonly log: 'log' | 'debug';
   readonly parser: TsParser;
   private readonly sourceFileMap = new Map<RealPath, AppSourceFile>();
@@ -12,21 +12,20 @@ export class App {
   readonly preludeSourceFile: AppSourceFile;
   readonly entrySourceFile: AppSourceFile;
 
-  private constructor(log: App['log'], parser: TsParser) {
+  private constructor(log: TsApp['log'], parser: TsParser) {
     this.parser = parser;
     this.log = log;
 
-    this.preludeSourceFile = this.loadSourceFile(parser.getSourceFile(parser.preludePath));
+    this.preludeSourceFile = this.loadSourceFile(parser.getSourceFile(parser.preludeDtsPath));
     this.entrySourceFile = this.loadSourceFile(parser.getSourceFile(parser.entryPath));
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (this.log) {
-      //
+    if (this.log === 'debug') {
+      console.log('debug');
     }
   }
 
-  static init(log: App['log'], parser: TsParser) {
-    return new App(log, parser);
+  static init(log: TsApp['log'], parser: TsParser) {
+    return new TsApp(log, parser);
   }
 
   get api() {
