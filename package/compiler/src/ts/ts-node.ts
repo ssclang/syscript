@@ -3,18 +3,18 @@ import BigNumber from 'bignumber.js';
 import path from 'path';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
-import { printLine } from '~/util/log.js';
 import { assertExpectedNode } from '~/util/assert.js';
+import { printLine } from '~/util/log.js';
 import { RealPath } from '~/util/path.js';
-import { App } from './ts-app.js';
+import { TsApp } from './app.js';
 
 // region abstract
 
 export abstract class AbstractNode<T extends ast.Node> {
-  readonly #app: App;
+  readonly #app: TsApp;
   readonly #tsNode: T;
 
-  constructor(app: App, tsNode: T) {
+  constructor(app: TsApp, tsNode: T) {
     this.#app = app;
     this.#tsNode = tsNode;
   }
@@ -75,7 +75,7 @@ export abstract class AbstractNode<T extends ast.Node> {
 export abstract class AbstractStatement<
   T extends ast.Statement = ast.Statement,
 > extends AbstractNode<T> {
-  static of(app: App, tsNode: ast.Statement) {
+  static of(app: TsApp, tsNode: ast.Statement) {
     if (tsNode.getSourceFile().isDeclarationFile) {
       return new NodeAmbientDeclaration(app, tsNode);
     }
@@ -152,7 +152,7 @@ export abstract class AbstractStatement<
 export abstract class AbstractExpression<
   T extends ast.Expression = ast.Expression,
 > extends AbstractNode<T> {
-  static of(app: App, tsNode?: ast.Expression) {
+  static of(app: TsApp, tsNode?: ast.Expression) {
     assert(tsNode);
 
     if (ast.isPrefixUnaryExpression(tsNode)) {
@@ -216,7 +216,7 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
   readonly parameters: NodeParameterDeclaration[];
   readonly block: NodeBlock | undefined;
 
-  constructor(app: App, tsNode: ast.FunctionDeclaration) {
+  constructor(app: TsApp, tsNode: ast.FunctionDeclaration) {
     super(app, tsNode);
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
     this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
@@ -235,18 +235,18 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
 }
 
 export class NodeReturnStatement extends AbstractStatement<ast.ReturnStatement> {
-  readonly expression: AbstractNode<ast.Expression>;
+  readonly expression?: AbstractNode<ast.Expression>;
 
-  constructor(app: App, tsNode: ast.ReturnStatement) {
+  constructor(app: TsApp, tsNode: ast.ReturnStatement) {
     super(app, tsNode);
-    this.expression = AbstractExpression.of(app, this.tsNode.expression);
+    this.expression = this.tsNode.expression && AbstractExpression.of(app, this.tsNode.expression);
   }
 }
 
 export class NodeBlock extends AbstractStatement<ast.Block> {
   readonly statements: AbstractStatement[];
 
-  constructor(app: App, tsNode?: ast.Block) {
+  constructor(app: TsApp, tsNode?: ast.Block) {
     assert(tsNode);
     super(app, tsNode);
     this.statements = this.tsNode.statements.map((s) => AbstractStatement.of(app, s));
@@ -257,7 +257,7 @@ export class NodeImportDeclaration extends AbstractStatement<ast.ImportDeclarati
   readonly moduleSpecifier: NodeStringLiteral;
   readonly identifiers: NodeIdentifier[];
 
-  constructor(app: App, tsNode: ast.ImportDeclaration) {
+  constructor(app: TsApp, tsNode: ast.ImportDeclaration) {
     super(app, tsNode);
     const { importClause, moduleSpecifier } = this.tsNode;
 
@@ -296,7 +296,7 @@ export class NodeImportDeclaration extends AbstractStatement<ast.ImportDeclarati
 export class NodeExpressionStatement extends AbstractStatement<ast.ExpressionStatement> {
   readonly expression: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.ExpressionStatement) {
+  constructor(app: TsApp, tsNode: ast.ExpressionStatement) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
   }
@@ -307,7 +307,7 @@ export class NodeVariableStatement extends AbstractStatement<ast.VariableStateme
   readonly isDeclare: boolean;
   readonly declarations: NodeVariableDeclaration[];
 
-  constructor(app: App, tsNode: ast.VariableStatement) {
+  constructor(app: TsApp, tsNode: ast.VariableStatement) {
     super(app, tsNode);
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
     this.isDeclare = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
@@ -322,7 +322,7 @@ export class NodeIfStatement extends AbstractStatement<ast.IfStatement> {
   readonly block: NodeBlock;
   readonly elseStatement: NodeBlock | NodeIfStatement | undefined;
 
-  constructor(app: App, tsNode: ast.IfStatement) {
+  constructor(app: TsApp, tsNode: ast.IfStatement) {
     super(app, tsNode);
 
     const { expression, thenStatement, elseStatement } = this.tsNode;
@@ -357,7 +357,7 @@ export class NodeForStatement extends AbstractStatement<ast.ForStatement> {
   readonly incrementor: AbstractExpression;
   readonly block: NodeBlock;
 
-  constructor(app: App, tsNode: ast.ForStatement) {
+  constructor(app: TsApp, tsNode: ast.ForStatement) {
     super(app, tsNode);
 
     const { initializer, condition, incrementor, statement } = this.tsNode;
@@ -378,7 +378,7 @@ export class NodeWhileStatement extends AbstractStatement<ast.WhileStatement> {
   readonly expression: AbstractExpression;
   readonly block: NodeBlock;
 
-  constructor(app: App, tsNode: ast.WhileStatement) {
+  constructor(app: TsApp, tsNode: ast.WhileStatement) {
     super(app, tsNode);
 
     const { expression, statement } = this.tsNode;
@@ -396,7 +396,7 @@ export class NodeWhileStatement extends AbstractStatement<ast.WhileStatement> {
  * 지금은 막는다.
  */
 export class NodeBreakStatement extends AbstractStatement<ast.BreakStatement> {
-  constructor(app: App, tsNode: ast.BreakStatement) {
+  constructor(app: TsApp, tsNode: ast.BreakStatement) {
     super(app, tsNode);
     assert(
       !this.tsNode.label,
@@ -406,7 +406,7 @@ export class NodeBreakStatement extends AbstractStatement<ast.BreakStatement> {
 }
 
 export class NodeContinueStatement extends AbstractStatement<ast.ContinueStatement> {
-  constructor(app: App, tsNode: ast.ContinueStatement) {
+  constructor(app: TsApp, tsNode: ast.ContinueStatement) {
     super(app, tsNode);
     assert(
       !this.tsNode.label,
@@ -418,7 +418,7 @@ export class NodeContinueStatement extends AbstractStatement<ast.ContinueStateme
 export class NodeTypeAliasDeclaration extends AbstractStatement<ast.TypeAliasDeclaration> {
   readonly isDeclared: boolean;
 
-  constructor(app: App, tsNode: ast.TypeAliasDeclaration) {
+  constructor(app: TsApp, tsNode: ast.TypeAliasDeclaration) {
     super(app, tsNode);
     this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
   }
@@ -427,7 +427,7 @@ export class NodeTypeAliasDeclaration extends AbstractStatement<ast.TypeAliasDec
 export class NodeInterfaceDeclaration extends AbstractStatement<ast.InterfaceDeclaration> {
   readonly isDeclared: boolean;
 
-  constructor(app: App, tsNode: ast.InterfaceDeclaration) {
+  constructor(app: TsApp, tsNode: ast.InterfaceDeclaration) {
     super(app, tsNode);
     this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
   }
@@ -436,14 +436,14 @@ export class NodeInterfaceDeclaration extends AbstractStatement<ast.InterfaceDec
 export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration> {
   readonly isDeclared: boolean;
 
-  constructor(app: App, tsNode: ast.ClassDeclaration) {
+  constructor(app: TsApp, tsNode: ast.ClassDeclaration) {
     super(app, tsNode);
     this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
   }
 }
 
 export class NodeAmbientDeclaration extends AbstractStatement {
-  constructor(app: App, tsNode: ast.Statement) {
+  constructor(app: TsApp, tsNode: ast.Statement) {
     super(app, tsNode);
     assert(
       this.tsNode.getSourceFile().isDeclarationFile,
@@ -457,7 +457,7 @@ export class NodeAmbientDeclaration extends AbstractStatement {
 export class NodeIdentifier extends AbstractExpression<ast.Identifier> {
   readonly text: string;
 
-  constructor(app: App, tsNode?: ast.Identifier) {
+  constructor(app: TsApp, tsNode?: ast.Identifier) {
     assert(tsNode);
     super(app, tsNode);
     this.text = tsNode.text;
@@ -468,7 +468,7 @@ export class NodePrefixUnaryExpression extends AbstractExpression<ast.PrefixUnar
   readonly operand: AbstractExpression;
   readonly operator: ast.PrefixUnaryOperator;
 
-  constructor(app: App, tsNode: ast.PrefixUnaryExpression) {
+  constructor(app: TsApp, tsNode: ast.PrefixUnaryExpression) {
     super(app, tsNode);
     this.operand = AbstractExpression.of(app, this.tsNode.operand);
     this.operator = this.tsNode.operator;
@@ -479,7 +479,7 @@ export class NodePostfixUnaryExpression extends AbstractExpression<ast.PostfixUn
   readonly operand: NodeIdentifier;
   readonly operator: ast.PostfixUnaryOperator;
 
-  constructor(app: App, tsNode: ast.PostfixUnaryExpression) {
+  constructor(app: TsApp, tsNode: ast.PostfixUnaryExpression) {
     super(app, tsNode);
     assertExpectedNode(this.tsNode.operand, ast.isIdentifier);
     this.operand = new NodeIdentifier(app, this.tsNode.operand);
@@ -492,7 +492,7 @@ export class NodeBinaryExpression extends AbstractExpression<ast.BinaryExpressio
   readonly binaryOperatorToken: NodeBinaryOperatorToken;
   readonly right: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.BinaryExpression) {
+  constructor(app: TsApp, tsNode: ast.BinaryExpression) {
     super(app, tsNode);
     this.left = AbstractExpression.of(app, tsNode.left);
     this.binaryOperatorToken = new NodeBinaryOperatorToken(app, tsNode.operatorToken);
@@ -504,7 +504,7 @@ export class NodeCallExpression extends AbstractExpression<ast.CallExpression> {
   readonly expression: AbstractExpression;
   readonly arguments: AbstractExpression[];
 
-  constructor(app: App, tsNode: ast.CallExpression) {
+  constructor(app: TsApp, tsNode: ast.CallExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, tsNode.expression);
     this.arguments = tsNode.arguments.map((arg) => AbstractExpression.of(app, arg));
@@ -514,7 +514,7 @@ export class NodeCallExpression extends AbstractExpression<ast.CallExpression> {
 export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpression> {
   readonly expression: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.TypeOfExpression) {
+  constructor(app: TsApp, tsNode: ast.TypeOfExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
   }
@@ -524,7 +524,7 @@ export class NodePropertyAccessExpression extends AbstractExpression<ast.Propert
   readonly expression: AbstractExpression;
   readonly name: string;
 
-  constructor(app: App, tsNode: ast.PropertyAccessExpression) {
+  constructor(app: TsApp, tsNode: ast.PropertyAccessExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
     this.name = this.tsNode.name.text;
@@ -534,7 +534,7 @@ export class NodePropertyAccessExpression extends AbstractExpression<ast.Propert
 export class NodeParenthesizedExpression extends AbstractExpression<ast.ParenthesizedExpression> {
   readonly expression: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.ParenthesizedExpression) {
+  constructor(app: TsApp, tsNode: ast.ParenthesizedExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
   }
@@ -545,7 +545,7 @@ export class NodeNullLiteral extends AbstractExpression<ast.NullLiteral> {}
 export class NodeBooleanLiteral extends AbstractExpression<ast.BooleanLiteral> {
   readonly value: boolean;
 
-  constructor(app: App, tsNode: ast.BooleanLiteral) {
+  constructor(app: TsApp, tsNode: ast.BooleanLiteral) {
     super(app, tsNode);
     this.value = ast.isTrueLiteral(tsNode);
   }
@@ -554,16 +554,20 @@ export class NodeBooleanLiteral extends AbstractExpression<ast.BooleanLiteral> {
 export class NodeNumericLiteral extends AbstractExpression<ast.NumericLiteral> {
   readonly value: string;
 
-  constructor(app: App, tsNode: ast.NumericLiteral) {
+  constructor(app: TsApp, tsNode: ast.NumericLiteral) {
     super(app, tsNode);
     this.value = new BigNumber(tsNode.getText()).toFixed();
+  }
+
+  getContextualType() {
+    return this.app.checker.getContextualType(this.tsNode);
   }
 }
 
 export class NodeStringLiteral extends AbstractExpression<ast.StringLiteral> {
   readonly value: string;
 
-  constructor(app: App, tsNode: ast.StringLiteral) {
+  constructor(app: TsApp, tsNode: ast.StringLiteral) {
     super(app, tsNode);
     this.value = tsNode.text;
   }
@@ -598,7 +602,7 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
   readonly directives: readonly string[];
   readonly statements: readonly AbstractStatement[];
 
-  constructor(app: App, tsNode: ast.SourceFile, index: number, realPath: RealPath) {
+  constructor(app: TsApp, tsNode: ast.SourceFile, index: number, realPath: RealPath) {
     super(app, tsNode);
     this.index = index;
     this.realPath = realPath;
@@ -609,25 +613,20 @@ export class AppSourceFile extends AbstractNode<ast.SourceFile> {
   }
 
   loadImportedSourceFiles() {
-    const { api, program } = this.app;
-    const specifiers = this.tsNode.imports.map((i) => {
-      assertExpectedNode(i, ast.isStringLiteralLikeNode);
-      return i;
-    });
-    const modules = api.batch(
-      ...specifiers.map((s) => program.getResolvedModuleFromModuleSpecifier.gen(s)),
-    );
-    const fileNames = modules.map((module, idx) => {
-      const specifier = specifiers[idx];
-      assert(specifier, `${this.location()}: specifier not found`);
-      assert(module, `${this.location()}: module not found: ${specifier.getText()}`);
-      return module.resolvedFileName;
-    });
-    const sourceFiles = api.batch(...fileNames.map((f) => program.getSourceFile.gen(f)));
+    const { program } = this.app;
 
-    return sourceFiles.map((s) => {
-      assert(s, `${this.location()}: source file not found`);
-      return this.app.loadSourceFile(s);
+    return this.tsNode.imports.map((specifier) => {
+      assertExpectedNode(specifier, ast.isStringLiteralLikeNode);
+
+      const module = program.getResolvedModuleFromModuleSpecifier(specifier);
+
+      assert(module, `${this.location()}: module not found: ${specifier.getText()}`);
+
+      const sourceFile = program.getSourceFile(module.resolvedFileName);
+
+      assert(sourceFile, `${this.location()}: source file not found: ${module.resolvedFileName}`);
+
+      return this.app.loadSourceFile(sourceFile);
     });
   }
 
@@ -738,7 +737,7 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
   readonly bindingName: NodeBindingName;
   readonly initializer: AbstractExpression;
 
-  constructor(app: App, tsNode: ast.VariableDeclaration, isExported = false) {
+  constructor(app: TsApp, tsNode: ast.VariableDeclaration, isExported = false) {
     super(app, tsNode);
     this.isExported = isExported;
 
@@ -773,7 +772,7 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
 export class NodeParameterDeclaration extends AbstractNode<ast.ParameterDeclaration> {
   readonly bindingName: NodeBindingName;
 
-  constructor(app: App, tsNode: ast.ParameterDeclaration) {
+  constructor(app: TsApp, tsNode: ast.ParameterDeclaration) {
     super(app, tsNode);
     this.bindingName = new NodeBindingName(app, this.tsNode.name);
   }
@@ -782,7 +781,7 @@ export class NodeParameterDeclaration extends AbstractNode<ast.ParameterDeclarat
 export class NodeBindingName extends AbstractNode<ast.BindingName> {
   readonly identifier: NodeIdentifier;
 
-  constructor(app: App, tsNode: ast.BindingName) {
+  constructor(app: TsApp, tsNode: ast.BindingName) {
     super(app, tsNode);
     assertExpectedNode(this.tsNode, ast.isIdentifier);
     this.identifier = new NodeIdentifier(app, this.tsNode);
@@ -792,7 +791,7 @@ export class NodeBindingName extends AbstractNode<ast.BindingName> {
 export class NodeEntityName extends AbstractNode<ast.EntityName> {
   readonly identifier: NodeIdentifier;
 
-  constructor(app: App, tsNode: ast.EntityName) {
+  constructor(app: TsApp, tsNode: ast.EntityName) {
     super(app, tsNode);
     assertExpectedNode(this.tsNode, ast.isIdentifier);
     this.identifier = new NodeIdentifier(app, this.tsNode);
@@ -802,7 +801,7 @@ export class NodeEntityName extends AbstractNode<ast.EntityName> {
 export class NodeTypeNode extends AbstractNode<ast.TypeNode> {
   readonly typeReferenceNode: NodeTypeReferenceNode;
 
-  constructor(app: App, tsNode?: ast.TypeNode) {
+  constructor(app: TsApp, tsNode?: ast.TypeNode) {
     assert(tsNode);
     super(app, tsNode);
     assertExpectedNode(this.tsNode, ast.isTypeReferenceNode);
@@ -813,7 +812,7 @@ export class NodeTypeNode extends AbstractNode<ast.TypeNode> {
 export class NodeTypeReferenceNode extends AbstractNode<ast.TypeReferenceNode> {
   readonly entityName: NodeEntityName;
 
-  constructor(app: App, tsNode: ast.TypeReferenceNode) {
+  constructor(app: TsApp, tsNode: ast.TypeReferenceNode) {
     super(app, tsNode);
     this.entityName = new NodeEntityName(app, this.tsNode.typeName);
   }
@@ -824,7 +823,7 @@ export class NodeBinaryOperatorToken extends AbstractNode<ast.BinaryOperatorToke
   readonly flags: ast.NodeFlags;
   readonly kind: ast.BinaryOperator;
 
-  constructor(app: App, tsNode: ast.BinaryOperatorToken) {
+  constructor(app: TsApp, tsNode: ast.BinaryOperatorToken) {
     super(app, tsNode);
     this.text = tsNode.getText();
     this.flags = tsNode.flags;

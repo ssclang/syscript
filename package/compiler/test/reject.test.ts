@@ -85,9 +85,9 @@ export function f(a: i8): i8 {
 });
 
 test('moduleDetection이 force가 아닌 tsconfig', async () => {
-  const preludePath = path.join(import.meta.dirname, '../../../prelude/prelude.d.ts');
+  const preludeDtsPath = path.join(import.meta.dirname, '../../../prelude/prelude.d.ts');
   const tsconfig = (options: object) =>
-    JSON.stringify({ compilerOptions: { types: [preludePath], ...options } });
+    JSON.stringify({ compilerOptions: { types: [preludeDtsPath], ...options } });
   const source = 'export const a: i32 = 1;\n';
 
   await expect(

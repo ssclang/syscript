@@ -11,7 +11,7 @@ import { AbsolutePath, Path, RealPath } from '~/util/path.js';
 
 type TsParserInitOption = {
   tsserverPath: RealPath;
-  preludePath: RealPath;
+  preludeDtsPath: RealPath;
   entryPath: RealPath;
   configFilePath?: RealPath;
 };
@@ -19,7 +19,7 @@ type TsParserInitOption = {
 type TsParserContext = {
   cwd: RealPath;
   entryPath: RealPath;
-  preludePath: RealPath;
+  preludeDtsPath: RealPath;
   configFileDir?: RealPath;
   configFilePath?: RealPath;
   config?: ts.ParsedCommandLine;
@@ -83,8 +83,8 @@ export class TsParser {
     return this.context.checker;
   }
 
-  get preludePath() {
-    return this.context.preludePath;
+  get preludeDtsPath() {
+    return this.context.preludeDtsPath;
   }
 
   get entryPath() {
@@ -104,7 +104,7 @@ export class TsParser {
   }
 
   private static async initContext(option: TsParserInitOption) {
-    const { tsserverPath, preludePath, entryPath } = option;
+    const { tsserverPath, preludeDtsPath, entryPath } = option;
     const autoFindConfigFileName = 'tsconfig.json';
     const inputConfigFilePath =
       option.configFilePath
@@ -127,7 +127,7 @@ export class TsParser {
       logWarn(
         `${autoFindConfigFileName} not found, will use ssc config only and add prelude automatically`,
       );
-      targetFilePaths.push(preludePath);
+      targetFilePaths.push(preludeDtsPath);
     }
 
     const program = api.createProgram(targetFilePaths, {
@@ -152,12 +152,12 @@ export class TsParser {
     });
 
     if (configFilePath) {
-      const hasPrelude = realPathToTsPathsMap.has(preludePath);
+      const hasPrelude = realPathToTsPathsMap.has(preludeDtsPath);
 
       if (!hasPrelude) {
         const { path } = Path.relative({
           baseDir: Path.dirname(configFilePath),
-          path: preludePath,
+          path: preludeDtsPath,
         });
         const posixPath = path.replaceAll(nodePath.sep, '/');
         const typePath = posixPath.startsWith('../') ? posixPath : `./${posixPath}`;
@@ -178,7 +178,7 @@ export class TsParser {
     return {
       cwd: Path.initialCwd,
       entryPath,
-      preludePath,
+      preludeDtsPath,
       configFileDir: configFilePath ? Path.dirname(configFilePath) : undefined,
       configFilePath,
       config: config?.config,

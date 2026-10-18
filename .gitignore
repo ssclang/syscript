@@ -4,3 +4,5 @@ rolldown.config.*.js
 .ssc/
 
 /tmp/
+
+id.json

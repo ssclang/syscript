@@ -17,8 +17,12 @@ export class PathResolver {
       : path.join(import.meta.dirname, '../../../../prelude/');
   }
 
-  static preludePath() {
+  static preludeDtsPath() {
     return path.join(PathResolver.preludeDir(), 'prelude.d.ts');
+  }
+
+  static preludeCppmPath() {
+    return path.join(PathResolver.preludeDir(), 'prelude.cppm');
   }
 
   static tscAddonPath() {
