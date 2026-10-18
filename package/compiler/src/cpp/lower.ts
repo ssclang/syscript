@@ -1,20 +1,27 @@
 import { assert, assertNever } from '@syscript/share/util';
+import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { CppWriter } from '~/cpp/writer.js';
+import { isLiteralInRange, sortedTypes } from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
   AppSourceFile,
   isTypeFlagMatch,
   NodeBinaryExpression,
+  NodeBlock,
+  NodeBooleanLiteral,
   NodeCallExpression,
   NodeExpressionStatement,
   NodeFunctionDeclaration,
   NodeIdentifier,
+  NodeIfStatement,
   NodeImportDeclaration,
+  NodeNullLiteral,
   NodeNumericLiteral,
   NodeParameterDeclaration,
+  NodeParenthesizedExpression,
   NodeReturnStatement,
 } from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
@@ -191,6 +198,10 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
     return [`${lowerExpression(node.expression, context)};`];
   }
 
+  if (node instanceof NodeIfStatement) {
+    return lowerIfStatement(node, context);
+  }
+
   if (node instanceof NodeReturnStatement) {
     const line =
       node.expression ? `return ${lowerExpression(node.expression, context)};` : 'return;';
@@ -200,17 +211,112 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   throw new Error(`not implemented statement: ${node.getText()}`);
 }
 
+function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
+  const w = new CppWriter();
+
+  const lowerBranch = (branch: NodeIfStatement, isElseIf: boolean) => {
+    const { elseStatement } = branch;
+    const keyword = isElseIf ? ' else if' : 'if';
+
+    w.block(`${keyword} (${lowerCondition(branch.expression, context)})`, () =>
+      branch.block.statements.flatMap((s) => lowerStatement(s, context)),
+    );
+
+    if (elseStatement instanceof NodeIfStatement) {
+      lowerBranch(elseStatement, true);
+      return;
+    }
+
+    if (elseStatement instanceof NodeBlock) {
+      w.block(' else', () => elseStatement.statements.flatMap((s) => lowerStatement(s, context)));
+    }
+  };
+
+  lowerBranch(node, false);
+
+  return w.lines();
+}
+
+function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  const typeName = getTypeName(node.app, node.getType());
+  const text = lowerExpression(node, context);
+
+  if (typeName === 'ssc__core__type__union') {
+    return `ssc__core__fn__truthy_union(${text})`;
+  }
+
+  if (typeName === 'ssc__core__type__boolean') {
+    return text;
+  }
+
+  if (typeName === 'ssc__core__type__f32') {
+    return `ssc__core__fn__truthy_f32(${text})`;
+  }
+
+  if (typeName === 'ssc__core__type__f64') {
+    return `ssc__core__fn__truthy_f64(${text})`;
+  }
+
+  if (
+    typeName === 'ssc__core__type__i8'
+    || typeName === 'ssc__core__type__i16'
+    || typeName === 'ssc__core__type__i32'
+    || typeName === 'ssc__core__type__i64'
+    || typeName === 'ssc__core__type__u8'
+    || typeName === 'ssc__core__type__u16'
+    || typeName === 'ssc__core__type__u32'
+    || typeName === 'ssc__core__type__u64'
+    || typeName === 'ssc__core__type__char'
+  ) {
+    return `${text} != 0`;
+  }
+
+  assertNever(typeName as never);
+}
+
 function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerContext): string {
   const { pathToId, importedFunctionMap } = context;
 
+  if (node instanceof NodeBooleanLiteral) {
+    return node.value.toString();
+  }
+
+  if (node instanceof NodeNullLiteral) {
+    return 'ssc__core__var__null';
+  }
+
+  if (node instanceof NodeParenthesizedExpression) {
+    return lowerExpression(node.expression, context);
+  }
+
   if (node instanceof NodeNumericLiteral) {
     const type = node.getContextualType() || node.getType();
-    const typeName = getTypeName(node.app, type);
 
-    return getNumericLiteral(node.value, typeName);
+    if (!type.isUnionType()) {
+      return getNumericLiteral(node.value, getTypeName(node.app, type));
+    }
+
+    const memberTypeNames = type.getTypes().map((t) => getTypeName(node.app, t));
+    const memberType = sortedTypes.find((t) => {
+      return (
+        memberTypeNames.includes(`ssc__core__type__${t}`)
+        && isLiteralInRange(new BigNumber(node.value), t)
+      );
+    });
+
+    assert(
+      memberType,
+      `${node.location()}: ${node.getText()} can not be put in ${node.app.checker.typeToString(type)}`,
+    );
+
+    return getNumericLiteral(node.value, `ssc__core__type__${memberType}`);
   }
 
   if (node instanceof NodeIdentifier) {
+    if (node.app.checker.isUndefinedSymbol(node.getSymbol())) {
+      return 'ssc__core__var__undefined';
+    }
+
     const declaration = node.getValueDeclaration();
 
     assert(
@@ -284,8 +390,25 @@ function getTypeName(app: AppSourceFile['app'], type: ts.Type): string {
     return 'void';
   }
 
+  if (isTypeFlagMatch(type, ts.TypeFlags.Undefined)) {
+    return 'ssc__core__type__undefined';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.Null)) {
+    return 'ssc__core__type__null';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.BooleanLike)) {
+    return 'ssc__core__type__boolean';
+  }
+
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
     return 'ssc__core__type__f64';
+  }
+
+  // `boolean` is also a `true | false` union, so this must come after the BooleanLike check
+  if (type.isUnionType()) {
+    return 'ssc__core__type__union';
   }
 
   const { checker } = app;

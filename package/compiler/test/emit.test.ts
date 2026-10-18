@@ -28,3 +28,11 @@ test('exit-add.ts', async () => {
 test('import-function.ts', async () => {
   expect(await run(path.join(fixtureDir, 'import-function.ts'))).toBe(7);
 });
+
+test('if-truthy.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'if-truthy.ts'))).toBe(7);
+});
+
+test('if-union-truthy.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'if-union-truthy.ts'))).toBe(10);
+});

@@ -167,3 +167,98 @@ test('function.ts', async () => {
     }"
   `);
 });
+
+test('if.ts', async () => {
+  expect(await lowerFixture('if.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__b57e1227f3e54e64ad66a84767540f7a {
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__f64 ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e);
+      static ssc__core__type__i32 ssc__ts__fn__literal();
+      static ssc__core__type__i32 ssc__ts__fn__parenthesized(ssc__core__type__i32 ssc__ts__var__b);
+      static ssc__core__type__i32 ssc__ts__fn__character(ssc__core__type__char ssc__ts__var__a);
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__f64 ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e) {
+        if (ssc__ts__var__a) {
+          return ssc__core__type__i32{1};
+        } else if (ssc__ts__var__b != 0) {
+          return ssc__core__type__i32{2};
+        } else if (ssc__ts__var__c != 0) {
+          return ssc__core__type__i32{3};
+        } else if (ssc__core__fn__truthy_f64(ssc__ts__var__d)) {
+          return ssc__core__type__i32{4};
+        } else if (ssc__core__fn__truthy_f32(ssc__ts__var__e)) {
+          return ssc__core__type__i32{5};
+        } else {
+          return ssc__core__type__i32{0};
+        }
+      }
+      static ssc__core__type__i32 ssc__ts__fn__literal() {
+        if (false) {
+          return ssc__core__type__i32{1};
+        }
+        return ssc__core__type__i32{0};
+      }
+      static ssc__core__type__i32 ssc__ts__fn__parenthesized(ssc__core__type__i32 ssc__ts__var__b) {
+        return (ssc__ts__var__b + (ssc__ts__var__b + ssc__ts__var__b));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__character(ssc__core__type__char ssc__ts__var__a) {
+        if (ssc__ts__var__a != 0) {
+          return ssc__core__type__i32{1};
+        }
+        return ssc__core__type__i32{0};
+      }
+      void ssc__core__fn__b57e1227f3e54e64ad66a84767540f7a() {
+      }
+    }"
+  `);
+});
+
+test('if-union.ts', async () => {
+  expect(await lowerFixture('if-union.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__a120821c349e4389af275acfcd239bc5 {
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__union ssc__ts__var__a, ssc__core__type__union ssc__ts__var__b, ssc__core__type__union ssc__ts__var__c);
+      static ssc__core__type__i32 ssc__ts__fn__pass(ssc__core__type__i32 ssc__ts__var__a);
+      static ssc__core__type__i32 ssc__ts__fn__sized(ssc__core__type__union ssc__ts__var__a);
+      static ssc__core__type__i32 ssc__ts__fn__literal();
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__union ssc__ts__var__a, ssc__core__type__union ssc__ts__var__b, ssc__core__type__union ssc__ts__var__c) {
+        if (ssc__core__fn__truthy_union(ssc__ts__var__a)) {
+          return ssc__core__type__i32{1};
+        }
+        if (ssc__core__fn__truthy_union(ssc__ts__var__b)) {
+          return ssc__core__type__i32{2};
+        }
+        if (ssc__core__fn__truthy_union(ssc__ts__var__c)) {
+          return ssc__core__type__i32{4};
+        }
+        return ssc__core__type__i32{0};
+      }
+      static ssc__core__type__i32 ssc__ts__fn__pass(ssc__core__type__i32 ssc__ts__var__a) {
+        return ssc__ts__namespace__a120821c349e4389af275acfcd239bc5::ssc__ts__fn__truthy(ssc__ts__var__a, ssc__core__var__null, ssc__core__var__undefined);
+      }
+      static ssc__core__type__i32 ssc__ts__fn__sized(ssc__core__type__union ssc__ts__var__a) {
+        if (ssc__core__fn__truthy_union(ssc__ts__var__a)) {
+          return ssc__core__type__i32{1};
+        }
+        return ssc__core__type__i32{0};
+      }
+      static ssc__core__type__i32 ssc__ts__fn__literal() {
+        return ((ssc__ts__namespace__a120821c349e4389af275acfcd239bc5::ssc__ts__fn__truthy(ssc__core__type__i32{3}, ssc__core__type__f64{2.5}, ssc__core__var__undefined) + ssc__ts__namespace__a120821c349e4389af275acfcd239bc5::ssc__ts__fn__sized(ssc__core__type__u8{3u})) + ssc__ts__namespace__a120821c349e4389af275acfcd239bc5::ssc__ts__fn__sized(ssc__core__type__i32{300}));
+      }
+      void ssc__core__fn__a120821c349e4389af275acfcd239bc5() {
+      }
+    }"
+  `);
+});
+
+test('boolean is lowered as boolean, not as a union', async () => {
+  const output = await lowerFixture('if.ts');
+
+  expect(output).toContain('ssc__core__type__boolean ssc__ts__var__a');
+  expect(output).not.toContain('ssc__core__type__union');
+});
