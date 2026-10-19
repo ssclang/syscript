@@ -1,4 +1,10 @@
 {
   "js/ts.experimental.useTsgo": true,
-  "js/ts.tsdk.path": "../ssclang/TypeScript/built/local"
+  "js/ts.tsdk.path": "../ssclang/TypeScript/built/local",
+  "clangd.path": "${workspaceFolder}/../../tool/llvm/bin/clangd",
+  "clangd.fallbackFlags": [
+    "-std=c++26",
+    "-fmodule-file=std=${workspaceFolder}/package/compiler/.ssc/build/dev/src/pcm/std.pcm",
+    "-fmodule-file=ssc=${workspaceFolder}/package/compiler/.ssc/build/dev/src/pcm/ssc.pcm"
+  ]
 }
