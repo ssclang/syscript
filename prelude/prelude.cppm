@@ -1,5 +1,7 @@
 export module ssc;
 
+import std;
+
 extern "C" void* malloc(__SIZE_TYPE__ size) noexcept;
 extern "C" void free(void* pointer) noexcept;
 
@@ -103,6 +105,10 @@ public:
   }
 
   inline ssc__core__struct__object_header* operator->() const noexcept {
+    return ssc__core__member__get_object_header_pointer();
+  }
+
+  inline ssc__core__struct__object_header* ssc__core__member__get_object_header_pointer() const noexcept {
     return ssc__core__member__object_header_pointer;
   }
 
@@ -351,4 +357,32 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_union(const ssc__co
   }
 
   __builtin_trap();
+}
+
+export inline void ssc__core__fn__write_stdout(ssc__core__type__ref string) noexcept {
+  const ssc__core__struct__string* string_pointer = reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
+  std::cout.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+}
+
+export inline void ssc__core__fn__write_stderr(ssc__core__type__ref string) noexcept {
+  const ssc__core__struct__string* string_pointer = reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
+  std::cerr.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+}
+
+export inline void ssc__core__fn__write_stdout(std::string_view string_view) noexcept {
+  std::cout.write(string_view.data(), string_view.size());
+}
+
+export inline void ssc__core__fn__write_stderr(std::string_view string_view) noexcept {
+  std::cerr.write(string_view.data(), string_view.size());
+}
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_tdz_error(const char* name_pointer) {
+  throw std::string("ReferenceError: Cannot access '") + name_pointer + "' before initialization";
+}
+
+export inline void ssc__core__fn__throw_if_tdz(ssc__core__type__boolean is_initialized, const char* name_pointer) {
+  if (!is_initialized) [[unlikely]] {
+    ssc__core__fn__throw_tdz_error(name_pointer);
+  }
 }
