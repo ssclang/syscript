@@ -27,44 +27,71 @@ import {
 } from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
 
-type LowerContext = {
+export type ProgramContext = {
+  kind: 'program';
   pathToId: (path: RealPath) => string;
-  topLevelVariableMap: Map<number, string>;
+  topLevelVariableSymbolIdSet: Set<number>;
+  tdzVariableSymbolIdSet: Set<number>;
+  tdzReferenceNodeSet: Set<ast.Node>;
+};
+
+type LowerContext = TopLevelContext | FunctionContext;
+
+type GlobalContext = {
+  kind: 'global';
+  programContext: ProgramContext;
   importedForwardMap: Map<RealPath, Map<string, string>>;
 };
 
-export function lower(sourceFile: AppSourceFile, pathToId: (path: RealPath) => string) {
+type TopLevelContext = {
+  kind: 'topLevel';
+  globalContext: GlobalContext;
+};
+
+type FunctionContext = {
+  kind: 'function';
+  globalContext: GlobalContext;
+};
+
+export function lower(sourceFile: AppSourceFile, programContext: ProgramContext) {
   assert(
     !sourceFile.isDeclarationFile,
     `declaration file can not be lowered: ${sourceFile.realPath}`,
   );
 
-  const context: LowerContext = {
-    pathToId,
-    topLevelVariableMap: new Map(),
-    importedForwardMap: new Map(),
-  };
+  const { pathToId, tdzVariableSymbolIdSet } = programContext;
+  const globalContext = {
+    kind: 'global',
+    programContext,
+    importedForwardMap: new Map<RealPath, Map<string, string>>(),
+  } as const satisfies GlobalContext;
+  const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
-  const namespaceName = getNamespaceName(pathId);
+  const namespaceName = getSscNamespaceName(pathId);
   const topLevelVariableDefinitions = sourceFile.statements
     .values()
     .filter((s) => s instanceof NodeVariableStatement)
     .flatMap((s) => s.declarations)
-    .map((d) => {
+    .flatMap((d) => {
       const { identifier } = d.bindingName;
-      const name = getVariableName(identifier.text);
+      const symbolId = identifier.getSymbol().id;
+      const linkage = getVariableLinkage(d);
+      const definitions = [`${linkage}${getVariableSignature(identifier)};`];
 
-      context.topLevelVariableMap.set(identifier.getSymbol().id, `${namespaceName}::${name}`);
+      if (tdzVariableSymbolIdSet.has(symbolId)) {
+        const tdzDefinition = `${linkage}ssc__core__type__boolean ${getSscTdzTagName(identifier.text)};`;
+        definitions.push(tdzDefinition);
+      }
 
-      return `${getVariableLinkage(d)}${getVariableSignature(identifier)};`;
+      return definitions;
     })
     .toArray();
   const functions = sourceFile.statements.filter((n) => n instanceof NodeFunctionDeclaration);
   const functionForwards = functions.map((f) => `${getFunctionSignature(f)};`);
   const definedFunctionLines = functions
     .filter((f) => !f.isDeclared)
-    .flatMap((f) => lowerFunction(f, context));
-  const topLevelStatements = lowerTopLevelStatements(sourceFile, context);
+    .flatMap((f) => lowerFunction(f, topLevelContext));
+  const topLevelStatements = lowerTopLevelStatements(sourceFile, topLevelContext);
   const w = new CppWriter();
 
   w.inline('module ts;');
@@ -73,10 +100,12 @@ export function lower(sourceFile: AppSourceFile, pathToId: (path: RealPath) => s
   w.newline();
   w.newline();
 
-  for (const entry of context.importedForwardMap) {
+  for (const entry of globalContext.importedForwardMap) {
     const [realPath, forwards] = entry;
 
-    w.block(`namespace ${getNamespaceName(pathToId(realPath))}`, () => forwards.values().toArray());
+    w.block(`namespace ${getSscNamespaceName(pathToId(realPath))}`, () =>
+      forwards.values().toArray(),
+    );
     w.newline();
     w.newline();
   }
@@ -103,8 +132,8 @@ export function renderTsCppm(pathIds: readonly string[]) {
 
   for (const pathId of pathIds) {
     w.newline();
-    w.block(`export namespace ${getNamespaceName(pathId)}`, () => [
-      `void ${getTopLevelStatementsInitFunctionName(pathId)}();`,
+    w.block(`export namespace ${getSscNamespaceName(pathId)}`, () => [
+      `void ${getSscTopLevelStatementsInitFunctionName(pathId)}();`,
     ]);
   }
 
@@ -114,32 +143,43 @@ export function renderTsCppm(pathIds: readonly string[]) {
 export function renderMainCpp(pathIds: readonly string[]) {
   const w = new CppWriter();
 
-  w.inline('import ts;');
+  w.inline('import std;');
+  w.newline('import ssc;');
+  w.newline('import ts;');
   w.newline();
   w.newline();
-  w.block('int main()', () => [
-    ...pathIds.map(
-      (id) => `${getNamespaceName(id)}::${getTopLevelStatementsInitFunctionName(id)}();`,
-    ),
-    'return 0;',
-  ]);
+  w.block('int main()', () => {
+    const mainBlock = new CppWriter();
+
+    mainBlock.block('try', () =>
+      pathIds.map(
+        (id) => `${getSscNamespaceName(id)}::${getSscTopLevelStatementsInitFunctionName(id)}();`,
+      ),
+    );
+    mainBlock.block(' catch (const std::string& message)', () => [
+      'ssc__core__fn__write_stderr(message + "\\n");',
+      'return 1;',
+    ]);
+
+    return [...mainBlock.lines(), 'return 0;'];
+  });
 
   return w.code();
 }
 
-function getNamespaceName(pathId: string) {
+function getSscNamespaceName(pathId: string) {
   return `ssc__ts__namespace__${pathId}`;
 }
 
-function getTopLevelStatementsInitFunctionName(pathId: string) {
+function getSscTopLevelStatementsInitFunctionName(pathId: string) {
   return `ssc__core__fn__${pathId}`;
 }
 
-function getVariableName(name: string) {
+function getSscVariableName(name: string) {
   return `ssc__ts__var__${name}`;
 }
 
-function getFunctionName(node: NodeFunctionDeclaration) {
+function getSscFunctionName(node: NodeFunctionDeclaration) {
   const name = node.identifier.text;
 
   if (node.isDeclared) {
@@ -149,18 +189,22 @@ function getFunctionName(node: NodeFunctionDeclaration) {
   return `ssc__ts__fn__${name}`;
 }
 
+function getSscTdzTagName(name: string) {
+  return `ssc__ts__tdz__${name}`;
+}
+
 function getVariableSignature(identifier: NodeIdentifier) {
-  return `${getTypeName(identifier.app, identifier.getType())} ${getVariableName(identifier.text)}`;
+  return `${getSscTypeName(identifier.app, identifier.getType())} ${getSscVariableName(identifier.text)}`;
 }
 
 function getFunctionSignature(node: NodeFunctionDeclaration) {
   const linkage = getFunctionLinkage(node);
-  const returnType = getTypeName(node.app, node.getReturnType());
+  const returnType = getSscTypeName(node.app, node.getReturnType());
   const parameters = node.parameters
     .map((p) => getVariableSignature(p.bindingName.identifier))
     .join(', ');
 
-  return `${linkage}${returnType} ${getFunctionName(node)}(${parameters})`;
+  return `${linkage}${returnType} ${getSscFunctionName(node)}(${parameters})`;
 }
 
 function getVariableLinkage(node: NodeVariableDeclaration) {
@@ -183,9 +227,13 @@ function getFunctionLinkage(node: NodeFunctionDeclaration) {
   return 'static ';
 }
 
-function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
+function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelContext) {
   assert(!node.isDeclared, `${node.location()}: declared function can not be lowered`);
 
+  const context = {
+    kind: 'function',
+    globalContext: topLevelContext.globalContext,
+  } as const satisfies FunctionContext;
   const w = new CppWriter();
 
   w.block(getFunctionSignature(node), () => {
@@ -199,12 +247,12 @@ function lowerFunction(node: NodeFunctionDeclaration, context: LowerContext) {
   return w.lines();
 }
 
-function lowerTopLevelStatements(sourceFile: AppSourceFile, context: LowerContext) {
-  const { pathToId } = context;
+function lowerTopLevelStatements(sourceFile: AppSourceFile, context: TopLevelContext) {
+  const { pathToId } = context.globalContext.programContext;
   const pathId = pathToId(sourceFile.realPath);
   const w = new CppWriter();
 
-  w.block(`void ${getTopLevelStatementsInitFunctionName(pathId)}()`, () => {
+  w.block(`void ${getSscTopLevelStatementsInitFunctionName(pathId)}()`, () => {
     return sourceFile.statements
       .values()
       .filter(
@@ -223,15 +271,27 @@ function lowerTopLevelStatements(sourceFile: AppSourceFile, context: LowerContex
   return w.lines();
 }
 
-function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: LowerContext) {
+function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: TopLevelContext) {
   return node.declarations.flatMap((d) => {
-    if (!d.initializer) {
-      return [];
+    const { identifier } = d.bindingName;
+    const { pathToId, tdzVariableSymbolIdSet } = context.globalContext.programContext;
+    const realPath = identifier.app.parser.tsPathToRealPath(identifier.getSourceFile().fileName);
+    const namespaceName = getSscNamespaceName(pathToId(realPath));
+    const lines: string[] = [];
+
+    const addAssignment = (left: string, right: string) => {
+      lines.push(`${namespaceName}::${left} = ${right};`);
+    };
+
+    if (d.initializer) {
+      addAssignment(getSscVariableName(identifier.text), lowerExpression(d.initializer, context));
     }
 
-    const name = lowerVariableReference(d.bindingName.identifier, context);
+    if (tdzVariableSymbolIdSet.has(identifier.getSymbol().id)) {
+      addAssignment(getSscTdzTagName(identifier.text), 'true');
+    }
 
-    return [`${name} = ${lowerExpression(d.initializer, context)};`];
+    return lines;
   });
 }
 
@@ -294,7 +354,7 @@ function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
 }
 
 function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContext) {
-  const typeName = getTypeName(node.app, node.getType());
+  const typeName = getSscTypeName(node.app, node.getType());
   const text = lowerExpression(node, context);
 
   if (typeName === 'ssc__core__type__union') {
@@ -331,7 +391,7 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
 }
 
 function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerContext): string {
-  const { pathToId } = context;
+  const { pathToId } = context.globalContext.programContext;
 
   if (node instanceof NodeBooleanLiteral) {
     return node.value.toString();
@@ -349,10 +409,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     const type = node.getContextualType() || node.getType();
 
     if (!type.isUnionType()) {
-      return getNumericLiteral(node.value, getTypeName(node.app, type));
+      return getNumericLiteral(node.value, getSscTypeName(node.app, type));
     }
 
-    const memberTypeNames = type.getTypes().map((t) => getTypeName(node.app, t));
+    const memberTypeNames = type.getTypes().map((t) => getSscTypeName(node.app, t));
     const memberType = sortedTypes.find((t) => {
       return (
         memberTypeNames.includes(`ssc__core__type__${t}`)
@@ -409,8 +469,8 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
     if (ast.isFunctionDeclaration(declaration)) {
       const functionDeclaration = new NodeFunctionDeclaration(node.app, declaration);
-      const namespaceName = getNamespaceName(pathToId(realPath));
-      const functionName = getFunctionName(functionDeclaration);
+      const namespaceName = getSscNamespaceName(pathToId(realPath));
+      const functionName = getSscFunctionName(functionDeclaration);
       const args = node.arguments.map((a) => lowerExpression(a, context)).join(', ');
 
       if (!isSameFile) {
@@ -446,60 +506,95 @@ function addImportedForward(
   name: string,
   forward: string,
 ) {
-  const forwards = context.importedForwardMap.get(realPath) || new Map<string, string>();
+  const forwards =
+    context.globalContext.importedForwardMap.get(realPath) || new Map<string, string>();
 
   forwards.set(name, forward);
-  context.importedForwardMap.set(realPath, forwards);
+  context.globalContext.importedForwardMap.set(realPath, forwards);
 }
 
 function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
+  const { pathToId, topLevelVariableSymbolIdSet, tdzReferenceNodeSet } =
+    context.globalContext.programContext;
   const declaration = node.getValueDeclaration();
-  const topLevelVariable = context.topLevelVariableMap.get(node.getSymbol().id);
+  const isSameFile = declaration.getSourceFile().fileName === node.getSourceFile().fileName;
 
   assert(
     ast.isVariableOrParameterDeclaration(declaration),
     `${node.location()}: '${node.text}' is not a variable identifier`,
   );
 
-  if (topLevelVariable) {
-    return topLevelVariable;
+  if (!topLevelVariableSymbolIdSet.has(node.getSymbol().id)) {
+    return getSscVariableName(node.text);
   }
 
-  if (declaration.getSourceFile().fileName === node.getSourceFile().fileName) {
-    return getVariableName(node.text);
+  if (!isSameFile) {
+    declareImportedVariable(node, context);
   }
 
-  return declareImportedVariable(node, context);
+  assert(
+    ast.isVariableDeclaration(declaration),
+    `${node.location()}: '${node.text}' is not a top-level variable`,
+  );
+  assert(
+    ast.isIdentifier(declaration.name),
+    `${node.location()}: not implemented binding name: ${node.text}`,
+  );
+
+  const { text } = declaration.name;
+  const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
+  const namespaceName = getSscNamespaceName(pathToId(realPath));
+  const variableName = `${namespaceName}::${getSscVariableName(text)}`;
+
+  if (!tdzReferenceNodeSet.has(node.tsNode)) {
+    return variableName;
+  }
+
+  const tdzTagName = getSscTdzTagName(text);
+
+  if (!isSameFile) {
+    addImportedForward(
+      context,
+      realPath,
+      tdzTagName,
+      `extern ssc__core__type__boolean ${tdzTagName};`,
+    );
+  }
+
+  return `(ssc__core__fn__throw_if_tdz(${namespaceName}::${tdzTagName}, "${node.text}"), ${variableName})`;
 }
 
 function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
   const declaration = node.getValueDeclaration();
 
-  assert(ast.isVariableDeclaration(declaration), `not in scope: ${node.text}`);
   assert(
     !declaration.getSourceFile().isDeclarationFile,
     `${node.location()}: not implemented ambient variable: ${node.text}`,
   );
+  assert(
+    ast.isVariableDeclaration(declaration),
+    `${node.location()}: '${node.text}' is not a top-level variable`,
+  );
 
   const { identifier } = new NodeVariableDeclaration(node.app, declaration).bindingName;
   const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
-  const name = getVariableName(identifier.text);
-  const topLevelVariable = `${getNamespaceName(context.pathToId(realPath))}::${name}`;
 
-  addImportedForward(context, realPath, name, `extern ${getVariableSignature(identifier)};`);
-  context.topLevelVariableMap.set(node.getSymbol().id, topLevelVariable);
-
-  return topLevelVariable;
+  addImportedForward(
+    context,
+    realPath,
+    getSscVariableName(identifier.text),
+    `extern ${getVariableSignature(identifier)};`,
+  );
 }
 
 function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
   const declaredType = node.app.checker.getTypeOfSymbol(node.getSymbol());
 
-  if (getTypeName(node.app, declaredType) !== 'ssc__core__type__union') {
+  if (getSscTypeName(node.app, declaredType) !== 'ssc__core__type__union') {
     return text;
   }
 
-  const typeName = getTypeName(node.app, node.getType());
+  const typeName = getSscTypeName(node.app, node.getType());
 
   if (typeName === 'ssc__core__type__union') {
     return text;
@@ -516,7 +611,7 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
   return `${text}.ssc__core__member__value.${typeName.replace('ssc__core__type__', 'ssc__core__member__')}`;
 }
 
-function getTypeName(app: AppSourceFile['app'], type: ts.Type): string {
+function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   if (isTypeFlagMatch(type, ts.TypeFlags.Void)) {
     return 'void';
   }

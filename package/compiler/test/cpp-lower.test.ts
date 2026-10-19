@@ -3,13 +3,44 @@ import cp from 'child_process';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { lower } from '~/cpp/lower.js';
+import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscBuildManager } from '~/ssc/manager/build.js';
 import { SscManager } from '~/ssc/manager/ssc.js';
 import { PathResolver } from '~/util/path-resolver.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
+const clang = PathResolver.clangPath();
+const compileFlags = SscBuildManager.clangCompileFlag();
+
+let preludeBuildDir: string;
+
+beforeAll(async () => {
+  preludeBuildDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ssc-prelude-'));
+  cp.execFileSync(clang, [
+    ...compileFlags,
+    '-Wno-reserved-module-identifier',
+    '-c',
+    PathResolver.stdCppmPath(),
+    `-fmodule-output=${path.join(preludeBuildDir, 'std.pcm')}`,
+    '-o',
+    path.join(preludeBuildDir, 'std.o'),
+  ]);
+  cp.execFileSync(clang, [
+    ...compileFlags,
+    `-fmodule-file=std=${path.join(preludeBuildDir, 'std.pcm')}`,
+    '-c',
+    PathResolver.preludeCppmPath(),
+    `-fmodule-output=${path.join(preludeBuildDir, 'ssc.pcm')}`,
+    '-o',
+    path.join(preludeBuildDir, 'ssc.o'),
+  ]);
+});
+
+afterAll(async () => {
+  await fs.rm(preludeBuildDir, { recursive: true, force: true });
+});
 
 async function lowerFixture(name: string) {
   const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
@@ -22,7 +53,16 @@ async function lowerFixture(name: string) {
 
     assert(module);
 
-    const output = lower(module.sourceFile, (path) => manager.idManager.loadId(path)).render();
+    const sourceFiles = modules.map((m) => m.sourceFile);
+    const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
+      analyzeTdz(sourceFiles);
+    const output = lower(module.sourceFile, {
+      kind: 'program',
+      pathToId: (path) => manager.idManager.loadId(path),
+      topLevelVariableSymbolIdSet,
+      tdzVariableSymbolIdSet,
+      tdzReferenceNodeSet,
+    }).render();
 
     await manager.flush();
     await compileCpp(outDir, output);
@@ -34,21 +74,34 @@ async function lowerFixture(name: string) {
 }
 
 async function compileCpp(dir: string, code: string) {
-  const clang = PathResolver.clangPath();
-  const flags = SscBuildManager.clangCompileFlag();
-  const preludeCppmPath = PathResolver.preludeCppmPath();
-  const sscPcmPath = path.join(dir, 'ssc.pcm');
   const tsCppmPath = path.join(dir, 'ts.cppm');
   const tsPcmPath = path.join(dir, 'ts.pcm');
   const cppPath = path.join(dir, 'file.cpp');
-  const moduleFlags = [`-fmodule-file=ssc=${sscPcmPath}`, `-fmodule-file=ts=${tsPcmPath}`];
+  const moduleFlags = [
+    `-fmodule-file=std=${path.join(preludeBuildDir, 'std.pcm')}`,
+    `-fmodule-file=ssc=${path.join(preludeBuildDir, 'ssc.pcm')}`,
+    `-fmodule-file=ts=${tsPcmPath}`,
+  ];
 
   await fs.writeFile(tsCppmPath, 'export module ts;\n');
   await fs.writeFile(cppPath, code);
 
-  cp.execFileSync(clang, [...flags, '--precompile', preludeCppmPath, '-o', sscPcmPath]);
-  cp.execFileSync(clang, [...flags, '--precompile', tsCppmPath, '-o', tsPcmPath]);
-  cp.execFileSync(clang, [...flags, ...moduleFlags, '-c', cppPath, '-o', path.join(dir, 'file.o')]);
+  cp.execFileSync(clang, [
+    ...compileFlags,
+    '-c',
+    tsCppmPath,
+    `-fmodule-output=${tsPcmPath}`,
+    '-o',
+    path.join(dir, 'ts.o'),
+  ]);
+  cp.execFileSync(clang, [
+    ...compileFlags,
+    ...moduleFlags,
+    '-c',
+    cppPath,
+    '-o',
+    path.join(dir, 'file.o'),
+  ]);
 }
 
 test('ambient-no-declare.ts', async () => {
@@ -355,6 +408,107 @@ test('top-level-rename.ts', async () => {
       void ssc__core__fn__d74c3b6a8e5c4f809a32af5c4b33eb89() {
         ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__fn__increase(ssc__core__type__i32{5});
         ssc__ts__namespace__d74c3b6a8e5c4f809a32af5c4b33eb89::exit(ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__var__count);
+      }
+    }"
+  `);
+});
+
+test('tdz-function.ts', async () => {
+  expect(await lowerFixture('tdz-function.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4 {
+      static ssc__core__type__i32 ssc__ts__var__value;
+      static ssc__core__type__boolean ssc__ts__tdz__value;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i32 ssc__ts__fn__read();
+      static ssc__core__type__i32 ssc__ts__fn__read() {
+        return (ssc__core__fn__throw_if_tdz(ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::ssc__ts__tdz__value, "value"), ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::ssc__ts__var__value);
+      }
+      void ssc__core__fn__5671668cf855448397b0d0289e41fdf4() {
+        ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::exit(ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::ssc__ts__fn__read());
+        ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::ssc__ts__var__value = ssc__core__type__i32{7};
+        ssc__ts__namespace__5671668cf855448397b0d0289e41fdf4::ssc__ts__tdz__value = true;
+      }
+    }"
+  `);
+});
+
+test('tdz-cycle.ts', async () => {
+  expect(await lowerFixture('tdz-cycle.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__08bc9d3431184edc8a6d29100a31c9c6 {
+      extern ssc__core__type__i32 ssc__ts__var__libValue;
+    }
+
+    namespace ssc__ts__namespace__a464ffda0dee47029c62da4984859257 {
+      ssc__core__type__i32 ssc__ts__var__value;
+      ssc__core__type__boolean ssc__ts__tdz__value;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      ssc__core__type__i32 ssc__ts__fn__readValue();
+      ssc__core__type__i32 ssc__ts__fn__readValue() {
+        return (ssc__core__fn__throw_if_tdz(ssc__ts__namespace__a464ffda0dee47029c62da4984859257::ssc__ts__tdz__value, "value"), ssc__ts__namespace__a464ffda0dee47029c62da4984859257::ssc__ts__var__value);
+      }
+      void ssc__core__fn__a464ffda0dee47029c62da4984859257() {
+        ssc__ts__namespace__a464ffda0dee47029c62da4984859257::ssc__ts__var__value = ssc__core__type__i32{7};
+        ssc__ts__namespace__a464ffda0dee47029c62da4984859257::ssc__ts__tdz__value = true;
+        ssc__ts__namespace__a464ffda0dee47029c62da4984859257::exit(ssc__ts__namespace__08bc9d3431184edc8a6d29100a31c9c6::ssc__ts__var__libValue);
+      }
+    }"
+  `);
+});
+
+test('tdz-reference.ts', async () => {
+  expect(await lowerFixture('tdz-reference.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9 {
+      static ssc__core__type__boolean ssc__ts__var__run;
+      static ssc__core__type__i32 ssc__ts__var__value;
+      static ssc__core__type__boolean ssc__ts__tdz__value;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i32 ssc__ts__fn__early();
+      static ssc__core__type__i32 ssc__ts__fn__late();
+      static ssc__core__type__i32 ssc__ts__fn__early() {
+        return (ssc__core__fn__throw_if_tdz(ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__tdz__value, "value"), ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__var__value);
+      }
+      static ssc__core__type__i32 ssc__ts__fn__late() {
+        return ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__var__value;
+      }
+      void ssc__core__fn__810e2f5dcdb444ab98651ccb6daaccc9() {
+        ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__var__run = false;
+        if (ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__var__run) {
+          ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::exit(ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__fn__early());
+        }
+        ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__var__value = ssc__core__type__i32{7};
+        ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__tdz__value = true;
+        ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::exit(ssc__ts__namespace__810e2f5dcdb444ab98651ccb6daaccc9::ssc__ts__fn__late());
+      }
+    }"
+  `);
+});
+
+test('tdz-extern.ts', async () => {
+  expect(await lowerFixture('tdz-extern.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__1425e95c6b6f4d29909442e710fad83c {
+      extern ssc__core__type__i32 ssc__ts__var__value;
+    }
+
+    namespace ssc__ts__namespace__1b16c24733144fe4ac077e675f354b73 {
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      void ssc__core__fn__1b16c24733144fe4ac077e675f354b73() {
+        ssc__ts__namespace__1b16c24733144fe4ac077e675f354b73::exit(ssc__ts__namespace__1425e95c6b6f4d29909442e710fad83c::ssc__ts__var__value);
       }
     }"
   `);

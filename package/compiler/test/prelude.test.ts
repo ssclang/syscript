@@ -16,15 +16,19 @@ beforeAll(async () => {
   buildDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ssc-prelude-'));
   cp.execFileSync(clang, [
     ...compileFlags,
-    '--precompile',
-    path.join(preludeDir, 'prelude.cppm'),
+    '-Wno-reserved-module-identifier',
+    '-c',
+    PathResolver.stdCppmPath(),
+    `-fmodule-output=${path.join(buildDir, 'std.pcm')}`,
     '-o',
-    path.join(buildDir, 'ssc.pcm'),
+    path.join(buildDir, 'std.o'),
   ]);
   cp.execFileSync(clang, [
     ...compileFlags,
+    `-fmodule-file=std=${path.join(buildDir, 'std.pcm')}`,
     '-c',
-    path.join(buildDir, 'ssc.pcm'),
+    path.join(preludeDir, 'prelude.cppm'),
+    `-fmodule-output=${path.join(buildDir, 'ssc.pcm')}`,
     '-o',
     path.join(buildDir, 'ssc.o'),
   ]);
@@ -40,6 +44,7 @@ test.each(['rc', 'truthy'])('%s', (name) => {
 
   cp.execFileSync(clang, [
     ...compileFlags,
+    `-fmodule-file=std=${path.join(buildDir, 'std.pcm')}`,
     `-fmodule-file=ssc=${path.join(buildDir, 'ssc.pcm')}`,
     '-c',
     path.join(import.meta.dirname, 'fixture/prelude', `${name}.cpp`),
@@ -49,6 +54,7 @@ test.each(['rc', 'truthy'])('%s', (name) => {
   cp.execFileSync(clang, [
     ...SscBuildManager.clangEmitFlag(),
     objectPath,
+    path.join(buildDir, 'std.o'),
     path.join(buildDir, 'ssc.o'),
     '-o',
     binaryPath,

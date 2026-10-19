@@ -171,7 +171,7 @@ int main() {
     ssc__core__type__ref& alias = self;
     self = alias;
     self = static_cast<ssc__core__type__ref&&>(alias);
-    if (int code = check(self.operator->() == &selfData->ssc__core__member__object_header && selfData->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 5, 15)) {
+    if (int code = check(self.ssc__core__member__get_object_header_pointer() == &selfData->ssc__core__member__object_header && selfData->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 5, 15)) {
       return code;
     }
   }
@@ -199,8 +199,8 @@ int main() {
     auto* second = makeString(1);
     auto* first = makeRefNode(&second->ssc__core__member__object_header);
     ssc__core__type__ref node(&first->objectHeader);
-    node = reinterpret_cast<RefNode*>(node.operator->())->next;
-    if (int code = check(node.operator->() == &second->ssc__core__member__object_header && second->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 8, 19)) {
+    node = reinterpret_cast<RefNode*>(node.ssc__core__member__get_object_header_pointer())->next;
+    if (int code = check(node.ssc__core__member__get_object_header_pointer() == &second->ssc__core__member__object_header && second->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 8, 19)) {
       return code;
     }
   }
@@ -209,8 +209,8 @@ int main() {
     auto* second = makeString(1);
     auto* first = makeRefNode(&second->ssc__core__member__object_header);
     ssc__core__type__ref node(&first->objectHeader);
-    node = static_cast<ssc__core__type__ref&&>(reinterpret_cast<RefNode*>(node.operator->())->next);
-    if (int code = check(node.operator->() == &second->ssc__core__member__object_header && second->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 10, 20)) {
+    node = static_cast<ssc__core__type__ref&&>(reinterpret_cast<RefNode*>(node.ssc__core__member__get_object_header_pointer())->next);
+    if (int code = check(node.ssc__core__member__get_object_header_pointer() == &second->ssc__core__member__object_header && second->ssc__core__member__object_header.ssc__core__member__rc == 1 && freeCount == 10, 20)) {
       return code;
     }
   }

@@ -11,6 +11,10 @@ export class PathResolver {
       : path.join(import.meta.dirname, '../../../../../ssclang/TypeScript/built/local/tsc');
   }
 
+  static tscAddonPath() {
+    return path.join(import.meta.dirname, '../../../../../ssclang/TypeScript/built/local/tsc.node');
+  }
+
   static preludeDir() {
     return typeof _sscPreludeDir === 'string' ?
         path.join(import.meta.dirname, _sscPreludeDir)
@@ -25,27 +29,43 @@ export class PathResolver {
     return path.join(PathResolver.preludeDir(), 'prelude.cppm');
   }
 
-  static tscAddonPath() {
-    return path.join(import.meta.dirname, '../../../../../ssclang/TypeScript/built/local/tsc.node');
+  private static llvmDir() {
+    return path.join(import.meta.dirname, '../../../../../../tool/llvm');
   }
 
-  static llvmBinDir() {
-    return path.join(import.meta.dirname, '../../../../../../tool/llvm/bin');
+  private static llvmBinDir() {
+    return path.join(PathResolver.llvmDir(), 'bin');
   }
 
-  static llvmLibDir() {
-    return path.join(import.meta.dirname, '../../../../../../tool/llvm/lib');
+  private static llvmLibDir() {
+    return path.join(PathResolver.llvmDir(), 'lib');
+  }
+
+  private static llvmShareDir() {
+    return path.join(PathResolver.llvmDir(), 'share');
+  }
+
+  private static llvmPlatformLibDir() {
+    return path.join(PathResolver.llvmLibDir(), 'x86_64-unknown-linux-gnu');
   }
 
   static clangPath() {
     return path.join(PathResolver.llvmBinDir(), 'clang++');
   }
 
+  static stdCppmPath() {
+    return path.join(PathResolver.llvmShareDir(), 'libc++', 'v1', 'std.cppm');
+  }
+
+  static libcxxPath() {
+    return path.join(PathResolver.llvmPlatformLibDir(), 'libc++.a');
+  }
+
   static libcxxabiPath() {
-    return path.join(PathResolver.llvmLibDir(), 'x86_64-unknown-linux-gnu', 'libc++abi.a');
+    return path.join(PathResolver.llvmPlatformLibDir(), 'libc++abi.a');
   }
 
   static libunwindPath() {
-    return path.join(PathResolver.llvmLibDir(), 'x86_64-unknown-linux-gnu', 'libunwind.a');
+    return path.join(PathResolver.llvmPlatformLibDir(), 'libunwind.a');
   }
 }

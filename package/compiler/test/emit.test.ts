@@ -7,18 +7,23 @@ import { SscManager } from '~/ssc/manager/ssc.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
 
-async function run(entryPath: string) {
+async function runProcess(entryPath: string) {
   const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
 
   try {
     const manager = await SscManager.init({ outDir, profile: 'test' });
     const { modules } = await manager.buildManager.compile(entryPath);
     const binPath = await manager.buildManager.emit(modules, { entryPath });
+    const { status, stderr } = spawnSync(binPath, { encoding: 'utf8' });
 
-    return spawnSync(binPath, { encoding: 'utf8' }).status;
+    return { status, stderr };
   } finally {
     await fs.rm(outDir, { recursive: true, force: true });
   }
+}
+
+async function run(entryPath: string) {
+  return (await runProcess(entryPath)).status;
 }
 
 test('exit-add.ts', async () => {
@@ -51,4 +56,30 @@ test('top-level-import.ts', async () => {
 
 test('top-level-rename.ts', async () => {
   expect(await run(path.join(fixtureDir, 'top-level-rename.ts'))).toBe(5);
+});
+
+test('tdz-function.ts', async () => {
+  expect(await runProcess(path.join(fixtureDir, 'tdz-function.ts'))).toEqual({
+    status: 1,
+    stderr: "ReferenceError: Cannot access 'value' before initialization\n",
+  });
+});
+
+test('tdz-after.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'tdz-after.ts'))).toBe(7);
+});
+
+test('tdz-cycle.ts', async () => {
+  expect(await runProcess(path.join(fixtureDir, 'tdz-cycle.ts'))).toEqual({
+    status: 1,
+    stderr: "ReferenceError: Cannot access 'value' before initialization\n",
+  });
+});
+
+test('tdz-reference.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'tdz-reference.ts'))).toBe(7);
+});
+
+test('tdz-extern.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'tdz-extern.ts'))).toBe(7);
 });

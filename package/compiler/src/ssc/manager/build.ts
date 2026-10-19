@@ -1,7 +1,8 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { lower, renderMainCpp, renderTsCppm } from '~/cpp/lower.js';
+import { lower, ProgramContext, renderMainCpp, renderTsCppm } from '~/cpp/lower.js';
+import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
 import { TsApp } from '~/ts/app.js';
 import { AppSourceFile } from '~/ts/node.js';
@@ -235,6 +236,9 @@ export class SscBuildManager {
     const cppDir = path.join(codeDir, 'cpp');
     const oDir = path.join(codeDir, 'o');
 
+    const stdCppmPath = PathResolver.stdCppmPath();
+    const stdPcmPath = path.join(pcmDir, 'std.pcm');
+
     const sscCppmPath = PathResolver.preludeCppmPath();
     const sscPcmPath = path.join(pcmDir, 'ssc.pcm');
 
@@ -255,9 +259,15 @@ export class SscBuildManager {
     await fs.mkdir(path.dirname(binPath), { recursive: true });
 
     // region compile cppm
-    const compileCppm = (cppmPath: string, pcmPath: string, oPath: string) => {
+    const compileCppm = (
+      cppmPath: string,
+      pcmPath: string,
+      oPath: string,
+      extraFlags: readonly string[] = [],
+    ) => {
       SscBuildManager.run(clang, [
         ...compileFlags,
+        ...extraFlags,
         '-c',
         cppmPath,
         `-fmodule-output=${pcmPath}`,
@@ -268,12 +278,21 @@ export class SscBuildManager {
     };
 
     await File.write(tsCppmPath, renderTsCppm(pathIds));
-    compileCppm(sscCppmPath, sscPcmPath, path.join(oDir, 'ssc.o'));
+    compileCppm(stdCppmPath, stdPcmPath, path.join(oDir, 'std.o'), [
+      '-Wno-reserved-module-identifier',
+    ]);
+    compileCppm(sscCppmPath, sscPcmPath, path.join(oDir, 'ssc.o'), [
+      `-fmodule-file=std=${stdPcmPath}`,
+    ]);
     compileCppm(tsCppmPath, tsPcmPath, path.join(oDir, 'ts.o'));
 
     // region render and compile cpp
     const renderAndCompileCpp = async (code: string, cppPath: string, oPath: string) => {
-      const pcmFlags = [`-fmodule-file=ssc=${sscPcmPath}`, `-fmodule-file=ts=${tsPcmPath}`];
+      const pcmFlags = [
+        `-fmodule-file=std=${stdPcmPath}`,
+        `-fmodule-file=ssc=${sscPcmPath}`,
+        `-fmodule-file=ts=${tsPcmPath}`,
+      ];
 
       await File.write(cppPath, code);
       SscBuildManager.run(clang, [...compileFlags, ...pcmFlags, '-c', cppPath, '-o', oPath]);
@@ -282,9 +301,20 @@ export class SscBuildManager {
 
     await renderAndCompileCpp(renderMainCpp(pathIds), mainCppPath, mainOPath);
 
+    const sourceFiles = modules.map((m) => m.sourceFile);
+    const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
+      analyzeTdz(sourceFiles);
+    const programContext = {
+      kind: 'program',
+      pathToId: (p) => this.idManager.loadId(p),
+      topLevelVariableSymbolIdSet,
+      tdzVariableSymbolIdSet,
+      tdzReferenceNodeSet,
+    } as const satisfies ProgramContext;
+
     for (const module of modules) {
       const { sourceFile, id } = module;
-      const output = lower(sourceFile, (p) => this.idManager.loadId(p));
+      const output = lower(sourceFile, programContext);
       const cppPath = path.join(cppDir, `${id}.cpp`);
       const oPath = path.join(oDir, `${id}.o`);
 
@@ -303,19 +333,20 @@ export class SscBuildManager {
   }
 
   private static clangCommonFlag(override: Partial<ClangCommonOption> = {}) {
-    const option: ClangCommonOption = { optLevel: '1', ...override };
+    const option = { optLevel: '1', ...override } as const satisfies ClangCommonOption;
     return [`-O${option.optLevel}`, '-flto=thin'];
   }
 
   static clangCompileFlag(override: Partial<ClangCompileOption> = {}) {
-    const option: ClangCompileOption = {
+    const option = {
       optLevel: '1',
       debug: false,
       ...override,
-    };
+    } as const satisfies ClangCompileOption;
     const flags = [
       ...SscBuildManager.clangCommonFlag(option),
       '-std=c++26',
+      '-stdlib=libc++',
       '-fexceptions',
       '-Werror=sign-compare', // check dangerous conversion
 
@@ -342,6 +373,7 @@ export class SscBuildManager {
       '-nostdlib++',
       '--rtlib=compiler-rt',
       '--unwindlib=none',
+      PathResolver.libcxxPath(),
       PathResolver.libcxxabiPath(),
       PathResolver.libunwindPath(),
     ];
