@@ -37,6 +37,14 @@ export using ssc__core__type__f64 = double;
 export template <typename Type> struct ssc__core__struct__span {
   ssc__core__type__u64 ssc__core__member__length;
   const Type* ssc__core__member__elements_pointer;
+
+  inline const Type* begin() const noexcept {
+    return ssc__core__member__elements_pointer;
+  }
+
+  inline const Type* end() const noexcept {
+    return ssc__core__member__elements_pointer + ssc__core__member__length;
+  }
 };
 
 export struct ssc__core__struct__object_header {
@@ -211,24 +219,26 @@ public:
   }
 };
 
+template <typename Type> inline Type* ssc__core__fn__pointer_field_at(ssc__core__struct__object_header* object_header_pointer, ssc__core__type__u64 offset) noexcept {
+  return reinterpret_cast<Type*>(reinterpret_cast<ssc__core__type__u8*>(object_header_pointer) + offset);
+}
+
 export inline void ssc__core__fn__clone_rc(ssc__core__struct__object_header* object_header_pointer) noexcept {
   if (object_header_pointer && object_header_pointer->ssc__core__member__rc != 0) {
     object_header_pointer->ssc__core__member__rc++;
   }
 }
 
-// TODO: review
 export inline void ssc__core__fn__drop_rc(ssc__core__struct__object_header* object_header_pointer) noexcept {
   if (object_header_pointer && object_header_pointer->ssc__core__member__rc != 0 && --object_header_pointer->ssc__core__member__rc == 0) {
     const ssc__core__struct__shape* shape_pointer = object_header_pointer->ssc__core__member__descriptor_pointer->ssc__core__member__shape_pointer;
-    ssc__core__type__u8* object_byte_pointer = reinterpret_cast<ssc__core__type__u8*>(object_header_pointer);
 
-    for (ssc__core__type__u64 index = 0; index < shape_pointer->ssc__core__member__ref_offsets.ssc__core__member__length; index++) {
-      reinterpret_cast<ssc__core__type__ref*>(object_byte_pointer + shape_pointer->ssc__core__member__ref_offsets.ssc__core__member__elements_pointer[index])->~ssc__core__type__ref();
+    for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__ref_offsets) {
+      ssc__core__fn__pointer_field_at<ssc__core__type__ref>(object_header_pointer, offset)->~ssc__core__type__ref();
     }
 
-    for (ssc__core__type__u64 index = 0; index < shape_pointer->ssc__core__member__union_offsets.ssc__core__member__length; index++) {
-      reinterpret_cast<ssc__core__type__union*>(object_byte_pointer + shape_pointer->ssc__core__member__union_offsets.ssc__core__member__elements_pointer[index])->~ssc__core__type__union();
+    for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__union_offsets) {
+      ssc__core__fn__pointer_field_at<ssc__core__type__union>(object_header_pointer, offset)->~ssc__core__type__union();
     }
 
     free(object_header_pointer);
