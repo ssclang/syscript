@@ -20,7 +20,6 @@ import {
   NodeImportDeclaration,
   NodeNullLiteral,
   NodeNumericLiteral,
-  NodeParameterDeclaration,
   NodeParenthesizedExpression,
   NodeReturnStatement,
   NodeVariableDeclaration,
@@ -47,22 +46,19 @@ export function lower(sourceFile: AppSourceFile, pathToId: (path: RealPath) => s
   };
   const pathId = pathToId(sourceFile.realPath);
   const namespaceName = getNamespaceName(pathId);
-
   const topLevelVariableDefinitions = sourceFile.statements
     .values()
     .filter((s) => s instanceof NodeVariableStatement)
     .flatMap((s) => s.declarations)
     .map((d) => {
       const { identifier } = d.bindingName;
-      const linkage = d.isExported ? '' : 'static ';
       const name = getVariableName(identifier.text);
 
       context.topLevelVariableMap.set(identifier.getSymbol().id, `${namespaceName}::${name}`);
 
-      return `${linkage}${getTypeName(d.app, identifier.getType())} ${name};`;
+      return `${getVariableLinkage(d)}${getVariableSignature(identifier)};`;
     })
     .toArray();
-
   const functions = sourceFile.statements.filter((n) => n instanceof NodeFunctionDeclaration);
   const functionForwards = functions.map((f) => `${getFunctionSignature(f)};`);
   const definedFunctionLines = functions
@@ -139,6 +135,10 @@ function getTopLevelStatementsInitFunctionName(pathId: string) {
   return `ssc__core__fn__${pathId}`;
 }
 
+function getVariableName(name: string) {
+  return `ssc__ts__var__${name}`;
+}
+
 function getFunctionName(node: NodeFunctionDeclaration) {
   const name = node.identifier.text;
 
@@ -149,16 +149,26 @@ function getFunctionName(node: NodeFunctionDeclaration) {
   return `ssc__ts__fn__${name}`;
 }
 
-function getVariableName(name: string) {
-  return `ssc__ts__var__${name}`;
+function getVariableSignature(identifier: NodeIdentifier) {
+  return `${getTypeName(identifier.app, identifier.getType())} ${getVariableName(identifier.text)}`;
 }
 
 function getFunctionSignature(node: NodeFunctionDeclaration) {
   const linkage = getFunctionLinkage(node);
   const returnType = getTypeName(node.app, node.getReturnType());
-  const parameters = node.parameters.map(lowerParameter).join(', ');
+  const parameters = node.parameters
+    .map((p) => getVariableSignature(p.bindingName.identifier))
+    .join(', ');
 
   return `${linkage}${returnType} ${getFunctionName(node)}(${parameters})`;
+}
+
+function getVariableLinkage(node: NodeVariableDeclaration) {
+  if (node.isExported) {
+    return '';
+  }
+
+  return 'static ';
 }
 
 function getFunctionLinkage(node: NodeFunctionDeclaration) {
@@ -238,14 +248,13 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
     return node.declarations.map((d) => {
       const { identifier } = d.bindingName;
       const constness = d.keyword === 'const' ? 'const ' : '';
-      const typeName = getTypeName(node.app, identifier.getType());
-      const name = getVariableName(identifier.text);
+      const signature = getVariableSignature(identifier);
 
       if (!d.initializer) {
-        return `${constness}${typeName} ${name};`;
+        return `${constness}${signature};`;
       }
 
-      return `${constness}${typeName} ${name} = ${lowerExpression(d.initializer, context)};`;
+      return `${constness}${signature} = ${lowerExpression(d.initializer, context)};`;
     });
   }
 
@@ -364,13 +373,6 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return 'ssc__core__var__undefined';
     }
 
-    const declaration = node.getValueDeclaration();
-
-    assert(
-      ast.isParameterDeclaration(declaration) || ast.isVariableDeclaration(declaration),
-      `${node.location()}: not implemented identifier: ${node.text}`,
-    );
-
     return narrowUnion(node, lowerVariableReference(node, context));
   }
 
@@ -450,15 +452,18 @@ function addImportedForward(
   context.importedForwardMap.set(realPath, forwards);
 }
 
-// TODO: review
 function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
+  const declaration = node.getValueDeclaration();
   const topLevelVariable = context.topLevelVariableMap.get(node.getSymbol().id);
+
+  assert(
+    ast.isVariableOrParameterDeclaration(declaration),
+    `${node.location()}: '${node.text}' is not a variable identifier`,
+  );
 
   if (topLevelVariable) {
     return topLevelVariable;
   }
-
-  const declaration = node.getValueDeclaration();
 
   if (declaration.getSourceFile().fileName === node.getSourceFile().fileName) {
     return getVariableName(node.text);
@@ -467,7 +472,6 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
   return declareImportedVariable(node, context);
 }
 
-// TODO: review
 function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
   const declaration = node.getValueDeclaration();
 
@@ -482,12 +486,7 @@ function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
   const name = getVariableName(identifier.text);
   const topLevelVariable = `${getNamespaceName(context.pathToId(realPath))}::${name}`;
 
-  addImportedForward(
-    context,
-    realPath,
-    name,
-    `extern ${getTypeName(node.app, identifier.getType())} ${name};`,
-  );
+  addImportedForward(context, realPath, name, `extern ${getVariableSignature(identifier)};`);
   context.topLevelVariableMap.set(node.getSymbol().id, topLevelVariable);
 
   return topLevelVariable;
@@ -515,12 +514,6 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
   }
 
   return `${text}.ssc__core__member__value.${typeName.replace('ssc__core__type__', 'ssc__core__member__')}`;
-}
-
-function lowerParameter(node: NodeParameterDeclaration) {
-  const { identifier } = node.bindingName;
-
-  return `${getTypeName(node.app, identifier.getType())} ${getVariableName(identifier.text)}`;
 }
 
 function getTypeName(app: AppSourceFile['app'], type: ts.Type): string {
