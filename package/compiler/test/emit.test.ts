@@ -36,3 +36,19 @@ test('if-truthy.ts', async () => {
 test('if-union-truthy.ts', async () => {
   expect(await run(path.join(fixtureDir, 'if-union-truthy.ts'))).toBe(10);
 });
+
+test('variable-run.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'variable-run.ts'))).toBe(117);
+});
+
+test('top-level-variable.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'top-level-variable.ts'))).toBe(8);
+});
+
+test('top-level-import.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'top-level-import.ts'))).toBe(7);
+});
+
+test('top-level-rename.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'top-level-rename.ts'))).toBe(5);
+});

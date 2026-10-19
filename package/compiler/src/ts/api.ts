@@ -126,6 +126,10 @@ export class CheckerApi {
     return this.checker.getContextualType(node);
   }
 
+  getTypeOfSymbol(symbol: ts.Symbol) {
+    return this.checker.getTypeOfSymbol(symbol);
+  }
+
   isUndefinedSymbol(symbol: ts.Symbol) {
     return this.checker.isUndefinedSymbol(symbol);
   }
