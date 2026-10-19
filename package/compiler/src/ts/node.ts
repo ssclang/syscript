@@ -735,7 +735,7 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
   readonly isExported: boolean;
   readonly keyword: 'const' | 'let';
   readonly bindingName: NodeBindingName;
-  readonly initializer: AbstractExpression;
+  readonly initializer?: AbstractExpression;
 
   constructor(app: TsApp, tsNode: ast.VariableDeclaration, isExported = false) {
     super(app, tsNode);
@@ -765,7 +765,8 @@ export class NodeVariableDeclaration extends AbstractNode<ast.VariableDeclaratio
     }
 
     this.bindingName = new NodeBindingName(app, this.tsNode.name);
-    this.initializer = AbstractExpression.of(app, this.tsNode.initializer);
+    this.initializer =
+      this.tsNode.initializer && AbstractExpression.of(app, this.tsNode.initializer);
   }
 }
 

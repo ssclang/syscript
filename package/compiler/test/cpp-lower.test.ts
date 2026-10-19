@@ -262,3 +262,100 @@ test('boolean is lowered as boolean, not as a union', async () => {
   expect(output).toContain('ssc__core__type__boolean ssc__ts__var__a');
   expect(output).not.toContain('ssc__core__type__union');
 });
+
+test('variable.ts', async () => {
+  expect(await lowerFixture('variable.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__70c3185a09264f9e91e0c85bea2350e0 {
+      static ssc__core__type__i32 ssc__ts__fn__variables(ssc__core__type__i32 ssc__ts__var__a);
+      static ssc__core__type__i32 ssc__ts__fn__variables(ssc__core__type__i32 ssc__ts__var__a) {
+        ssc__core__type__i32 ssc__ts__var__b = ssc__ts__var__a;
+        const ssc__core__type__i32 ssc__ts__var__c = ssc__core__type__i32{2};
+        ssc__core__type__i32 ssc__ts__var__d;
+        (ssc__ts__var__d = (ssc__ts__var__b + ssc__ts__var__c));
+        (ssc__ts__var__b = ssc__core__type__i32{10});
+        const ssc__core__type__union ssc__ts__var__e = ssc__core__type__i32{3};
+        if (ssc__ts__var__e.ssc__core__member__value.ssc__core__member__i32 != 0) {
+          const ssc__core__type__i32 ssc__ts__var__c = ssc__core__type__i32{100};
+          (ssc__ts__var__d = (ssc__ts__var__d + ssc__ts__var__c));
+        }
+        return (ssc__ts__var__d + ssc__ts__var__b);
+      }
+      void ssc__core__fn__70c3185a09264f9e91e0c85bea2350e0() {
+      }
+    }"
+  `);
+});
+
+test('top-level-variable.ts', async () => {
+  expect(await lowerFixture('top-level-variable.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__96969da6635f41dca790c328167a94e8 {
+      static ssc__core__type__i32 ssc__ts__var__total;
+      static ssc__core__type__i32 ssc__ts__var__step;
+      static ssc__core__type__i32 ssc__ts__var__later;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n);
+      static void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n) {
+        (ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__total = (ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__total + ssc__ts__var__n));
+      }
+      void ssc__core__fn__96969da6635f41dca790c328167a94e8() {
+        ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__total = ssc__core__type__i32{1};
+        ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__step = ssc__core__type__i32{2};
+        ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__fn__add(ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__step);
+        (ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__later = (ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__total + ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__step));
+        ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__fn__add(ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__later);
+        ssc__ts__namespace__96969da6635f41dca790c328167a94e8::exit(ssc__ts__namespace__96969da6635f41dca790c328167a94e8::ssc__ts__var__total);
+      }
+    }"
+  `);
+});
+
+test('top-level-import.ts', async () => {
+  expect(await lowerFixture('top-level-import.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c {
+      void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
+      extern ssc__core__type__i32 ssc__ts__var__count;
+    }
+
+    namespace ssc__ts__namespace__4a96ace858804901b9f845eef13209bd {
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      void ssc__core__fn__4a96ace858804901b9f845eef13209bd() {
+        ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__fn__increase(ssc__core__type__i32{3});
+        ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__fn__increase(ssc__core__type__i32{4});
+        ssc__ts__namespace__4a96ace858804901b9f845eef13209bd::exit(ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__var__count);
+      }
+    }"
+  `);
+});
+
+test('top-level-rename.ts', async () => {
+  expect(await lowerFixture('top-level-rename.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c {
+      void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
+      extern ssc__core__type__i32 ssc__ts__var__count;
+    }
+
+    namespace ssc__ts__namespace__d74c3b6a8e5c4f809a32af5c4b33eb89 {
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      void ssc__core__fn__d74c3b6a8e5c4f809a32af5c4b33eb89() {
+        ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__fn__increase(ssc__core__type__i32{5});
+        ssc__ts__namespace__d74c3b6a8e5c4f809a32af5c4b33eb89::exit(ssc__ts__namespace__97270c275bf64ffd9168904fc39caf2c::ssc__ts__var__count);
+      }
+    }"
+  `);
+});
