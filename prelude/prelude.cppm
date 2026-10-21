@@ -377,12 +377,78 @@ export inline void ssc__core__fn__write_stderr(std::string_view string_view) noe
   std::cerr.write(string_view.data(), string_view.size());
 }
 
-[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_tdz_error(const char* name_pointer) {
-  throw std::string("ReferenceError: Cannot access '") + name_pointer + "' before initialization";
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_tdz_error(const char* var_name_pointer) {
+  throw std::string("ReferenceError: Cannot access '") + var_name_pointer + "' before initialization";
 }
 
-export inline void ssc__core__fn__throw_if_tdz(ssc__core__type__boolean is_initialized, const char* name_pointer) {
+export inline void ssc__core__fn__throw_if_tdz(ssc__core__type__boolean is_initialized, const char* var_name_pointer) {
   if (!is_initialized) [[unlikely]] {
-    ssc__core__fn__throw_tdz_error(name_pointer);
+    ssc__core__fn__throw_tdz_error(var_name_pointer);
   }
+}
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_overflow_error(const char* type_name_pointer) {
+  throw std::string("RangeError: Overflow: ") + type_name_pointer;
+}
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_division_by_zero_error(const char* type_name_pointer) {
+  throw std::string("RangeError: Division by zero: ") + type_name_pointer;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__add(Type left, Type right, const char* type_name_pointer) {
+  Type result;
+  if (__builtin_add_overflow(left, right, __builtin_addressof(result))) [[unlikely]] {
+    ssc__core__fn__throw_overflow_error(type_name_pointer);
+  }
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__sub(Type left, Type right, const char* type_name_pointer) {
+  Type result;
+  if (__builtin_sub_overflow(left, right, __builtin_addressof(result))) [[unlikely]] {
+    ssc__core__fn__throw_overflow_error(type_name_pointer);
+  }
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__mul(Type left, Type right, const char* type_name_pointer) {
+  Type result;
+  if (__builtin_mul_overflow(left, right, __builtin_addressof(result))) [[unlikely]] {
+    ssc__core__fn__throw_overflow_error(type_name_pointer);
+  }
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__div(Type left, Type right, const char* type_name_pointer) {
+  if (right == 0) [[unlikely]] {
+    ssc__core__fn__throw_division_by_zero_error(type_name_pointer);
+  }
+  if constexpr (static_cast<Type>(-1) < 0) {
+    if (right == -1) [[unlikely]] {
+      return ssc__core__fn__sub(static_cast<Type>(0), left, type_name_pointer);
+    }
+  }
+  return static_cast<Type>(left / right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__rem(Type left, Type right, const char* type_name_pointer) {
+  if (right == 0) [[unlikely]] {
+    ssc__core__fn__throw_division_by_zero_error(type_name_pointer);
+  }
+  if constexpr (static_cast<Type>(-1) < 0) {
+    if (right == -1) [[unlikely]] {
+      return 0;
+    }
+  }
+  return static_cast<Type>(left % right);
 }

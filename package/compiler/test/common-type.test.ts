@@ -103,6 +103,13 @@ describe('commonType', () => {
     [[{ type: 'u32' as const }, literal('5000000000')], 'u64'],
     [[{ type: 'i64' as const }, literal('9223372036854775807')], 'i64'],
     [[literal('1'), literal('2')], 'f64'],
+    [[{ type: 'char' as const }, { type: 'char' as const }], 'u32'],
+    [[{ type: 'char' as const }, { type: 'u8' as const }], 'u32'],
+    [[{ type: 'char' as const }, { type: 'i32' as const }], 'i64'],
+    [[{ type: 'char' as const }, { type: 'f32' as const }], 'f64'],
+    [[{ type: 'char' as const }, literal('1', true)], 'i64'],
+    [[{ type: 'i32' as const }, { type: 'u32' as const }], 'i64'],
+    [[{ type: 'u8' as const }, { type: 'i8' as const }, { type: 'u16' as const }], 'i32'],
   ])('%j', (operands, expected) => {
     expect(commonType(operands)).toBe(expected);
   });
@@ -112,6 +119,7 @@ describe('commonType', () => {
     expect(() => commonType([{ type: 'i64' }, literal('9223372036854775808')])).toThrow(
       'no common type',
     );
+    expect(() => commonType([{ type: 'i64' }, { type: 'u64' }])).toThrow('no common type');
   });
 });
 
