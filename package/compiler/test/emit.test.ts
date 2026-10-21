@@ -106,6 +106,14 @@ test('literal-type.ts', async () => {
   expect(await run(path.join(fixtureDir, 'literal-type.ts'))).toBe(123);
 });
 
+test('bitwise.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'bitwise.ts'))).toBe(63);
+});
+
+test('logical.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'logical.ts'))).toBe(255);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(55);
 });
@@ -130,5 +138,20 @@ test.each([
   expect(await runSource(`${source}\nexit(0);`)).toEqual({
     status: 1,
     stderr: `RangeError: Division by zero: ${type}\n`,
+  });
+});
+
+test.each([
+  ['i32 too large', 'i32', 'function f(a: i32, b: i32): i32 { return a << b; }\nf(1, 32);'],
+  [
+    'i32 negative',
+    'i32',
+    'function f(a: i32, b: i32): i32 { return a >> b; }\nconst zero: i32 = 0;\nf(1, zero - 1);',
+  ],
+  ['u8 too large', 'u8', 'function f(a: u8, b: u8): u8 { return a >>> b; }\nf(1, 8);'],
+])('shift count %s', async (_, type, source) => {
+  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+    status: 1,
+    stderr: `RangeError: Shift count out of range: ${type}\n`,
   });
 });

@@ -364,6 +364,10 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
   const typeName = getSscTypeName(node.app, node.getType());
   const text = lowerExpression(node, context);
 
+  return getTruthyCondition(typeName, text);
+}
+
+function getTruthyCondition(typeName: string, text: string) {
   if (typeName === 'ssc__core__type__union') {
     return `ssc__core__fn__truthy_union(${text})`;
   }
@@ -446,6 +450,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   if (node instanceof NodeBinaryExpression) {
     const { kind } = node.binaryOperatorToken;
 
+    // =
     if (kind === ast.SyntaxKind.EqualsToken) {
       assert(
         node.left instanceof NodeIdentifier,
@@ -456,24 +461,37 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     }
 
     if (
-      kind === ast.SyntaxKind.PlusToken
-      || kind === ast.SyntaxKind.MinusToken
-      || kind === ast.SyntaxKind.AsteriskToken
-      || kind === ast.SyntaxKind.SlashToken
-      || kind === ast.SyntaxKind.PercentToken
+      kind === ast.SyntaxKind.PlusToken // +
+      || kind === ast.SyntaxKind.MinusToken // -
+      || kind === ast.SyntaxKind.AsteriskToken // *
+      || kind === ast.SyntaxKind.SlashToken // /
+      || kind === ast.SyntaxKind.PercentToken // %
+      || kind === ast.SyntaxKind.AmpersandToken // &
+      || kind === ast.SyntaxKind.BarToken // |
+      || kind === ast.SyntaxKind.CaretToken // ^
+      || kind === ast.SyntaxKind.LessThanLessThanToken // <<
+      || kind === ast.SyntaxKind.GreaterThanGreaterThanToken // >>
+      || kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanToken // >>>
     ) {
       return lowerArithmeticExpression(node, context);
     }
 
     if (
-      kind === ast.SyntaxKind.LessThanToken
-      || kind === ast.SyntaxKind.LessThanEqualsToken
-      || kind === ast.SyntaxKind.GreaterThanToken
-      || kind === ast.SyntaxKind.GreaterThanEqualsToken
-      || kind === ast.SyntaxKind.EqualsEqualsEqualsToken
-      || kind === ast.SyntaxKind.ExclamationEqualsEqualsToken
+      kind === ast.SyntaxKind.LessThanToken // <
+      || kind === ast.SyntaxKind.LessThanEqualsToken // <=
+      || kind === ast.SyntaxKind.GreaterThanToken // >
+      || kind === ast.SyntaxKind.GreaterThanEqualsToken // >=
+      || kind === ast.SyntaxKind.EqualsEqualsEqualsToken // ===
+      || kind === ast.SyntaxKind.ExclamationEqualsEqualsToken // !==
     ) {
       return lowerComparisonExpression(node, context);
+    }
+
+    if (
+      kind === ast.SyntaxKind.AmpersandAmpersandToken // &&
+      || kind === ast.SyntaxKind.BarBarToken // ||
+    ) {
+      return lowerLogicalExpression(node, context);
     }
 
     assertNever(kind as never);
@@ -534,10 +552,12 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
 
+  // %
   if (type === 'f32' && kind === ast.SyntaxKind.PercentToken) {
     return `__builtin_fmodf(${left}, ${right})`;
   }
 
+  // %
   if (type === 'f64' && kind === ast.SyntaxKind.PercentToken) {
     return `__builtin_fmod(${left}, ${right})`;
   }
@@ -546,22 +566,34 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
     return `(${left} ${getArithmeticOperator(kind)} ${right})`;
   }
 
+  if (
+    kind === ast.SyntaxKind.AmpersandToken // &
+    || kind === ast.SyntaxKind.BarToken // |
+    || kind === ast.SyntaxKind.CaretToken // ^
+  ) {
+    return `ssc__core__fn__${getArithmeticFunctionName(kind)}(${left}, ${right})`;
+  }
+
   return `ssc__core__fn__${getArithmeticFunctionName(kind)}(${left}, ${right}, "${type}")`;
 }
 
 function getArithmeticOperator(kind: ast.BinaryOperator) {
+  // +
   if (kind === ast.SyntaxKind.PlusToken) {
     return '+';
   }
 
+  // -
   if (kind === ast.SyntaxKind.MinusToken) {
     return '-';
   }
 
+  // *
   if (kind === ast.SyntaxKind.AsteriskToken) {
     return '*';
   }
 
+  // /
   if (kind === ast.SyntaxKind.SlashToken) {
     return '/';
   }
@@ -570,24 +602,107 @@ function getArithmeticOperator(kind: ast.BinaryOperator) {
 }
 
 function getArithmeticFunctionName(kind: ast.BinaryOperator) {
+  // +
   if (kind === ast.SyntaxKind.PlusToken) {
     return 'add';
   }
 
+  // -
   if (kind === ast.SyntaxKind.MinusToken) {
     return 'sub';
   }
 
+  // *
   if (kind === ast.SyntaxKind.AsteriskToken) {
     return 'mul';
   }
 
+  // /
   if (kind === ast.SyntaxKind.SlashToken) {
     return 'div';
   }
 
+  // %
   if (kind === ast.SyntaxKind.PercentToken) {
     return 'rem';
+  }
+
+  // &
+  if (kind === ast.SyntaxKind.AmpersandToken) {
+    return 'bitwise_and';
+  }
+
+  // |
+  if (kind === ast.SyntaxKind.BarToken) {
+    return 'bitwise_or';
+  }
+
+  // ^
+  if (kind === ast.SyntaxKind.CaretToken) {
+    return 'bitwise_xor';
+  }
+
+  // <<
+  if (kind === ast.SyntaxKind.LessThanLessThanToken) {
+    return 'shift_left';
+  }
+
+  // >>
+  if (kind === ast.SyntaxKind.GreaterThanGreaterThanToken) {
+    return 'shift_right';
+  }
+
+  // >>>
+  if (kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanToken) {
+    return 'unsigned_shift_right';
+  }
+
+  assertNever(kind as never);
+}
+
+function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { kind } = node.binaryOperatorToken;
+  const typeName = getSscTypeName(node.app, node.getType());
+
+  if (typeName === 'ssc__core__type__boolean') {
+    const left = lowerExpression(node.left, context);
+    const right = lowerExpression(node.right, context);
+
+    return `(${left} ${getLogicalOperator(kind)} ${right})`;
+  }
+
+  assert(
+    typeName !== 'ssc__core__type__union',
+    `${node.location()}: not implemented logical operator with a union result: ${node.getText()}`,
+  );
+
+  const type = getSscNumberType(node);
+  const left = lowerNumber(node.left, type, context);
+  const right = lowerNumber(node.right, type, context);
+  const condition = getTruthyCondition(typeName, 'left');
+
+  // &&
+  if (kind === ast.SyntaxKind.AmpersandAmpersandToken) {
+    return `[&] { const ${typeName} left = ${left}; return ${condition} ? ${right} : left; }()`;
+  }
+
+  // ||
+  if (kind === ast.SyntaxKind.BarBarToken) {
+    return `[&] { const ${typeName} left = ${left}; return ${condition} ? left : ${right}; }()`;
+  }
+
+  assertNever(kind as never);
+}
+
+function getLogicalOperator(kind: ast.BinaryOperator) {
+  // &&
+  if (kind === ast.SyntaxKind.AmpersandAmpersandToken) {
+    return '&&';
+  }
+
+  // ||
+  if (kind === ast.SyntaxKind.BarBarToken) {
+    return '||';
   }
 
   assertNever(kind as never);
@@ -603,26 +718,32 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
 }
 
 function getComparisonOperator(kind: ast.BinaryOperator) {
+  // <
   if (kind === ast.SyntaxKind.LessThanToken) {
     return '<';
   }
 
+  // <=
   if (kind === ast.SyntaxKind.LessThanEqualsToken) {
     return '<=';
   }
 
+  // >
   if (kind === ast.SyntaxKind.GreaterThanToken) {
     return '>';
   }
 
+  // >=
   if (kind === ast.SyntaxKind.GreaterThanEqualsToken) {
     return '>=';
   }
 
+  // ===
   if (kind === ast.SyntaxKind.EqualsEqualsEqualsToken) {
     return '==';
   }
 
+  // !==
   if (kind === ast.SyntaxKind.ExclamationEqualsEqualsToken) {
     return '!=';
   }
