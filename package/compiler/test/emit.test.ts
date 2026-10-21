@@ -126,6 +126,10 @@ test('loop.ts', async () => {
   expect(await run(path.join(fixtureDir, 'loop.ts'))).toBe(75);
 });
 
+test('constructor.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'constructor.ts'))).toBe(255);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
@@ -177,4 +181,21 @@ test.each([
     status: 1,
     stderr: `RangeError: Shift count out of range: ${type}\n`,
   });
+});
+
+test.each([
+  ['beyond the last code point', '0x110000', 'RangeError: Invalid code point 1114112\n'],
+  ['a surrogate', '0xd800', 'RangeError: Invalid code point 55296\n'],
+])('char constructor rejects %s', async (_, codePoint, stderr) => {
+  const source = `function of(codePoint: u32): char { return char(codePoint); }\nof(${codePoint});`;
+
+  expect(await runSource(`${source}\nexit(0);`)).toEqual({ status: 1, stderr });
+});
+
+test.each([
+  ['a narrowing', 'function f(v: i64): i32 { return i32(v); }'],
+  ['a literal out of range', 'const v: u8 = u8(300);'],
+  ['a number to char', 'function f(v: i32): char { return char(v); }'],
+])('a constructor rejects %s', async (_, source) => {
+  await expect(runSource(source)).rejects.toThrow('typescript errors');
 });

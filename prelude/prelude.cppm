@@ -542,3 +542,14 @@ inline Type ssc__core__fn__unsigned_shift_right(Type left, Type right, const cha
   ssc__core__fn__check_shift_count(right, type_name_pointer);
   return static_cast<Type>(static_cast<__make_unsigned(Type)>(left) >> right);
 }
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_code_point_error(ssc__core__type__u32 code_point) {
+  throw std::string("RangeError: Invalid code point ") + std::to_string(code_point);
+}
+
+export inline ssc__core__type__char ssc__core__fn__char(ssc__core__type__u32 code_point) {
+  if (0x10FFFF < code_point || (0xD800 <= code_point && code_point <= 0xDFFF)) [[unlikely]] {
+    ssc__core__fn__throw_code_point_error(code_point);
+  }
+  return static_cast<ssc__core__type__char>(code_point);
+}
