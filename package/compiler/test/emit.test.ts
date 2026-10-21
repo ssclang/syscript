@@ -114,6 +114,14 @@ test('logical.ts', async () => {
   expect(await run(path.join(fixtureDir, 'logical.ts'))).toBe(255);
 });
 
+test('unary.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'unary.ts'))).toBe(127);
+});
+
+test('update.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'update.ts'))).toBe(63);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(55);
 });
@@ -124,6 +132,17 @@ test.each([
   ['u32 sub', 'u32', 'function f(a: u32): u32 { return a - 1; }\nf(0);'],
   ['u16 mul', 'u16', 'function f(a: u16, b: u16): u16 { return a * b; }\nf(65535, 65535);'],
   ['i64 mul', 'i64', 'function f(a: i64): i64 { return a * 2; }\nf(9223372036854775807);'],
+  ['i32 MIN / -1', 'i32', 'function f(a: i32, b: i32): i32 { return a / b; }\nf(-2147483648, -1);'],
+  ['unary minus', 'i32', 'function f(a: i32): i32 { return -a; }\nf(-2147483648);'],
+  ['compound', 'i8', 'function f(a: i8): i8 { let r: i8 = a; r += 1; return r; }\nf(127);'],
+  ['postfix increment', 'u8', 'function f(a: u8): u8 { let r: u8 = a; r++; return r; }\nf(255);'],
+  ['prefix increment', 'i8', 'function f(a: i8): i8 { let r: i8 = a; return ++r; }\nf(127);'],
+  ['postfix decrement', 'u32', 'function f(a: u32): u32 { let r: u32 = a; return r--; }\nf(0);'],
+  [
+    'prefix decrement',
+    'i64',
+    'function f(a: i64): i64 { let r: i64 = a; --r; return r; }\nf(-9223372036854775808);',
+  ],
 ])('%s overflow', async (_, type, source) => {
   expect(await runSource(`${source}\nexit(0);`)).toEqual({
     status: 1,
