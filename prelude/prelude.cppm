@@ -452,3 +452,57 @@ inline Type ssc__core__fn__rem(Type left, Type right, const char* type_name_poin
   }
   return static_cast<Type>(left % right);
 }
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_shift_count_error(const char* type_name_pointer) {
+  throw std::string("RangeError: Shift count out of range: ") + type_name_pointer;
+}
+
+template <typename Type> inline void ssc__core__fn__check_shift_count(Type count, const char* type_name_pointer) {
+  if constexpr (static_cast<Type>(-1) < 0) {
+    if (count < 0) [[unlikely]] {
+      ssc__core__fn__throw_shift_count_error(type_name_pointer);
+    }
+  }
+  if (static_cast<ssc__core__type__u64>(count) >= sizeof(Type) * __CHAR_BIT__) [[unlikely]] {
+    ssc__core__fn__throw_shift_count_error(type_name_pointer);
+  }
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__bitwise_and(Type left, Type right) {
+  return static_cast<Type>(left & right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__bitwise_or(Type left, Type right) {
+  return static_cast<Type>(left | right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__bitwise_xor(Type left, Type right) {
+  return static_cast<Type>(left ^ right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__shift_left(Type left, Type right, const char* type_name_pointer) {
+  ssc__core__fn__check_shift_count(right, type_name_pointer);
+  return static_cast<Type>(static_cast<__make_unsigned(Type)>(left) << right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__shift_right(Type left, Type right, const char* type_name_pointer) {
+  ssc__core__fn__check_shift_count(right, type_name_pointer);
+  return static_cast<Type>(left >> right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__unsigned_shift_right(Type left, Type right, const char* type_name_pointer) {
+  ssc__core__fn__check_shift_count(right, type_name_pointer);
+  return static_cast<Type>(static_cast<__make_unsigned(Type)>(left) >> right);
+}
