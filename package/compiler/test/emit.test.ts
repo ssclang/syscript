@@ -122,8 +122,12 @@ test('update.ts', async () => {
   expect(await run(path.join(fixtureDir, 'update.ts'))).toBe(63);
 });
 
+test('loop.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'loop.ts'))).toBe(75);
+});
+
 test('comparison.ts', async () => {
-  expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(55);
+  expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
 
 test.each([

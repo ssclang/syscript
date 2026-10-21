@@ -24,6 +24,10 @@ function notEqual(a: i32, b: i64): boolean {
   return a !== b;
 }
 
+function sameBoolean(a: boolean, b: boolean, c: boolean): boolean {
+  return (a !== b) === c;
+}
+
 const zero: i32 = 0;
 let result: i32 = 0;
 
@@ -49,6 +53,10 @@ if (equal(0.5, 0.5)) {
 
 if (notEqual(1, 2)) {
   result = result + 32;
+}
+
+if (sameBoolean(true, false, true)) {
+  result = result + 64;
 }
 
 exit(result);
