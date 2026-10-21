@@ -19,8 +19,11 @@ import {
   NodeBinaryExpression,
   NodeBlock,
   NodeBooleanLiteral,
+  NodeBreakStatement,
   NodeCallExpression,
+  NodeContinueStatement,
   NodeExpressionStatement,
+  NodeForStatement,
   NodeFunctionDeclaration,
   NodeIdentifier,
   NodeIfStatement,
@@ -33,6 +36,7 @@ import {
   NodeReturnStatement,
   NodeVariableDeclaration,
   NodeVariableStatement,
+  NodeWhileStatement,
 } from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
 
@@ -314,17 +318,7 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   }
 
   if (node instanceof NodeVariableStatement) {
-    return node.declarations.map((d) => {
-      const { identifier } = d.bindingName;
-      const constness = d.keyword === 'const' ? 'const ' : '';
-      const signature = getVariableSignature(identifier);
-
-      if (!d.initializer) {
-        return `${constness}${signature};`;
-      }
-
-      return `${constness}${signature} = ${lowerExpression(d.initializer, context)};`;
-    });
+    return node.declarations.map((d) => `${lowerVariableDeclaration(d, context)};`);
   }
 
   if (node instanceof NodeReturnStatement) {
@@ -333,7 +327,43 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
     return [line];
   }
 
+  if (node instanceof NodeBlock) {
+    const w = new CppWriter();
+
+    w.block('', () => node.statements.flatMap((s) => lowerStatement(s, context)));
+
+    return w.lines();
+  }
+
+  if (node instanceof NodeForStatement) {
+    return lowerForStatement(node, context);
+  }
+
+  if (node instanceof NodeWhileStatement) {
+    return lowerWhileStatement(node, context);
+  }
+
+  if (node instanceof NodeBreakStatement) {
+    return ['break;'];
+  }
+
+  if (node instanceof NodeContinueStatement) {
+    return ['continue;'];
+  }
+
   throw new Error(`not implemented statement: ${node.getText()}`);
+}
+
+function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerContext) {
+  const { identifier } = node.bindingName;
+  const constness = node.keyword === 'const' ? 'const ' : '';
+  const signature = getVariableSignature(identifier);
+
+  if (!node.initializer) {
+    return `${constness}${signature}`;
+  }
+
+  return `${constness}${signature} = ${lowerExpression(node.initializer, context)}`;
 }
 
 function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
@@ -358,6 +388,40 @@ function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
   };
 
   lowerBranch(node, false);
+
+  return w.lines();
+}
+
+function lowerForStatement(node: NodeForStatement, context: LowerContext) {
+  const declarations = node.declarations.map((d) => lowerVariableDeclaration(d, context));
+  const condition = lowerCondition(node.condition, context);
+  const incrementor = lowerExpression(node.incrementor, context);
+  const lowerBody = () => node.block.statements.flatMap((s) => lowerStatement(s, context));
+  const w = new CppWriter();
+
+  if (declarations.length === 1) {
+    w.block(`for (${declarations.join('')}; ${condition}; ${incrementor})`, lowerBody);
+
+    return w.lines();
+  }
+
+  w.block('', () => {
+    const forWriter = new CppWriter();
+
+    forWriter.block(`for (; ${condition}; ${incrementor})`, lowerBody);
+
+    return [...declarations.map((d) => `${d};`), ...forWriter.lines()];
+  });
+
+  return w.lines();
+}
+
+function lowerWhileStatement(node: NodeWhileStatement, context: LowerContext) {
+  const w = new CppWriter();
+
+  w.block(`while (${lowerCondition(node.expression, context)})`, () =>
+    node.block.statements.flatMap((s) => lowerStatement(s, context)),
+  );
 
   return w.lines();
 }
@@ -903,6 +967,16 @@ function getLogicalOperator(kind: ast.BinaryOperator) {
 
 function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
+  const leftTypeName = getSscTypeName(node.app, node.left.getType());
+  const rightTypeName = getSscTypeName(node.app, node.right.getType());
+
+  if (leftTypeName === 'ssc__core__type__boolean' && rightTypeName === 'ssc__core__type__boolean') {
+    const left = lowerExpression(node.left, context);
+    const right = lowerExpression(node.right, context);
+
+    return `(${left} ${getComparisonOperator(kind)} ${right})`;
+  }
+
   const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
