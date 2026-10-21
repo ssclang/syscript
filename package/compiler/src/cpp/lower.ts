@@ -28,6 +28,8 @@ import {
   NodeNullLiteral,
   NodeNumericLiteral,
   NodeParenthesizedExpression,
+  NodePostfixUnaryExpression,
+  NodePrefixUnaryExpression,
   NodeReturnStatement,
   NodeVariableDeclaration,
   NodeVariableStatement,
@@ -416,19 +418,18 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return `(${lowerExpression(node.expression, context)})`;
   }
 
-  if (node instanceof NodeNumericLiteral) {
-    const type = node.getContextualType() || node.getType();
+  if (isEffectiveNumericLiteral(node)) {
+    const bigNumber = getNumberLiteralValue(node.app, node.getType());
+    const value = bigNumber.toFixed();
+    const type = node.app.checker.getContextualType(node.tsNode) || node.getType();
 
     if (!type.isUnionType()) {
-      return getNumericLiteral(node.value, getSscTypeName(node.app, type));
+      return getNumericLiteral(value, getSscTypeName(node.app, type));
     }
 
     const memberTypeNames = type.getTypes().map((t) => getSscTypeName(node.app, t));
     const memberType = sortedTypes.find((t) => {
-      return (
-        memberTypeNames.includes(`ssc__core__type__${t}`)
-        && isLiteralInRange(new BigNumber(node.value), t)
-      );
+      return memberTypeNames.includes(`ssc__core__type__${t}`) && isLiteralInRange(bigNumber, t);
     });
 
     assert(
@@ -436,7 +437,15 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       `${node.location()}: ${node.getText()} can not be put in ${node.app.checker.typeToString(type)}`,
     );
 
-    return getNumericLiteral(node.value, `ssc__core__type__${memberType}`);
+    return getNumericLiteral(value, `ssc__core__type__${memberType}`);
+  }
+
+  if (node instanceof NodePrefixUnaryExpression) {
+    return lowerPrefixUnaryExpression(node, context);
+  }
+
+  if (node instanceof NodePostfixUnaryExpression) {
+    return lowerPostfixUnaryExpression(node, context);
   }
 
   if (node instanceof NodeIdentifier) {
@@ -494,6 +503,22 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return lowerLogicalExpression(node, context);
     }
 
+    if (
+      kind === ast.SyntaxKind.PlusEqualsToken // +=
+      || kind === ast.SyntaxKind.MinusEqualsToken // -=
+      || kind === ast.SyntaxKind.AsteriskEqualsToken // *=
+      || kind === ast.SyntaxKind.SlashEqualsToken // /=
+      || kind === ast.SyntaxKind.PercentEqualsToken // %=
+      || kind === ast.SyntaxKind.AmpersandEqualsToken // &=
+      || kind === ast.SyntaxKind.BarEqualsToken // |=
+      || kind === ast.SyntaxKind.CaretEqualsToken // ^=
+      || kind === ast.SyntaxKind.LessThanLessThanEqualsToken // <<=
+      || kind === ast.SyntaxKind.GreaterThanGreaterThanEqualsToken // >>=
+      || kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken // >>>=
+    ) {
+      return lowerCompoundAssignmentExpression(node, context);
+    }
+
     assertNever(kind as never);
   }
 
@@ -542,6 +567,165 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   throw new Error(`not implemented expression: ${node.getText()}`);
 }
 
+function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: LowerContext) {
+  const { operator, operand } = node;
+
+  // !
+  if (operator === ast.SyntaxKind.ExclamationToken) {
+    return `(!(${lowerCondition(operand, context)}))`;
+  }
+
+  // -
+  if (operator === ast.SyntaxKind.MinusToken) {
+    const type = getSscNumberType(node);
+    const text = lowerNumber(operand, type, context);
+
+    if (includes(sscFloatTypes, type)) {
+      return `(-${text})`;
+    }
+
+    const zero = getNumericLiteral('0', `ssc__core__type__${type}`);
+
+    return `ssc__core__fn__sub(${zero}, ${text}, "${type}")`;
+  }
+
+  // +
+  if (operator === ast.SyntaxKind.PlusToken) {
+    return lowerNumber(operand, getSscNumberType(node), context);
+  }
+
+  // ~
+  if (operator === ast.SyntaxKind.TildeToken) {
+    return `ssc__core__fn__bitwise_not(${lowerNumber(operand, getSscNumberType(node), context)})`;
+  }
+
+  // ++ --
+  return lowerUpdateExpression(node, context);
+}
+
+function lowerPostfixUnaryExpression(node: NodePostfixUnaryExpression, context: LowerContext) {
+  // ++ --
+  return lowerUpdateExpression(node, context);
+}
+
+function isEffectiveNumericLiteral(node: AbstractNode<ast.Expression>) {
+  if (node instanceof NodeNumericLiteral) {
+    return true;
+  }
+
+  return (
+    node instanceof NodePrefixUnaryExpression
+    && (node.operator === ast.SyntaxKind.MinusToken || node.operator === ast.SyntaxKind.PlusToken)
+    && node.operand instanceof NodeNumericLiteral
+  );
+}
+
+function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { kind } = node.binaryOperatorToken;
+
+  assert(
+    node.left instanceof NodeIdentifier,
+    `${node.location()}: not implemented assignment target: ${node.left.getText()}`,
+  );
+
+  const type = getSscNumberType(node.left);
+  const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+
+  assert(common === type, `${node.location()}: common type ${common} does not match ${type}`);
+
+  const target = lowerVariableReference(node.left, context);
+  const right = lowerNumber(node.right, type, context);
+  const operator = getCompoundAssignmentOperator(kind);
+
+  return `(${target} = ${getArithmeticText(operator, type, target, right)})`;
+}
+
+function getCompoundAssignmentOperator(kind: ast.BinaryOperator) {
+  // +=
+  if (kind === ast.SyntaxKind.PlusEqualsToken) {
+    return ast.SyntaxKind.PlusToken;
+  }
+
+  // -=
+  if (kind === ast.SyntaxKind.MinusEqualsToken) {
+    return ast.SyntaxKind.MinusToken;
+  }
+
+  // *=
+  if (kind === ast.SyntaxKind.AsteriskEqualsToken) {
+    return ast.SyntaxKind.AsteriskToken;
+  }
+
+  // /=
+  if (kind === ast.SyntaxKind.SlashEqualsToken) {
+    return ast.SyntaxKind.SlashToken;
+  }
+
+  // %=
+  if (kind === ast.SyntaxKind.PercentEqualsToken) {
+    return ast.SyntaxKind.PercentToken;
+  }
+
+  // &=
+  if (kind === ast.SyntaxKind.AmpersandEqualsToken) {
+    return ast.SyntaxKind.AmpersandToken;
+  }
+
+  // |=
+  if (kind === ast.SyntaxKind.BarEqualsToken) {
+    return ast.SyntaxKind.BarToken;
+  }
+
+  // ^=
+  if (kind === ast.SyntaxKind.CaretEqualsToken) {
+    return ast.SyntaxKind.CaretToken;
+  }
+
+  // <<=
+  if (kind === ast.SyntaxKind.LessThanLessThanEqualsToken) {
+    return ast.SyntaxKind.LessThanLessThanToken;
+  }
+
+  // >>=
+  if (kind === ast.SyntaxKind.GreaterThanGreaterThanEqualsToken) {
+    return ast.SyntaxKind.GreaterThanGreaterThanToken;
+  }
+
+  // >>>=
+  if (kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken) {
+    return ast.SyntaxKind.GreaterThanGreaterThanGreaterThanToken;
+  }
+
+  assertNever(kind as never);
+}
+
+function lowerUpdateExpression(
+  node: NodePrefixUnaryExpression | NodePostfixUnaryExpression,
+  context: LowerContext,
+) {
+  const { operator, operand } = node;
+
+  assert(
+    operand instanceof NodeIdentifier,
+    `${node.location()}: not implemented assignment target: ${operand.getText()}`,
+  );
+
+  const type = getSscNumberType(operand);
+  const target = lowerVariableReference(operand, context);
+  const isPrefix = node instanceof NodePrefixUnaryExpression;
+  const isIncrement = operator === ast.SyntaxKind.PlusPlusToken;
+
+  if (includes(sscFloatTypes, type)) {
+    const text = isIncrement ? '++' : '--';
+
+    return isPrefix ? `(${text}${target})` : `(${target}${text})`;
+  }
+
+  const name = `${isIncrement ? 'increment' : 'decrement'}_${isPrefix ? 'prefix' : 'postfix'}`;
+
+  return `ssc__core__fn__${name}(${target}, "${type}")`;
+}
+
 function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
   const type = getSscNumberType(node);
@@ -552,6 +736,15 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
 
+  return getArithmeticText(kind, type, left, right);
+}
+
+function getArithmeticText(
+  kind: ast.BinaryOperator,
+  type: SscNumberType,
+  left: string,
+  right: string,
+) {
   // %
   if (type === 'f32' && kind === ast.SyntaxKind.PercentToken) {
     return `__builtin_fmodf(${left}, ${right})`;
@@ -783,7 +976,7 @@ function lowerNumber(
       `${node.location()}: '${node.getText()}' can not be converted to ${type}`,
     );
 
-    if (node instanceof NodeNumericLiteral) {
+    if (isEffectiveNumericLiteral(node)) {
       return getNumericLiteral(value.toFixed(), `ssc__core__type__${type}`);
     }
 
@@ -986,6 +1179,10 @@ function getNumericLiteral(value: string, type: string) {
     || type === 'ssc__core__type__i32'
     || type === 'ssc__core__type__i64'
   ) {
+    if (value === '-9223372036854775808') {
+      return `${type}{-9223372036854775807 - 1}`;
+    }
+
     return `${type}{${value}}`;
   }
 

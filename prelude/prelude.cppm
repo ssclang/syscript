@@ -453,6 +453,36 @@ inline Type ssc__core__fn__rem(Type left, Type right, const char* type_name_poin
   return static_cast<Type>(left % right);
 }
 
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__increment_prefix(Type& target, const char* type_name_pointer) {
+  target = ssc__core__fn__add(target, static_cast<Type>(1), type_name_pointer);
+  return target;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__increment_postfix(Type& target, const char* type_name_pointer) {
+  const Type previous = target;
+  target = ssc__core__fn__add(previous, static_cast<Type>(1), type_name_pointer);
+  return previous;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__decrement_prefix(Type& target, const char* type_name_pointer) {
+  target = ssc__core__fn__sub(target, static_cast<Type>(1), type_name_pointer);
+  return target;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__decrement_postfix(Type& target, const char* type_name_pointer) {
+  const Type previous = target;
+  target = ssc__core__fn__sub(previous, static_cast<Type>(1), type_name_pointer);
+  return previous;
+}
+
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_shift_count_error(const char* type_name_pointer) {
   throw std::string("RangeError: Shift count out of range: ") + type_name_pointer;
 }
@@ -484,6 +514,12 @@ export template <typename Type>
   requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
 inline Type ssc__core__fn__bitwise_xor(Type left, Type right) {
   return static_cast<Type>(left ^ right);
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__bitwise_not(Type value) {
+  return static_cast<Type>(~value);
 }
 
 export template <typename Type>
