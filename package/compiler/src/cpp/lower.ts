@@ -660,7 +660,35 @@ function lowerPreludeCallExpression(node: NodeCallExpression, name: string, cont
     return `ssc__core__fn__char(${lowerNumber(argument, 'u32', context)})`;
   }
 
+  if (name === 'addWrap' || name === 'subWrap' || name === 'mulWrap') {
+    const [, right] = node.arguments;
+
+    assert(right, `${node.location()}: '${name}' takes two arguments`);
+
+    const type = getSscNumberType(node);
+    const functionName = getSscWrappingArithmeticFunctionName(name);
+
+    return `ssc__core__fn__${functionName}(${lowerNumber(argument, type, context)}, ${lowerNumber(right, type, context)})`;
+  }
+
   throw new Error(`${node.location()}: not implemented prelude function: ${name}`);
+}
+
+function getSscWrappingArithmeticFunctionName(name: 'addWrap' | 'subWrap' | 'mulWrap') {
+  if (name === 'addWrap') {
+    return 'add_wrap';
+  }
+
+  if (name === 'subWrap') {
+    return 'sub_wrap';
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (name === 'mulWrap') {
+    return 'mul_wrap';
+  }
+
+  assertNever(name);
 }
 
 function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: LowerContext) {

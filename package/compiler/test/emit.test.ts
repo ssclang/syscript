@@ -130,6 +130,10 @@ test('constructor.ts', async () => {
   expect(await run(path.join(fixtureDir, 'constructor.ts'))).toBe(255);
 });
 
+test('wrap.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'wrap.ts'))).toBe(7);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
