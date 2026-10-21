@@ -427,6 +427,30 @@ inline Type ssc__core__fn__mul(Type left, Type right, const char* type_name_poin
 
 export template <typename Type>
   requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__add_wrap(Type left, Type right) {
+  Type result;
+  __builtin_add_overflow(left, right, __builtin_addressof(result));
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__sub_wrap(Type left, Type right) {
+  Type result;
+  __builtin_sub_overflow(left, right, __builtin_addressof(result));
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline Type ssc__core__fn__mul_wrap(Type left, Type right) {
+  Type result;
+  __builtin_mul_overflow(left, right, __builtin_addressof(result));
+  return result;
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
 inline Type ssc__core__fn__div(Type left, Type right, const char* type_name_pointer) {
   if (right == 0) [[unlikely]] {
     ssc__core__fn__throw_division_by_zero_error(type_name_pointer);

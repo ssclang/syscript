@@ -9,7 +9,7 @@ function of(codePoint: u32): char {
 }
 
 function offset(c: char): u32 {
-  return c - 'A';
+  return c - 65;
 }
 
 function widenChar(c: char, n: i32): i64 {
