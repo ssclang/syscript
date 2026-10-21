@@ -996,3 +996,46 @@ test('loop.ts', async () => {
     }"
   `);
 });
+
+test('constructor.ts', async () => {
+  expect(await lowerFixture('constructor.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef {
+      static ssc__core__type__i32 ssc__ts__var__result;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i64 ssc__ts__fn__widen(ssc__core__type__i32 ssc__ts__var__v);
+      static ssc__core__type__char ssc__ts__fn__of(ssc__core__type__u32 ssc__ts__var__codePoint);
+      static ssc__core__type__i64 ssc__ts__fn__widen(ssc__core__type__i32 ssc__ts__var__v) {
+        return static_cast<ssc__core__type__i64>(ssc__ts__var__v);
+      }
+      static ssc__core__type__char ssc__ts__fn__of(ssc__core__type__u32 ssc__ts__var__codePoint) {
+        return ssc__core__fn__char(ssc__ts__var__codePoint);
+      }
+      void ssc__core__fn__ef5e302400984959bf7ae0475d5c0bef() {
+        ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__type__i32{0};
+        if ((ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__fn__widen(ssc__core__type__i32{-1}) == ssc__core__type__i64{-1})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{1}, "i32"));
+        }
+        if ((ssc__core__type__u8{255u} == ssc__core__type__u8{255u})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{2}, "i32"));
+        }
+        if ((static_cast<ssc__core__type__f64>(ssc__core__type__u32{7u}) == ssc__core__type__f64{7.0})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
+        }
+        if ((static_cast<ssc__core__type__u32>(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__fn__of(ssc__core__type__u32{65u})) == ssc__core__type__u32{65u})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
+        }
+        if ((static_cast<ssc__core__type__u32>(ssc__core__fn__char(ssc__core__type__u32{128077u})) == ssc__core__type__u32{128077u})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
+        }
+        if ((static_cast<ssc__core__type__u32>(ssc__core__fn__char(ssc__core__type__u32{65u})) == ssc__core__type__u32{65u})) {
+          (ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
+        }
+        ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::exit(ssc__ts__namespace__ef5e302400984959bf7ae0475d5c0bef::ssc__ts__var__result);
+      }
+    }"
+  `);
+});

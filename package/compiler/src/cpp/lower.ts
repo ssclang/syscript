@@ -34,6 +34,7 @@ import {
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
   NodeReturnStatement,
+  NodeStringLiteral,
   NodeVariableDeclaration,
   NodeVariableStatement,
   NodeWhileStatement,
@@ -598,6 +599,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
     const isSameFile = declaration.getSourceFile().fileName === node.getSourceFile().fileName;
 
+    if (realPath === node.app.preludeSourceFile.realPath) {
+      return lowerPreludeCallExpression(node, callee.text, context);
+    }
+
     if (ast.isFunctionDeclaration(declaration)) {
       const functionDeclaration = new NodeFunctionDeclaration(node.app, declaration);
       const namespaceName = getSscNamespaceName(pathToId(realPath));
@@ -629,6 +634,33 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   throw new Error(`not implemented expression: ${node.getText()}`);
+}
+
+function lowerPreludeCallExpression(node: NodeCallExpression, name: string, context: LowerContext) {
+  const [argument] = node.arguments;
+
+  assert(argument, `${node.location()}: '${name}' takes an argument`);
+
+  if (
+    name === 'i8'
+    || name === 'i16'
+    || name === 'i32'
+    || name === 'i64'
+    || name === 'u8'
+    || name === 'u16'
+    || name === 'u32'
+    || name === 'u64'
+    || name === 'f32'
+    || name === 'f64'
+  ) {
+    return lowerNumber(argument, name, context);
+  }
+
+  if (name === 'char') {
+    return `ssc__core__fn__char(${lowerNumber(argument, 'u32', context)})`;
+  }
+
+  throw new Error(`${node.location()}: not implemented prelude function: ${name}`);
 }
 
 function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: LowerContext) {
@@ -967,10 +999,10 @@ function getLogicalOperator(kind: ast.BinaryOperator) {
 
 function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
-  const leftTypeName = getSscTypeName(node.app, node.left.getType());
-  const rightTypeName = getSscTypeName(node.app, node.right.getType());
-
-  if (leftTypeName === 'ssc__core__type__boolean' && rightTypeName === 'ssc__core__type__boolean') {
+  if (
+    isTypeFlagMatch(node.left.getType(), ts.TypeFlags.BooleanLike)
+    && isTypeFlagMatch(node.right.getType(), ts.TypeFlags.BooleanLike)
+  ) {
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
@@ -1022,12 +1054,16 @@ function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
   const type = node.getType();
   const memberTypes = type.isUnionType() ? type.getTypes() : [type];
 
-  return memberTypes.map((t) => {
-    if (isTypeFlagMatch(t, ts.TypeFlags.NumberLiteral)) {
-      return { literal: getNumberLiteralValue(node.app, t) };
+  return memberTypes.flatMap((t): CommonTypeOperand[] => {
+    if (isCharLiteralType(t)) {
+      return [];
     }
 
-    return { type: getSscNumberType(node, t) };
+    if (isTypeFlagMatch(t, ts.TypeFlags.NumberLiteral)) {
+      return [{ literal: getNumberLiteralValue(node.app, t) }];
+    }
+
+    return [{ type: getSscNumberType(node, t) }];
   });
 }
 
@@ -1041,6 +1077,19 @@ function lowerNumber(
   }
 
   const nodeType = node.getType();
+
+  if (isCharLiteralType(nodeType)) {
+    assert(
+      node instanceof NodeStringLiteral,
+      `${node.location()}: not implemented char literal expression: ${node.getText()}`,
+    );
+    assert(
+      isLiteralInRange(nodeType.value, type),
+      `${node.location()}: '${node.getText()}' can not be converted to ${type}`,
+    );
+
+    return getNumericLiteral(String(nodeType.value.codePointAt(0)), `ssc__core__type__${type}`);
+  }
 
   if (isTypeFlagMatch(nodeType, ts.TypeFlags.NumberLiteral)) {
     const value = getNumberLiteralValue(node.app, nodeType);
@@ -1078,6 +1127,12 @@ function getNumberLiteralValue(app: AppSourceFile['app'], type: ts.Type) {
   assert(isTypeFlagMatch(type, ts.TypeFlags.NumberLiteral), `not a number literal type: ${text}`);
 
   return new BigNumber(text);
+}
+
+function isCharLiteralType(type: ts.Type): type is ts.StringLiteralType {
+  return (
+    type.isStringLiteralType() && type.value.isWellFormed() && Array.from(type.value).length === 1
+  );
 }
 
 function getSscNumberType(node: AbstractNode<ast.Expression>, type = node.getType()) {
@@ -1277,7 +1332,7 @@ function getNumericLiteral(value: string, type: string) {
   }
 
   if (type === 'ssc__core__type__char') {
-    throw new Error(`not implemented char literal: ${value}`);
+    return `${type}{${value}u}`;
   }
 
   assertNever(type as never);
