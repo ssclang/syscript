@@ -3,7 +3,14 @@ import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { CppWriter } from '~/cpp/writer.js';
-import { isLiteralInRange, sortedTypes } from '~/ts/common-type.js';
+import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
+import {
+  commonType,
+  CommonTypeOperand,
+  isLiteralInRange,
+  isLossless,
+  sortedTypes,
+} from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
@@ -402,7 +409,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodeParenthesizedExpression) {
-    return lowerExpression(node.expression, context);
+    return `(${lowerExpression(node.expression, context)})`;
   }
 
   if (node instanceof NodeNumericLiteral) {
@@ -448,8 +455,25 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return `(${lowerVariableReference(node.left, context)} = ${lowerExpression(node.right, context)})`;
     }
 
-    if (kind === ast.SyntaxKind.PlusToken) {
-      return `(${lowerExpression(node.left, context)} + ${lowerExpression(node.right, context)})`;
+    if (
+      kind === ast.SyntaxKind.PlusToken
+      || kind === ast.SyntaxKind.MinusToken
+      || kind === ast.SyntaxKind.AsteriskToken
+      || kind === ast.SyntaxKind.SlashToken
+      || kind === ast.SyntaxKind.PercentToken
+    ) {
+      return lowerArithmeticExpression(node, context);
+    }
+
+    if (
+      kind === ast.SyntaxKind.LessThanToken
+      || kind === ast.SyntaxKind.LessThanEqualsToken
+      || kind === ast.SyntaxKind.GreaterThanToken
+      || kind === ast.SyntaxKind.GreaterThanEqualsToken
+      || kind === ast.SyntaxKind.EqualsEqualsEqualsToken
+      || kind === ast.SyntaxKind.ExclamationEqualsEqualsToken
+    ) {
+      return lowerComparisonExpression(node, context);
     }
 
     assertNever(kind as never);
@@ -498,6 +522,182 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   throw new Error(`not implemented expression: ${node.getText()}`);
+}
+
+function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { kind } = node.binaryOperatorToken;
+  const type = getSscNumberType(node);
+  const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+
+  assert(common === type, `${node.location()}: common type ${common} does not match ${type}`);
+
+  const left = lowerNumber(node.left, type, context);
+  const right = lowerNumber(node.right, type, context);
+
+  if (type === 'f32' && kind === ast.SyntaxKind.PercentToken) {
+    return `__builtin_fmodf(${left}, ${right})`;
+  }
+
+  if (type === 'f64' && kind === ast.SyntaxKind.PercentToken) {
+    return `__builtin_fmod(${left}, ${right})`;
+  }
+
+  if (includes(sscFloatTypes, type)) {
+    return `(${left} ${getArithmeticOperator(kind)} ${right})`;
+  }
+
+  return `ssc__core__fn__${getArithmeticFunctionName(kind)}(${left}, ${right}, "${type}")`;
+}
+
+function getArithmeticOperator(kind: ast.BinaryOperator) {
+  if (kind === ast.SyntaxKind.PlusToken) {
+    return '+';
+  }
+
+  if (kind === ast.SyntaxKind.MinusToken) {
+    return '-';
+  }
+
+  if (kind === ast.SyntaxKind.AsteriskToken) {
+    return '*';
+  }
+
+  if (kind === ast.SyntaxKind.SlashToken) {
+    return '/';
+  }
+
+  assertNever(kind as never);
+}
+
+function getArithmeticFunctionName(kind: ast.BinaryOperator) {
+  if (kind === ast.SyntaxKind.PlusToken) {
+    return 'add';
+  }
+
+  if (kind === ast.SyntaxKind.MinusToken) {
+    return 'sub';
+  }
+
+  if (kind === ast.SyntaxKind.AsteriskToken) {
+    return 'mul';
+  }
+
+  if (kind === ast.SyntaxKind.SlashToken) {
+    return 'div';
+  }
+
+  if (kind === ast.SyntaxKind.PercentToken) {
+    return 'rem';
+  }
+
+  assertNever(kind as never);
+}
+
+function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { kind } = node.binaryOperatorToken;
+  const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+  const left = lowerNumber(node.left, type, context);
+  const right = lowerNumber(node.right, type, context);
+
+  return `(${left} ${getComparisonOperator(kind)} ${right})`;
+}
+
+function getComparisonOperator(kind: ast.BinaryOperator) {
+  if (kind === ast.SyntaxKind.LessThanToken) {
+    return '<';
+  }
+
+  if (kind === ast.SyntaxKind.LessThanEqualsToken) {
+    return '<=';
+  }
+
+  if (kind === ast.SyntaxKind.GreaterThanToken) {
+    return '>';
+  }
+
+  if (kind === ast.SyntaxKind.GreaterThanEqualsToken) {
+    return '>=';
+  }
+
+  if (kind === ast.SyntaxKind.EqualsEqualsEqualsToken) {
+    return '==';
+  }
+
+  if (kind === ast.SyntaxKind.ExclamationEqualsEqualsToken) {
+    return '!=';
+  }
+
+  assertNever(kind as never);
+}
+
+function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
+  const type = node.getType();
+  const memberTypes = type.isUnionType() ? type.getTypes() : [type];
+
+  return memberTypes.map((t) => {
+    if (isTypeFlagMatch(t, ts.TypeFlags.NumberLiteral)) {
+      return { literal: getNumberLiteralValue(node.app, t) };
+    }
+
+    return { type: getSscNumberType(node, t) };
+  });
+}
+
+function lowerNumber(
+  node: AbstractNode<ast.Expression>,
+  type: SscNumberType,
+  context: LowerContext,
+): string {
+  if (node instanceof NodeParenthesizedExpression) {
+    return `(${lowerNumber(node.expression, type, context)})`;
+  }
+
+  const nodeType = node.getType();
+
+  if (isTypeFlagMatch(nodeType, ts.TypeFlags.NumberLiteral)) {
+    const value = getNumberLiteralValue(node.app, nodeType);
+
+    assert(
+      isLiteralInRange(value, type),
+      `${node.location()}: '${node.getText()}' can not be converted to ${type}`,
+    );
+
+    if (node instanceof NodeNumericLiteral) {
+      return getNumericLiteral(value.toFixed(), `ssc__core__type__${type}`);
+    }
+
+    return `static_cast<ssc__core__type__${type}>(${lowerExpression(node, context)})`;
+  }
+
+  const text = lowerExpression(node, context);
+  const source = getSscNumberType(node, nodeType);
+
+  if (source === type) {
+    return text;
+  }
+
+  assert(
+    isLossless(source, type),
+    `${node.location()}: ${source} can not be converted to ${type} without loss`,
+  );
+
+  return `static_cast<ssc__core__type__${type}>(${text})`;
+}
+
+function getNumberLiteralValue(app: AppSourceFile['app'], type: ts.Type) {
+  const text = app.checker.typeToString(type);
+
+  assert(isTypeFlagMatch(type, ts.TypeFlags.NumberLiteral), `not a number literal type: ${text}`);
+
+  return new BigNumber(text);
+}
+
+function getSscNumberType(node: AbstractNode<ast.Expression>, type = node.getType()) {
+  const name = getSscTypeName(node.app, type).replace('ssc__core__type__', '');
+
+  assert(includes(sscNumberTypes, name), `${node.location()}: not implemented type: ${name}`);
+
+  return name;
 }
 
 function addImportedForward(
