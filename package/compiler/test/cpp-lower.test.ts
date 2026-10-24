@@ -1586,3 +1586,38 @@ test('output.ts', async () => {
     }"
   `);
 });
+
+test('template.ts', async () => {
+  expect(await lowerFixture('template.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb {
+      static ssc__core__type__ref ssc__ts__var__name;
+      static ssc__core__type__i32 ssc__ts__var__count;
+      static ssc__core__type__f64 ssc__ts__var__ratio;
+      static ssc__core__type__char ssc__ts__var__emoji;
+      static ssc__core__type__boolean ssc__ts__var__flag;
+      static ssc__core__type__union ssc__ts__var__value;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      void ssc__core__fn__89678ba580bd48ec85da78a6ee41e8bb() {
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__name = ssc__core__fn__string_literal<u8"syscript">();
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__count = ssc__core__type__i32{3};
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__ratio = ssc__core__type__f64{0.5};
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__emoji = ssc__core__fn__char(ssc__core__type__u32{128077u});
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__flag = true;
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__value = ssc__core__var__undefined;
+        ssc__core__fn__console_log(ssc__core__fn__string_literal<u8"plain">());
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"hello, ">(), ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__name), ssc__core__fn__string_literal<u8"!">()));
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__to_string(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__count), ssc__core__fn__string_literal<u8" items">()));
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"ratio=">(), ssc__core__fn__to_string(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__ratio)), ssc__core__fn__string_literal<u8", ok=">()), ssc__core__fn__to_string(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__flag)), ssc__core__fn__string_literal<u8", value=">()), ssc__core__fn__to_string(ssc__core__fn__union_to_undefined(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__value))));
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__to_string(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__emoji), ssc__core__fn__to_string(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__emoji)));
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"sum=">(), ssc__core__fn__to_string(ssc__core__fn__add(ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__count, ssc__core__type__i32{1}, "i32"))), ssc__core__fn__string_literal<u8", nested=">()), ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"[">(), ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__name), ssc__core__fn__string_literal<u8"]">())));
+        ssc__core__fn__console_log(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"\\355\\225\\234\\352\\270\\200 ">(), ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::ssc__ts__var__name), ssc__core__fn__string_literal<u8" \${escaped} \`tick\`">()));
+        ssc__core__fn__console_log(ssc__core__fn__string_literal<u8"line1\\012line2">());
+        ssc__ts__namespace__89678ba580bd48ec85da78a6ee41e8bb::exit(ssc__core__type__i32{0});
+      }
+    }"
+  `);
+});

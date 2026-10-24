@@ -30,6 +30,7 @@ import {
   NodePrefixUnaryExpression,
   NodeReturnStatement,
   NodeStringLiteral,
+  NodeTemplateExpression,
   NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
@@ -505,6 +506,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
   if (node instanceof NodeStringLiteral) {
     return getStringLiteral(node.value);
+  }
+
+  if (node instanceof NodeTemplateExpression) {
+    return lowerTemplateExpression(node, context);
   }
 
   if (node instanceof NodePropertyAccessExpression) {
@@ -1113,6 +1118,20 @@ function lowerString(node: AbstractNode<ast.Expression>, context: LowerContext) 
   }
 
   return `ssc__core__fn__to_string(${lowerExpression(node, context)})`;
+}
+
+function lowerTemplateExpression(node: NodeTemplateExpression, context: LowerContext) {
+  const parts = node.head ? [getStringLiteral(node.head)] : [];
+
+  for (const { expression, literal } of node.spans) {
+    parts.push(lowerString(expression, context));
+
+    if (literal) {
+      parts.push(getStringLiteral(literal));
+    }
+  }
+
+  return parts.reduce((left, right) => `ssc__core__fn__string_concat(${left}, ${right})`);
 }
 
 function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, context: LowerContext) {

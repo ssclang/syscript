@@ -212,6 +212,25 @@ test('console.ts', async () => {
   });
 });
 
+test('template.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      'plain',
+      'hello, syscript!',
+      '3 items',
+      'ratio=0.5, ok=true, value=undefined',
+      '👍👍',
+      'sum=4, nested=[syscript]',
+      '한글 syscript ${escaped} `tick`',
+      'line1',
+      'line2',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
