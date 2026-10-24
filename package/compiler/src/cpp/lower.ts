@@ -4,13 +4,7 @@ import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
-import {
-  commonType,
-  CommonTypeOperand,
-  isLiteralInRange,
-  isLossless,
-  sortedTypes,
-} from '~/ts/common-type.js';
+import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
@@ -31,10 +25,12 @@ import {
   NodeNullLiteral,
   NodeNumericLiteral,
   NodeParenthesizedExpression,
+  NodePropertyAccessExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
   NodeReturnStatement,
   NodeStringLiteral,
+  NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
   NodeWhileStatement,
@@ -298,7 +294,7 @@ function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: To
     };
 
     if (d.initializer) {
-      addAssignment(getSscVariableName(identifier.text), lowerExpression(d.initializer, context));
+      addAssignment(getSscVariableName(identifier.text), lowerValue(d.initializer, context));
     }
 
     if (tdzVariableSymbolIdSet.has(identifier.getSymbol().id)) {
@@ -323,8 +319,7 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   }
 
   if (node instanceof NodeReturnStatement) {
-    const line =
-      node.expression ? `return ${lowerExpression(node.expression, context)};` : 'return;';
+    const line = node.expression ? `return ${lowerValue(node.expression, context)};` : 'return;';
     return [line];
   }
 
@@ -364,7 +359,7 @@ function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerC
     return `${constness}${signature}`;
   }
 
-  return `${constness}${signature} = ${lowerExpression(node.initializer, context)}`;
+  return `${constness}${signature} = ${lowerValue(node.initializer, context)}`;
 }
 
 function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
@@ -431,6 +426,10 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
   const typeName = getSscTypeName(node.app, node.getType());
   const text = lowerExpression(node, context);
 
+  if (isStringType(node.getType())) {
+    return `ssc__core__fn__string_length(${text}) != 0`;
+  }
+
   return getTruthyCondition(typeName, text);
 }
 
@@ -492,17 +491,22 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return getNumericLiteral(value, getSscTypeName(node.app, type));
     }
 
-    const memberTypeNames = type.getTypes().map((t) => getSscTypeName(node.app, t));
-    const memberType = sortedTypes.find((t) => {
-      return memberTypeNames.includes(`ssc__core__type__${t}`) && isLiteralInRange(bigNumber, t);
-    });
-
-    assert(
-      memberType,
-      `${node.location()}: ${node.getText()} can not be put in ${node.app.checker.typeToString(type)}`,
+    return getNumericLiteral(
+      value,
+      `ssc__core__type__${getUnionNumberLiteralStorageType(bigNumber)}`,
     );
+  }
 
-    return getNumericLiteral(value, `ssc__core__type__${memberType}`);
+  if (node instanceof NodeStringLiteral) {
+    return getStringLiteral(node.value);
+  }
+
+  if (node instanceof NodePropertyAccessExpression) {
+    return lowerPropertyAccessExpression(node, context);
+  }
+
+  if (node instanceof NodeTypeOfExpression) {
+    return lowerTypeOfExpression(node, context);
   }
 
   if (node instanceof NodePrefixUnaryExpression) {
@@ -531,7 +535,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
         `${node.location()}: not implemented assignment target: ${node.left.getText()}`,
       );
 
-      return `(${lowerVariableReference(node.left, context)} = ${lowerExpression(node.right, context)})`;
+      return `(${lowerVariableReference(node.left, context)} = ${lowerValue(node.right, context)})`;
     }
 
     if (
@@ -607,7 +611,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       const functionDeclaration = new NodeFunctionDeclaration(node.app, declaration);
       const namespaceName = getSscNamespaceName(pathToId(realPath));
       const functionName = getSscFunctionName(functionDeclaration);
-      const args = node.arguments.map((a) => lowerExpression(a, context)).join(', ');
+      const args = node.arguments.map((a) => lowerValue(a, context)).join(', ');
 
       if (!isSameFile) {
         assert(
@@ -752,6 +756,12 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
     `${node.location()}: not implemented assignment target: ${node.left.getText()}`,
   );
 
+  if (isStringType(node.left.getType())) {
+    const target = lowerVariableReference(node.left, context);
+
+    return `(${target} = ssc__core__fn__string_concat(${target}, ${lowerString(node.right, context)}))`;
+  }
+
   const type = getSscNumberType(node.left);
   const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
 
@@ -852,6 +862,10 @@ function lowerUpdateExpression(
 
 function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
+
+  if (isStringType(node.getType())) {
+    return `ssc__core__fn__string_concat(${lowerString(node.left, context)}, ${lowerString(node.right, context)})`;
+  }
   const type = getSscNumberType(node);
   const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
 
@@ -1025,16 +1039,107 @@ function getLogicalOperator(kind: ast.BinaryOperator) {
   assertNever(kind as never);
 }
 
+function lowerString(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  if (
+    getSscTypeName(node.app, node.getType()) === 'ssc__core__type__char'
+    || isCharLiteralType(node.getType())
+  ) {
+    return `ssc__core__fn__string_from_char(${lowerNumber(node, 'char', context)})`;
+  }
+
+  assert(
+    isStringType(node.getType()),
+    `${node.location()}: not implemented string conversion: ${node.getText()}`,
+  );
+
+  return lowerExpression(node, context);
+}
+
+function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, context: LowerContext) {
+  if (isStringType(node.expression.getType()) && node.name === 'length') {
+    return `ssc__core__fn__string_length(${lowerExpression(node.expression, context)})`;
+  }
+
+  throw new Error(`${node.location()}: not implemented property: ${node.getText()}`);
+}
+
+function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext) {
+  if (isStringType(node.expression.getType())) {
+    return getStringLiteral('string');
+  }
+
+  const typeName = getSscTypeName(node.app, node.expression.getType());
+
+  if (typeName === 'ssc__core__type__union') {
+    return `ssc__core__fn__typeof(${lowerExpression(node.expression, context)})`;
+  }
+
+  return getStringLiteral(getJsTypeOf(typeName));
+}
+
+function getStringLiteral(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const text = Array.from(bytes, (byte) => {
+    if (0x20 <= byte && byte < 0x7f && byte !== 0x22 && byte !== 0x5c && byte !== 0x3f) {
+      return String.fromCharCode(byte);
+    }
+
+    return `\\${byte.toString(8).padStart(3, '0')}`;
+  }).join('');
+
+  return `ssc__core__fn__string_literal<u8"${text}">()`;
+}
+
+function getJsTypeOf(typeName: string) {
+  if (typeName === 'ssc__core__type__undefined') {
+    return 'undefined';
+  }
+
+  if (typeName === 'ssc__core__type__null') {
+    return 'object';
+  }
+
+  if (typeName === 'ssc__core__type__boolean') {
+    return 'boolean';
+  }
+
+  if (includes(sscNumberTypes, typeName.replace('ssc__core__type__', ''))) {
+    return 'number';
+  }
+
+  throw new Error(`not implemented typeof: ${typeName}`);
+}
+
+function getUnionNumberLiteralStorageType(value: BigNumber) {
+  if (isLiteralInRange(value, 'i64')) {
+    return 'i64';
+  }
+
+  if (isLiteralInRange(value, 'u64')) {
+    return 'u64';
+  }
+
+  return 'f64';
+}
+
 function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
+
+  // === !==
   if (
-    isTypeFlagMatch(node.left.getType(), ts.TypeFlags.BooleanLike)
-    && isTypeFlagMatch(node.right.getType(), ts.TypeFlags.BooleanLike)
+    kind === ast.SyntaxKind.EqualsEqualsEqualsToken
+    || kind === ast.SyntaxKind.ExclamationEqualsEqualsToken
   ) {
+    const equality = lowerEqualityExpression(node, context);
+
+    return kind === ast.SyntaxKind.ExclamationEqualsEqualsToken ? `(!${equality})` : equality;
+  }
+
+  if (isStringType(node.left.getType()) && isStringType(node.right.getType())) {
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
-    return `(${left} ${getComparisonOperator(kind)} ${right})`;
+    return `(ssc__core__fn__string_compare(${left}, ${right}) ${getComparisonOperator(kind)} 0)`;
   }
 
   const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
@@ -1042,6 +1147,58 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
   const right = lowerNumber(node.right, type, context);
 
   return `(${left} ${getComparisonOperator(kind)} ${right})`;
+}
+
+function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { left, right } = node;
+
+  if (isTypeIdComparison(left) || isTypeIdComparison(right)) {
+    const leftText = lowerEqualityOperand(left, right, context);
+    const rightText = lowerEqualityOperand(right, left, context);
+
+    return `ssc__core__fn__strict_equals(${leftText}, ${rightText})`;
+  }
+
+  if (
+    isTypeFlagMatch(left.getType(), ts.TypeFlags.BooleanLike)
+    && isTypeFlagMatch(right.getType(), ts.TypeFlags.BooleanLike)
+  ) {
+    return `(${lowerExpression(left, context)} == ${lowerExpression(right, context)})`;
+  }
+
+  if (isStringType(left.getType()) && isStringType(right.getType())) {
+    return `ssc__core__fn__string_equals(${lowerExpression(left, context)}, ${lowerExpression(right, context)})`;
+  }
+
+  const type = commonType([...getOperands(left), ...getOperands(right)]);
+
+  return `(${lowerNumber(left, type, context)} == ${lowerNumber(right, type, context)})`;
+}
+
+function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
+  const type = node.getType();
+
+  return (
+    isTypeFlagMatch(type, ts.TypeFlags.Undefined | ts.TypeFlags.Null)
+    || getSscTypeName(node.app, type) === 'ssc__core__type__union'
+  );
+}
+
+function lowerEqualityOperand(
+  node: AbstractNode<ast.Expression>,
+  other: AbstractNode<ast.Expression>,
+  context: LowerContext,
+) {
+  const otherType = other.getType();
+  const hasCharMember =
+    otherType.isUnionType()
+    && otherType.getTypes().some((t) => getSscTypeName(node.app, t) === 'ssc__core__type__char');
+
+  if (isCharLiteralType(node.getType()) && hasCharMember) {
+    return lowerNumber(node, 'char', context);
+  }
+
+  return lowerExpression(node, context);
 }
 
 function getComparisonOperator(kind: ast.BinaryOperator) {
@@ -1095,6 +1252,24 @@ function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
   });
 }
 
+function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  const targetType = node.app.checker.getContextualType(node.tsNode);
+
+  if (!targetType) {
+    return lowerExpression(node, context);
+  }
+
+  const targetTypeName = getSscTypeName(node.app, targetType);
+
+  const type = targetTypeName.replace('ssc__core__type__', '');
+
+  if (includes(sscNumberTypes, type)) {
+    return lowerNumber(node, type, context);
+  }
+
+  return lowerExpression(node, context);
+}
+
 function lowerNumber(
   node: AbstractNode<ast.Expression>,
   type: SscNumberType,
@@ -1135,6 +1310,11 @@ function lowerNumber(
   }
 
   const text = lowerExpression(node, context);
+
+  if (getSscTypeName(node.app, nodeType) === 'ssc__core__type__union') {
+    return `ssc__core__fn__union_to_number<ssc__core__type__${type}>(${text})`;
+  }
+
   const source = getSscNumberType(node, nodeType);
 
   if (source === type) {
@@ -1272,14 +1452,34 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
   }
 
   if (typeName === 'ssc__core__type__undefined') {
-    return 'ssc__core__var__undefined';
+    return `ssc__core__fn__union_to_undefined(${text})`;
   }
 
   if (typeName === 'ssc__core__type__null') {
-    return 'ssc__core__var__null';
+    return `ssc__core__fn__union_to_null(${text})`;
   }
 
-  return `${text}.ssc__core__member__value.${typeName.replace('ssc__core__type__', 'ssc__core__member__')}`;
+  if (includes(sscNumberTypes, typeName.replace('ssc__core__type__', ''))) {
+    return `ssc__core__fn__union_to_number<${typeName}>(${text})`;
+  }
+
+  if (typeName === 'ssc__core__type__boolean') {
+    return `ssc__core__fn__union_to_boolean(${text})`;
+  }
+
+  if (typeName === 'ssc__core__type__ref') {
+    return `ssc__core__fn__union_to_ref(${text})`;
+  }
+
+  throw new Error(`${node.location()}: not implemented union member read: ${node.getText()}`);
+}
+
+function isStringType(type: ts.Type) {
+  if (type.isUnionType()) {
+    return type.getTypes().every((t) => isTypeFlagMatch(t, ts.TypeFlags.StringLike));
+  }
+
+  return isTypeFlagMatch(type, ts.TypeFlags.StringLike);
 }
 
 function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
@@ -1301,6 +1501,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
     return 'ssc__core__type__f64';
+  }
+
+  if (isStringType(type)) {
+    return 'ssc__core__type__ref';
   }
 
   // `boolean` is also a `true | false` union, so this must come after the BooleanLike check

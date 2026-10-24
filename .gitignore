@@ -1,8 +1,9 @@
 node_modules/
 dist/
+
 rolldown.config.*.js
+
 .ssc/
+id.json
 
 /tmp/
-
-id.json
