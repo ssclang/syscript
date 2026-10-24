@@ -334,6 +334,37 @@ test('conditional.ts', async () => {
   });
 });
 
+test('order.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'order.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      'call abc',
+      'nested call bacdef',
+      'add ab',
+      'arithmetic abcde',
+      'bitwise abcd',
+      'shift abc',
+      'float abc',
+      'compare ab',
+      'equality ab',
+      'concat abc',
+      'template abc',
+      '1 2 3',
+      'console.log abc',
+      'array literal abc',
+      'push ab',
+      'element assignment ab',
+      'element access a',
+      'compound assignment 2',
+      'compound assignment b',
+      'read before call 120',
+      'read before call b',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,
