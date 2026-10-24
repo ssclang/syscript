@@ -1,7 +1,4 @@
-import { assert } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
-import { cast } from '~/c/c-builder.js';
-import { toCTypeName } from '~/c/c.js';
 import {
   includes,
   isSafeNumber,
@@ -154,47 +151,4 @@ export function commonType(operands: readonly CommonTypeOperand[]): SscNumberTyp
 
 function operandText(operand: CommonTypeOperand) {
   return 'type' in operand ? operand.type : operand.literal.toFixed();
-}
-
-/**
- * 리터럴을 그 자리의 C 타입으로 쓴다. 정수는 정확한 값에 `wb`/`uwb`를 붙여 캐스트하고, 실수는
- * 원본 값에 소수점을 보장해 C가 반올림하게 한다. 범위를 넘는 실수는 C의 범위 경고 없이 같은
- * 결과(무한대, 0)가 되도록 직접 쓴다.
- */
-export function cNumericLiteral(literal: BigNumber, type: SscNumberType) {
-  if (!isLiteralInRange(literal, type)) {
-    throw new Error(`'${literal.toFixed()}' is out of the range of ${type}`);
-  }
-
-  if (!includes(sscFloatTypes, type)) {
-    const integer = literalInteger(literal);
-
-    assert(integer, `not an integer: ${literal.toFixed()}`);
-
-    const suffix = integer.isNegative() && !integer.isZero() ? 'wb' : 'uwb';
-
-    return cast(toCTypeName(type), `${integer.toFixed()}${suffix}`);
-  }
-
-  const suffix = type === 'f32' ? 'f' : '';
-  const number = toFloat64(literal.toString());
-  const narrowed = type === 'f32' ? Math.fround(number) : number;
-  const sign = literal.isNegative() ? '-' : '';
-
-  if (!Number.isFinite(narrowed)) {
-    return withSign(`${sign}__builtin_inf${suffix}()`);
-  }
-
-  if (narrowed === 0) {
-    return withSign(`${sign}0.0${suffix}`);
-  }
-
-  const text = literal.toString();
-
-  return withSign(`${/[.e]/.test(text) ? text : `${text}.0`}${suffix}`);
-}
-
-/** 음수는 `(-1.5)`처럼 감싸 앞의 연산자와 붙어 `--`가 되지 않게 한다. */
-function withSign(text: string) {
-  return text.startsWith('-') ? `(${text})` : text;
 }

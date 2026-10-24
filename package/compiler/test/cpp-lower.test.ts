@@ -1489,3 +1489,78 @@ test('equality.ts', async () => {
     }"
   `);
 });
+
+test('numeric.ts', async () => {
+  expect(await lowerFixture('numeric.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5 {
+      static ssc__core__type__f64 ssc__ts__var__half;
+      static ssc__core__type__f64 ssc__ts__var__big;
+      static ssc__core__type__f32 ssc__ts__var__small;
+      static ssc__core__type__f64 ssc__ts__var__overflow;
+      static ssc__core__type__f64 ssc__ts__var__underflow;
+      static ssc__core__type__f32 ssc__ts__var__overflow32;
+      static ssc__core__type__i32 ssc__ts__var__exponent;
+      static ssc__core__type__f32 ssc__ts__var__negative;
+      static ssc__core__type__i32 ssc__ts__var__fromUnderflow;
+      static ssc__core__type__i32 ssc__ts__var__result;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i32 ssc__ts__fn__twice(ssc__core__type__i32 ssc__ts__var__v);
+      static ssc__core__type__boolean ssc__ts__fn__u8s(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
+      static ssc__core__type__boolean ssc__ts__fn__i32s(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
+      static ssc__core__type__i32 ssc__ts__fn__minimumRemainder(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
+      static ssc__core__type__i32 ssc__ts__fn__twice(ssc__core__type__i32 ssc__ts__var__v) {
+        return ssc__core__fn__add(ssc__ts__var__v, ssc__ts__var__v, "i32");
+      }
+      static ssc__core__type__boolean ssc__ts__fn__u8s(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b) {
+        return (((ssc__core__fn__add(ssc__ts__var__a, ssc__ts__var__b, "u8") == ssc__core__type__u8{255u}) && (ssc__core__fn__sub(ssc__ts__var__a, ssc__ts__var__b, "u8") == ssc__core__type__u8{145u})) && (ssc__core__fn__mul(ssc__ts__var__a, ssc__core__type__u8{1u}, "u8") == ssc__core__type__u8{200u}));
+      }
+      static ssc__core__type__boolean ssc__ts__fn__i32s(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b) {
+        return ((ssc__core__fn__div(ssc__ts__var__a, ssc__ts__var__b, "i32") == ssc__core__type__i32{-2}) && (ssc__core__fn__rem(ssc__ts__var__a, ssc__ts__var__b, "i32") == ssc__core__type__i32{-1}));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__minimumRemainder(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b) {
+        return ssc__core__fn__rem(ssc__ts__var__a, ssc__ts__var__b, "i32");
+      }
+      void ssc__core__fn__454b33a2054c4d1ea5e5fdbc8aa165b5() {
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__half = (ssc__core__type__f64{1.0} / ssc__core__type__f64{2.0});
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__big = ssc__core__type__f64{100000000000000000000.0};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__small = ssc__core__type__f32{0.1f};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__overflow = ssc__core__type__f64{__builtin_inf()};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__underflow = ssc__core__type__f64{0.0};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__overflow32 = ssc__core__type__f32{__builtin_inff()};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__exponent = ssc__core__type__i32{1000};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__negative = ssc__core__type__f32{-1.5f};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__fromUnderflow = ssc__core__type__i32{0};
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result = ssc__core__type__i32{0};
+        if ((ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__half == ssc__core__type__f64{0.5})) {
+          (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result, ssc__core__type__i32{1}, "i32"));
+        }
+        if ((ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__fn__twice(ssc__core__type__i32{21}) == ssc__core__type__i32{42})) {
+          (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result, ssc__core__type__i32{2}, "i32"));
+        }
+        if (((ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__fn__u8s(ssc__core__type__u8{200u}, ssc__core__type__u8{55u}) && ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__fn__i32s(ssc__core__type__i32{-5}, ssc__core__type__i32{2})) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__fn__minimumRemainder(ssc__core__type__i32{-2147483648}, ssc__core__type__i32{-1}) == ssc__core__type__i32{0}))) {
+          (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
+        }
+        if (((((((((static_cast<ssc__core__type__f64>(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__big) == ssc__core__type__f64{100000000000000000000.0}) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__small == ssc__core__type__f32{0.1f})) && (static_cast<ssc__core__type__f64>(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__overflow) > ssc__core__type__f64{100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0})) && (static_cast<ssc__core__type__f64>(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__underflow) == ssc__core__type__f64{0.0})) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__overflow32 > ssc__core__type__f32{100000000000000000000000000000000000000.0f})) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__exponent == ssc__core__type__i32{1000})) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__negative == ssc__core__type__f32{-1.5f})) && (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__fromUnderflow == ssc__core__type__i32{0}))) {
+          (ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
+        }
+        ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::exit(ssc__ts__namespace__454b33a2054c4d1ea5e5fdbc8aa165b5::ssc__ts__var__result);
+      }
+    }"
+  `);
+});
+
+test('reserved.ts', async () => {
+  await expect(lowerFixture('reserved.ts')).rejects.toThrow("'ssc__fn__truthy_f64' is reserved");
+});
+
+test('shadow-name.ts', async () => {
+  await expect(lowerFixture('shadow-name.ts')).rejects.toThrow('not implemented type');
+});
+
+test('shadow-brand.ts', async () => {
+  await expect(lowerFixture('shadow-brand.ts')).rejects.toThrow("'i8' is not the prelude type");
+});

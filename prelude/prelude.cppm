@@ -485,8 +485,7 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_boolean(const ssc
 
 export inline ssc__core__type__boolean ssc__core__fn__union_is_number(const ssc__core__type__union& value) noexcept {
   const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
-  return (ssc__core__var__type_id<ssc__core__type__i8> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__char>)
-      || (ssc__core__var__type_id<ssc__core__type__f32> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__f64>);
+  return (ssc__core__var__type_id<ssc__core__type__i8> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__char>) || (ssc__core__var__type_id<ssc__core__type__f32> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__f64>);
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__union_is_string(const ssc__core__type__union& value) noexcept {
@@ -503,8 +502,7 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_object(const ssc_
   return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && !ssc__core__fn__union_is_string(value);
 }
 
-template <typename Left, typename Right>
-inline constexpr ssc__core__type__boolean ssc__core__fn__integer_equals(Left left, Right right) noexcept {
+template <typename Left, typename Right> inline constexpr ssc__core__type__boolean ssc__core__fn__integer_equals(Left left, Right right) noexcept {
   constexpr ssc__core__type__boolean is_left_signed = static_cast<Left>(-1) < 0;
   constexpr ssc__core__type__boolean is_right_signed = static_cast<Right>(-1) < 0;
 
@@ -519,8 +517,7 @@ inline constexpr ssc__core__type__boolean ssc__core__fn__integer_equals(Left lef
   }
 }
 
-template <typename Left, typename Right>
-inline constexpr ssc__core__type__boolean ssc__core__fn__number_equals(Left left, Right right) noexcept {
+template <typename Left, typename Right> inline constexpr ssc__core__type__boolean ssc__core__fn__number_equals(Left left, Right right) noexcept {
   constexpr ssc__core__type__boolean is_left_float = 32 <= ssc__core__var__type_id<Left>;
   constexpr ssc__core__type__boolean is_right_float = 32 <= ssc__core__var__type_id<Right>;
 
@@ -748,6 +745,39 @@ inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 typ
   }
   if (type_id == ssc__core__var__type_id<ssc__core__type__boolean>) {
     return "boolean";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i8>) {
+    return "i8";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i16>) {
+    return "i16";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i32>) {
+    return "i32";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i64>) {
+    return "i64";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u8>) {
+    return "u8";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u16>) {
+    return "u16";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u32>) {
+    return "u32";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u64>) {
+    return "u64";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__char>) {
+    return "char";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f32>) {
+    return "f32";
+  }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
+    return "f64";
   }
   if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
     return "object";

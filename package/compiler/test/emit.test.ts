@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import * as ast from 'typescript7/ast';
 import { expect, test } from 'vitest';
 import { SscManager } from '~/ssc/manager/ssc.js';
 
@@ -150,6 +151,30 @@ test('equality.ts', async () => {
   expect(await run(path.join(fixtureDir, 'equality.ts'))).toBe(63);
 });
 
+test('char.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'char.ts'))).toBe(63);
+});
+
+test('numeric.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'numeric.ts'))).toBe(15);
+});
+
+test('top-level-order.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'top-level-order.ts'))).toBe(123);
+});
+
+test('top-level-export-let.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'top-level-export-let.ts'))).toBe(3);
+});
+
+test('main.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'main.ts'))).toBe(10);
+});
+
+test('union-update.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'union-update.ts'))).toBe(15);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
@@ -181,6 +206,7 @@ test.each([
 test.each([
   ['div', 'i32', 'function f(a: i32, b: i32): i32 { return a / b; }\nf(1, 0);'],
   ['rem', 'u8', 'function f(a: u8, b: u8): u8 { return a % b; }\nf(1, 0);'],
+  ['compound div', 'i32', 'function f(a: i32): i32 { let x: i32 = 1; x /= a; return x; }\nf(0);'],
 ])('%s by zero', async (_, type, source) => {
   expect(await runSource(`${source}\nexit(0);`)).toEqual({
     status: 1,
@@ -218,4 +244,115 @@ test.each([
   ['a number to char', 'function f(v: i32): char { return char(v); }'],
 ])('a constructor rejects %s', async (_, source) => {
   await expect(runSource(source)).rejects.toThrow('typescript errors');
+});
+
+const cppKeywords = [
+  'alignas',
+  'alignof',
+  'and',
+  'and_eq',
+  'asm',
+  'auto',
+  'bitand',
+  'bitor',
+  'bool',
+  'char8_t',
+  'char16_t',
+  'char32_t',
+  'compl',
+  'concept',
+  'consteval',
+  'constexpr',
+  'constinit',
+  'const_cast',
+  'co_await',
+  'co_return',
+  'co_yield',
+  'decltype',
+  'double',
+  'dynamic_cast',
+  'explicit',
+  'extern',
+  'float',
+  'friend',
+  'goto',
+  'inline',
+  'int',
+  'long',
+  'mutable',
+  'namespace',
+  'noexcept',
+  'not',
+  'not_eq',
+  'nullptr',
+  'operator',
+  'or',
+  'or_eq',
+  'register',
+  'reinterpret_cast',
+  'requires',
+  'restrict',
+  'short',
+  'signed',
+  'sizeof',
+  'static_assert',
+  'static_cast',
+  'struct',
+  'template',
+  'thread_local',
+  'typedef',
+  'typeid',
+  'typename',
+  'union',
+  'unsigned',
+  'using',
+  'virtual',
+  'volatile',
+  'wchar_t',
+  'xor',
+  'xor_eq',
+  'main',
+  'module',
+  'import',
+  'export',
+  'std',
+  'ssc',
+  'ts',
+  'NULL',
+  'errno',
+  'stdin',
+  'stdout',
+  'stderr',
+  'assert',
+  'offsetof',
+  'malloc',
+  'free',
+];
+
+/** TS가 식별자로 받지 않는 예약어. 모듈은 strict 모드라 `static`, `let` 같은 미래 예약어도 포함한다. */
+function isTsReservedWord(word: string) {
+  const kind = ast.stringToToken(word);
+
+  return (
+    kind !== undefined
+    && kind >= ast.SyntaxKind.FirstReservedWord
+    && kind <= ast.SyntaxKind.LastFutureReservedWord
+  );
+}
+
+test('C and C++ keywords can be names', async () => {
+  const names = cppKeywords.filter((k) => !isTsReservedWord(k));
+  const functions = names.map(
+    (name) =>
+      `function ${name}(${name}: i32): i32 {\n  const value: i32 = ${name};\n  return value;\n}`,
+  );
+  const calls = names.map((name) => `  total = total + ${name}(1);`);
+  const source = [
+    ...functions,
+    `function run(): i32 {\n  let total: i32 = 0;\n${calls.join('\n')}\n  return total;\n}`,
+    'exit(run());',
+  ].join('\n\n');
+
+  expect(names).toContain('int');
+  expect(await runSource(source)).toEqual({ status: names.length, stderr: '' });
 });

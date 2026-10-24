@@ -1,11 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  cNumericLiteral,
-  commonType,
-  literalInteger,
-  parseNumericLiteral,
-  toFloat64,
-} from '~/ts/common-type.js';
+import { commonType, literalInteger, parseNumericLiteral, toFloat64 } from '~/ts/common-type.js';
 
 describe('parseNumericLiteral keeps the source value', () => {
   test.each([
@@ -120,71 +114,6 @@ describe('commonType', () => {
       'no common type',
     );
     expect(() => commonType([{ type: 'i64' }, { type: 'u64' }])).toThrow('no common type');
-  });
-});
-
-describe('cNumericLiteral', () => {
-  test.each([
-    ['1000', 'i32', '(ssc__type__i32)1000uwb'],
-    ['1e3', 'i32', '(ssc__type__i32)1000uwb'],
-    ['2.55e2', 'u8', '(ssc__type__u8)255uwb'],
-    ['1e-1000', 'i32', '(ssc__type__i32)0uwb'],
-    ['1.0000000000000000001', 'i32', '(ssc__type__i32)1uwb'],
-    ['1.844674407370955e19', 'u64', '(ssc__type__u64)18446744073709550000uwb'],
-    ['18446744073709551615', 'u64', '(ssc__type__u64)18446744073709551615uwb'],
-    ['1', 'f64', '1.0'],
-    ['0.1', 'f64', '0.1'],
-    ['1e20', 'f64', '100000000000000000000.0'],
-    ['1e21', 'f64', '1e+21'],
-    ['1e1000', 'f64', '__builtin_inf()'],
-    ['1e-1000', 'f64', '0.0'],
-    ['0.1', 'f32', '0.1f'],
-    ['1e39', 'f32', '__builtin_inff()'],
-    ['1e-50', 'f32', '0.0f'],
-  ] as const)('%s as %s', (text, type, expected) => {
-    expect(cNumericLiteral(parseNumericLiteral(text, false), type)).toBe(expected);
-  });
-
-  test('negative values are wrapped', () => {
-    expect(cNumericLiteral(parseNumericLiteral('1.5', true), 'f32')).toBe('(-1.5f)');
-    expect(cNumericLiteral(parseNumericLiteral('1e1000', true), 'f64')).toBe('(-__builtin_inf())');
-  });
-
-  test('a f64 literal reads back as the same value', () => {
-    for (const text of [
-      '0.1',
-      '1e300',
-      '5e-324',
-      '1.7976931348623157e308',
-      '123456789.123456789',
-    ]) {
-      const value = parseNumericLiteral(text, false);
-
-      expect(Number(cNumericLiteral(value, 'f64'))).toBe(Number(text));
-    }
-  });
-
-  test('out of an integer range', () => {
-    expect(() => cNumericLiteral(parseNumericLiteral('300', false), 'u8')).toThrow(
-      'out of the range of u8',
-    );
-    expect(() => cNumericLiteral(parseNumericLiteral('1.5', false), 'i32')).toThrow(
-      'out of the range of i32',
-    );
-    expect(() => cNumericLiteral(parseNumericLiteral('1e-3', false), 'i32')).toThrow(
-      'out of the range of i32',
-    );
-    expect(() => cNumericLiteral(parseNumericLiteral('1e1000', false), 'u64')).toThrow(
-      'out of the range of u64',
-    );
-  });
-
-  test('negative integers use a signed literal', () => {
-    expect(cNumericLiteral(parseNumericLiteral('1', true), 'i32')).toBe('(ssc__type__i32)-1wb');
-    expect(cNumericLiteral(parseNumericLiteral('9223372036854775808', true), 'i64')).toBe(
-      '(ssc__type__i64)-9223372036854775808wb',
-    );
-    expect(cNumericLiteral(parseNumericLiteral('0', true), 'i32')).toBe('(ssc__type__i32)0uwb');
   });
 });
 
