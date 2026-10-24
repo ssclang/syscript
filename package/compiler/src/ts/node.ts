@@ -187,6 +187,10 @@ export abstract class AbstractExpression<
       return new NodeAsExpression(app, tsNode);
     }
 
+    if (ast.isConditionalExpression(tsNode)) {
+      return new NodeConditionalExpression(app, tsNode);
+    }
+
     if (ast.isArrayLiteralExpression(tsNode)) {
       return new NodeArrayLiteralExpression(app, tsNode);
     }
@@ -553,6 +557,19 @@ export class NodeElementAccessExpression extends AbstractExpression<ast.ElementA
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
     this.argumentExpression = AbstractExpression.of(app, this.tsNode.argumentExpression);
+  }
+}
+
+export class NodeConditionalExpression extends AbstractExpression<ast.ConditionalExpression> {
+  readonly condition: AbstractExpression;
+  readonly whenTrue: AbstractExpression;
+  readonly whenFalse: AbstractExpression;
+
+  constructor(app: TsApp, tsNode: ast.ConditionalExpression) {
+    super(app, tsNode);
+    this.condition = AbstractExpression.of(app, this.tsNode.condition);
+    this.whenTrue = AbstractExpression.of(app, this.tsNode.whenTrue);
+    this.whenFalse = AbstractExpression.of(app, this.tsNode.whenFalse);
   }
 }
 

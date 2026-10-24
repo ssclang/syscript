@@ -17,6 +17,7 @@ import {
   NodeBooleanLiteral,
   NodeBreakStatement,
   NodeCallExpression,
+  NodeConditionalExpression,
   NodeContinueStatement,
   NodeElementAccessExpression,
   NodeExpressionStatement,
@@ -543,6 +544,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerAsExpression(node, context);
   }
 
+  if (node instanceof NodeConditionalExpression) {
+    return lowerConditionalExpression(node, context);
+  }
+
   if (node instanceof NodeArrayLiteralExpression) {
     return lowerArrayLiteralExpression(node, context);
   }
@@ -617,6 +622,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       || kind === ast.SyntaxKind.BarBarToken // ||
     ) {
       return lowerLogicalExpression(node, context);
+    }
+
+    // ??
+    if (kind === ast.SyntaxKind.QuestionQuestionToken) {
+      return lowerNullishExpression(node, context);
     }
 
     if (
@@ -1194,6 +1204,21 @@ function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContex
   assertNever(kind as never);
 }
 
+function lowerNullishExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const typeName = getSscTypeName(node.app, node.getType());
+
+  assert(
+    getSscTypeName(node.app, node.left.getType()) === 'ssc__core__type__union',
+    `${node.location()}: not implemented '??' with a non-union left operand: ${node.getText()}`,
+  );
+
+  const left = lowerExpression(node.left, context);
+  const right = lowerValueAs(node.right, typeName, context);
+  const value = typeName === 'ssc__core__type__union' ? 'left' : getUnionReadText(typeName, 'left');
+
+  return `[&] { const ssc__core__type__union left = ${left}; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ${right} : ${value}; }()`;
+}
+
 function getLogicalOperator(kind: ast.BinaryOperator) {
   // &&
   if (kind === ast.SyntaxKind.AmpersandAmpersandToken) {
@@ -1258,6 +1283,34 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
   }
 
   return getStringLiteral(getJsTypeOf(typeName));
+}
+
+function lowerConditionalExpression(node: NodeConditionalExpression, context: LowerContext) {
+  const typeName = getSscTypeName(node.app, node.getType());
+  const condition = lowerCondition(node.condition, context);
+  const whenTrue = lowerValueAs(node.whenTrue, typeName, context);
+  const whenFalse = lowerValueAs(node.whenFalse, typeName, context);
+
+  return `(${condition} ? ${whenTrue} : ${whenFalse})`;
+}
+
+function lowerValueAs(node: AbstractNode<ast.Expression>, typeName: string, context: LowerContext) {
+  const type = typeName.replace('ssc__core__type__', '');
+
+  if (includes(sscNumberTypes, type)) {
+    return lowerNumber(node, type, context);
+  }
+
+  const text = lowerExpression(node, context);
+
+  if (
+    typeName === 'ssc__core__type__union'
+    && getSscTypeName(node.app, node.getType()) !== 'ssc__core__type__union'
+  ) {
+    return `ssc__core__type__union(${text})`;
+  }
+
+  return text;
 }
 
 function lowerAsExpression(node: NodeAsExpression, context: LowerContext): string {
@@ -1530,6 +1583,14 @@ function lowerNumber(
     return lowerNumber(node.expression, type, context);
   }
 
+  if (node instanceof NodeConditionalExpression) {
+    const condition = lowerCondition(node.condition, context);
+    const whenTrue = lowerNumber(node.whenTrue, type, context);
+    const whenFalse = lowerNumber(node.whenFalse, type, context);
+
+    return `(${condition} ? ${whenTrue} : ${whenFalse})`;
+  }
+
   const nodeType = node.getType();
 
   if (isCharLiteralType(nodeType)) {
@@ -1702,6 +1763,10 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
     return text;
   }
 
+  return getUnionReadText(typeName, text);
+}
+
+function getUnionReadText(typeName: string, text: string) {
   if (typeName === 'ssc__core__type__undefined') {
     return `ssc__core__fn__union_to_undefined(${text})`;
   }
@@ -1722,7 +1787,7 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
     return `ssc__core__fn__union_to_ref(${text})`;
   }
 
-  throw new Error(`${node.location()}: not implemented union member read: ${node.getText()}`);
+  throw new Error(`not implemented union member read: ${typeName}`);
 }
 
 function isStringType(type: ts.Type) {

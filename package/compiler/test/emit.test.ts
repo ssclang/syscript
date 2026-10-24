@@ -326,6 +326,14 @@ test('object.ts', async () => {
   });
 });
 
+test('conditional.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'conditional.ts'))).toEqual({
+    status: 0,
+    stdout: '1 2 3 none\n5 0 6 none default x\nyes 2\n',
+    stderr: '',
+  });
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

@@ -1712,3 +1712,43 @@ test('array.ts', async () => {
     }"
   `);
 });
+
+test('conditional.ts', async () => {
+  expect(await lowerFixture('conditional.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a {
+      static ssc__core__type__boolean ssc__ts__var__flag;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i64 ssc__ts__fn__pick(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b);
+      static ssc__core__type__union ssc__ts__fn__choose(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a);
+      static ssc__core__type__i32 ssc__ts__fn__orZero(ssc__core__type__union ssc__ts__var__u);
+      static ssc__core__type__union ssc__ts__fn__orText(ssc__core__type__union ssc__ts__var__u);
+      static ssc__core__type__ref ssc__ts__fn__orDefault(ssc__core__type__union ssc__ts__var__u);
+      static ssc__core__type__i64 ssc__ts__fn__pick(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b) {
+        return (ssc__ts__var__c ? static_cast<ssc__core__type__i64>(ssc__ts__var__a) : ssc__ts__var__b);
+      }
+      static ssc__core__type__union ssc__ts__fn__choose(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a) {
+        return (ssc__ts__var__c ? ssc__core__type__union(ssc__ts__var__a) : ssc__core__type__union(ssc__core__fn__string_literal<u8"none">()));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__orZero(ssc__core__type__union ssc__ts__var__u) {
+        return ssc__core__fn__union_to_number<ssc__core__type__i32>([&] { const ssc__core__type__union left = ssc__ts__var__u; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ssc__core__type__union(ssc__core__type__i32{0}) : left; }());
+      }
+      static ssc__core__type__union ssc__ts__fn__orText(ssc__core__type__union ssc__ts__var__u) {
+        return [&] { const ssc__core__type__union left = ssc__ts__var__u; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ssc__core__type__union(ssc__core__fn__string_literal<u8"none">()) : left; }();
+      }
+      static ssc__core__type__ref ssc__ts__fn__orDefault(ssc__core__type__union ssc__ts__var__u) {
+        return [&] { const ssc__core__type__union left = ssc__ts__var__u; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ssc__core__fn__string_literal<u8"default">() : ssc__core__fn__union_to_ref(left); }();
+      }
+      void ssc__core__fn__d7efaeb5e75e4195bb5820440e1d5e6a() {
+        ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__var__flag = true;
+        ssc__core__fn__console_log(ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__pick(true, ssc__core__type__i32{1}, ssc__core__type__i64{2}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__pick(false, ssc__core__type__i32{1}, ssc__core__type__i64{2}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__choose(true, ssc__core__type__i32{3}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__choose(false, ssc__core__type__i32{3}));
+        ssc__core__fn__console_log(ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orZero(ssc__core__type__i32{5}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orZero(ssc__core__var__undefined), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orText(ssc__core__type__i32{6}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orText(ssc__core__var__undefined), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orDefault(ssc__core__var__null), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orDefault(ssc__core__fn__string_literal<u8"x">()));
+        ssc__core__fn__console_log((ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__var__flag ? ssc__core__fn__string_literal<u8"yes">() : ssc__core__fn__string_literal<u8"no">()), ((!(ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__var__flag)) ? ssc__core__type__union(ssc__core__type__f64{1.0}) : ssc__core__type__union(ssc__core__type__f64{2.0})));
+        ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::exit(ssc__core__type__i32{0});
+      }
+    }"
+  `);
+});
