@@ -318,6 +318,14 @@ test.each([
   await expect(runSource(source)).rejects.toThrow('typescript errors');
 });
 
+test('object.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'object.ts'))).toEqual({
+    status: 0,
+    stdout: 'numbers\nempty\ntext\nblank\ntrue false true true true\n',
+    stderr: '',
+  });
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

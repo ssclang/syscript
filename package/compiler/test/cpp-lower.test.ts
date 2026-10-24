@@ -1236,7 +1236,7 @@ test('union.ts', async () => {
         if (ssc__core__fn__strict_equals(ssc__ts__var__x, ssc__core__var__undefined)) {
           return ssc__core__type__i32{0};
         }
-        if (ssc__core__fn__string_equals(ssc__core__fn__typeof(ssc__ts__var__x), ssc__core__fn__string_literal<u8"boolean">())) {
+        if (ssc__core__fn__strict_equals(ssc__core__fn__typeof(ssc__ts__var__x), ssc__core__fn__string_literal<u8"boolean">())) {
           if (ssc__core__fn__union_to_boolean(ssc__ts__var__x)) {
             return ssc__core__type__i32{1};
           }
@@ -1257,7 +1257,7 @@ test('union.ts', async () => {
         if (ssc__core__fn__strict_equals(ssc__ts__var__x, ssc__core__var__undefined)) {
           return ssc__core__type__i32{0};
         }
-        if (ssc__core__fn__string_equals(ssc__core__fn__typeof(ssc__ts__var__x), ssc__core__fn__string_literal<u8"object">())) {
+        if (ssc__core__fn__strict_equals(ssc__core__fn__typeof(ssc__ts__var__x), ssc__core__fn__string_literal<u8"object">())) {
           return ssc__core__type__i32{1};
         }
         return ssc__core__type__i32{2};
@@ -1350,10 +1350,10 @@ test('string.ts', async () => {
         return ssc__core__fn__string_length(ssc__ts__var__s);
       }
       static ssc__core__type__boolean ssc__ts__fn__equals(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__ref ssc__ts__var__b) {
-        return ssc__core__fn__string_equals(ssc__ts__var__a, ssc__ts__var__b);
+        return ssc__core__fn__strict_equals(ssc__ts__var__a, ssc__ts__var__b);
       }
       static ssc__core__type__boolean ssc__ts__fn__differs(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__ref ssc__ts__var__b) {
-        return (!ssc__core__fn__string_equals(ssc__ts__var__a, ssc__ts__var__b));
+        return (!ssc__core__fn__strict_equals(ssc__ts__var__a, ssc__ts__var__b));
       }
       static ssc__core__type__boolean ssc__ts__fn__less(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__ref ssc__ts__var__b) {
         return (ssc__core__fn__string_compare(ssc__ts__var__a, ssc__ts__var__b) < 0);
@@ -1374,7 +1374,7 @@ test('string.ts', async () => {
         return ssc__core__fn__union_to_ref(ssc__ts__var__s);
       }
       static ssc__core__type__i32 ssc__ts__fn__kind(ssc__core__type__union ssc__ts__var__v) {
-        if ((ssc__core__fn__string_equals(ssc__core__fn__typeof(ssc__ts__var__v), ssc__core__fn__string_literal<u8"string">()) && (ssc__core__fn__string_length(ssc__core__fn__union_to_ref(ssc__ts__var__v)) == ssc__core__type__u64{2u}))) {
+        if ((ssc__core__fn__strict_equals(ssc__core__fn__typeof(ssc__ts__var__v), ssc__core__fn__string_literal<u8"string">()) && (ssc__core__fn__string_length(ssc__core__fn__union_to_ref(ssc__ts__var__v)) == ssc__core__type__u64{2u}))) {
           return ssc__core__type__i32{1};
         }
         return ssc__core__type__i32{2};
@@ -1391,7 +1391,7 @@ test('string.ts', async () => {
         return ssc__ts__var__s;
       }
       static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__ref ssc__ts__var__s) {
-        if (ssc__core__fn__string_length(ssc__ts__var__s) != 0) {
+        if (ssc__core__fn__truthy_ref(ssc__ts__var__s)) {
           return ssc__core__type__i32{1};
         }
         return ssc__core__type__i32{0};
@@ -1412,10 +1412,10 @@ test('string.ts', async () => {
         if ((((((((((ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"b">()) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"abc">())) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"">(), ssc__core__fn__string_literal<u8"a">())) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"B">(), ssc__core__fn__string_literal<u8"a">())) && (!(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"a">())))) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__lessOrEqual(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"a">())) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__greater(ssc__core__fn__string_literal<u8"\\355\\225\\234">(), ssc__core__fn__string_literal<u8"z">())) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__greaterOrEqual(ssc__core__fn__string_literal<u8"b">(), ssc__core__fn__string_literal<u8"a">())) && (!(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__greaterOrEqual(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"b">())))) && ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__less(ssc__core__fn__string_literal<u8"\\357\\277\\277">(), ssc__core__fn__string_literal<u8"\\360\\237\\230\\200">()))) {
           (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if ((((ssc__core__fn__string_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__orEmpty(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi">()) && ssc__core__fn__string_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__orEmpty(ssc__core__var__undefined), ssc__core__fn__string_literal<u8"">())) && (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__kind(ssc__core__fn__string_literal<u8"ab">()) == ssc__core__type__i32{1})) && (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__kind(ssc__core__type__i32{7}) == ssc__core__type__i32{2}))) {
+        if ((((ssc__core__fn__strict_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__orEmpty(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__orEmpty(ssc__core__var__undefined), ssc__core__fn__string_literal<u8"">())) && (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__kind(ssc__core__fn__string_literal<u8"ab">()) == ssc__core__type__i32{1})) && (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__kind(ssc__core__type__i32{7}) == ssc__core__type__i32{2}))) {
           (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if (((ssc__core__fn__string_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__string_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__u32{128077u})), ssc__core__fn__string_literal<u8"a\\360\\237\\221\\215">())) && ssc__core__fn__string_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
+        if (((ssc__core__fn__strict_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__u32{128077u})), ssc__core__fn__string_literal<u8"a\\360\\237\\221\\215">())) && ssc__core__fn__strict_equals(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
           (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         if (((ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"x">()) == ssc__core__type__i32{1}) && (ssc__ts__namespace__2c710c7ccb114edea26e1543756c02f3::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"">()) == ssc__core__type__i32{0}))) {

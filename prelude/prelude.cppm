@@ -342,10 +342,6 @@ inline ssc__core__type__boolean ssc__core__fn__string_bytes_equals(const ssc__co
   return __builtin_memcmp(left_pointer->ssc__core__member__bytes, right_pointer->ssc__core__member__bytes, left_pointer->ssc__core__member__length) == 0;
 }
 
-export inline ssc__core__type__boolean ssc__core__fn__string_equals(const ssc__core__type__ref& left, const ssc__core__type__ref& right) noexcept {
-  return ssc__core__fn__string_bytes_equals(ssc__core__fn__get_string_pointer(left), ssc__core__fn__get_string_pointer(right));
-}
-
 inline ssc__core__type__ref ssc__core__fn__allocate_string(ssc__core__type__u64 length) {
   void* pointer = malloc(sizeof(ssc__core__struct__string) + length + 1);
 
@@ -549,6 +545,18 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_f64(ssc__core__type
   return !__builtin_isnan(value) && value != 0;
 }
 
+inline ssc__core__type__boolean ssc__core__fn__truthy_object(const ssc__core__struct__object_header* object_header_pointer) noexcept {
+  if (object_header_pointer->ssc__core__member__descriptor_pointer != __builtin_addressof(ssc__core__var__string_descriptor)) {
+    return true;
+  }
+
+  return reinterpret_cast<const ssc__core__struct__string*>(object_header_pointer)->ssc__core__member__length != 0;
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__truthy_ref(const ssc__core__type__ref& value) noexcept {
+  return ssc__core__fn__truthy_object(value.ssc__core__member__get_object_header_pointer());
+}
+
 export inline ssc__core__type__boolean ssc__core__fn__truthy_union(const ssc__core__type__union& value) noexcept {
   const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
   const auto& member = value.ssc__core__member__value;
@@ -610,13 +618,7 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_union(const ssc__co
   }
 
   if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
-    const ssc__core__struct__object_header* object_header_pointer = member.ssc__core__member__object_header_pointer;
-
-    if (object_header_pointer->ssc__core__member__descriptor_pointer != __builtin_addressof(ssc__core__var__string_descriptor)) {
-      return true;
-    }
-
-    return reinterpret_cast<const ssc__core__struct__string*>(object_header_pointer)->ssc__core__member__length != 0;
+    return ssc__core__fn__truthy_object(member.ssc__core__member__object_header_pointer);
   }
 
   __builtin_trap();
@@ -780,6 +782,10 @@ export inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__c
   }
 
   return ssc__core__fn__object_equals(left.ssc__core__member__value.ssc__core__member__object_header_pointer, right.ssc__core__member__get_object_header_pointer());
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__core__type__ref& left, const ssc__core__type__ref& right) noexcept {
+  return ssc__core__fn__object_equals(left.ssc__core__member__get_object_header_pointer(), right.ssc__core__member__get_object_header_pointer());
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__core__type__ref& left, const ssc__core__type__union& right) noexcept {
