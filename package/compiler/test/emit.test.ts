@@ -212,6 +212,74 @@ test('console.ts', async () => {
   });
 });
 
+test('as-const.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'as-const.ts'))).toEqual({
+    status: 0,
+    stdout: '5 0.5 ab A\n',
+    stderr: '',
+  });
+});
+
+test('as.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'as.ts'))).toEqual({
+    status: 0,
+    stdout: '7 a undefined b true\n3 4 5\n',
+    stderr: '',
+  });
+});
+
+test.each([
+  [
+    'a string as i32',
+    'i32',
+    'string',
+    "function f(v: i32 | string): i32 { return v as i32; }\nf('x');",
+  ],
+  [
+    'an i32 as string',
+    'string',
+    'i32',
+    'function f(v: i32 | string): string { return v as string; }\nf(1);',
+  ],
+  [
+    'an i32 as a smaller union',
+    'string | undefined',
+    'i32',
+    'function f(v: i32 | string | undefined): string | undefined { return v as string | undefined; }\nf(1);',
+  ],
+  [
+    'an f64 literal storage as i32',
+    'i32',
+    'i64',
+    'function f(v: i32 | f64 | string): i32 { return v as i32; }\nf(1);',
+  ],
+])('as rejects %s', async (_, target, actual, source) => {
+  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+    status: 1,
+    stderr: `TypeError: Type '${actual}' is not assignable to type '${target}'\n`,
+  });
+});
+
+test.each([
+  [
+    'a number to another number type',
+    'export function f(x: i32): u8 {\n  return x as u8;\n}\n',
+    "'as' can not convert 'i32' to 'u8'",
+  ],
+  [
+    'a string to unknown',
+    "const s: string = 'a';\nexport const x: string = s as unknown as string;\n",
+    "'as' can not convert 'string' to 'unknown'",
+  ],
+  [
+    'an out of range literal',
+    'export const x: u8 = 300 as u8;\n',
+    "'300' can not be converted to u8",
+  ],
+])('as with %s', async (_, source, message) => {
+  await expect(runSource(source)).rejects.toThrow(message);
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

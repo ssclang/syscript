@@ -183,6 +183,10 @@ export abstract class AbstractExpression<
       return new NodeTypeOfExpression(app, tsNode);
     }
 
+    if (ast.isAsExpression(tsNode)) {
+      return new NodeAsExpression(app, tsNode);
+    }
+
     if (ast.isIdentifier(tsNode)) {
       return new NodeIdentifier(app, tsNode);
     }
@@ -521,6 +525,23 @@ export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpressio
   constructor(app: TsApp, tsNode: ast.TypeOfExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
+  }
+}
+
+export class NodeAsExpression extends AbstractExpression<ast.AsExpression> {
+  readonly expression: AbstractExpression;
+  readonly isConst: boolean;
+
+  constructor(app: TsApp, tsNode: ast.AsExpression) {
+    super(app, tsNode);
+    this.expression = AbstractExpression.of(app, this.tsNode.expression);
+
+    const { type } = this.tsNode;
+
+    this.isConst =
+      ast.isTypeReferenceNode(type)
+      && ast.isIdentifier(type.typeName)
+      && type.typeName.text === 'const';
   }
 }
 

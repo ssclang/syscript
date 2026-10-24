@@ -10,6 +10,7 @@ import {
   AbstractStatement,
   AppSourceFile,
   isTypeFlagMatch,
+  NodeAsExpression,
   NodeBinaryExpression,
   NodeBlock,
   NodeBooleanLiteral,
@@ -25,9 +26,9 @@ import {
   NodeNullLiteral,
   NodeNumericLiteral,
   NodeParenthesizedExpression,
-  NodePropertyAccessExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
+  NodePropertyAccessExpression,
   NodeReturnStatement,
   NodeStringLiteral,
   NodeTemplateExpression,
@@ -498,6 +499,22 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return getNumericLiteral(value, getSscTypeName(node.app, type));
     }
 
+    const numberTypes = type
+      .getTypes()
+      .filter((t) => !isTypeFlagMatch(t, ts.TypeFlags.Literal))
+      .map((t) => getSscTypeName(node.app, t).replace('ssc__core__type__', ''))
+      .filter((t) => includes(sscNumberTypes, t));
+    const [numberType] = numberTypes;
+
+    if (numberTypes.length === 1 && numberType) {
+      assert(
+        isLiteralInRange(bigNumber, numberType),
+        `${node.location()}: '${node.getText()}' can not be converted to ${numberType}`,
+      );
+
+      return getNumericLiteral(value, `ssc__core__type__${numberType}`);
+    }
+
     return getNumericLiteral(
       value,
       `ssc__core__type__${getUnionNumberLiteralStorageType(bigNumber)}`,
@@ -518,6 +535,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
   if (node instanceof NodeTypeOfExpression) {
     return lowerTypeOfExpression(node, context);
+  }
+
+  if (node instanceof NodeAsExpression) {
+    return lowerAsExpression(node, context);
   }
 
   if (node instanceof NodePrefixUnaryExpression) {
@@ -1156,6 +1177,63 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
   return getStringLiteral(getJsTypeOf(typeName));
 }
 
+function lowerAsExpression(node: NodeAsExpression, context: LowerContext): string {
+  const { expression } = node;
+
+  if (node.isConst) {
+    return lowerExpression(expression, context);
+  }
+
+  const { checker } = node.app;
+  const sourceType = expression.getType();
+  const targetType = node.getType();
+  const targetName = checker.typeToString(targetType);
+  const message = `${node.location()}: 'as' can not convert '${checker.typeToString(sourceType)}' to '${targetName}'`;
+
+  assert(!isTypeFlagMatch(targetType, ts.TypeFlags.AnyOrUnknown), message);
+
+  const target = getSscTypeName(node.app, targetType);
+  const isLiteral =
+    isTypeFlagMatch(sourceType, ts.TypeFlags.NumberLiteral) || isCharLiteralType(sourceType);
+
+  const targetNumberType = target.replace('ssc__core__type__', '');
+
+  if (isLiteral && includes(sscNumberTypes, targetNumberType)) {
+    return lowerNumber(expression, targetNumberType, context);
+  }
+
+  const text = lowerExpression(expression, context);
+  const source = getSscTypeName(node.app, sourceType);
+
+  if (
+    source === 'ssc__core__type__union'
+    && target === 'ssc__core__type__union'
+    && targetType.isUnionType()
+  ) {
+    const memberNames = getUnionMemberSscTypeNames(node.app, targetType);
+
+    return `ssc__core__fn__union_as_union<${memberNames.join(', ')}>(${text}, "${targetName}")`;
+  }
+
+  if (source === 'ssc__core__type__union') {
+    return `ssc__core__fn__union_as<${target}>(${text}, "${targetName}")`;
+  }
+
+  if (targetType.isUnionType()) {
+    assert(isLiteral || getUnionMemberSscTypeNames(node.app, targetType).includes(source), message);
+
+    return `ssc__core__type__union(${text})`;
+  }
+
+  assert(source === target, message);
+
+  return text;
+}
+
+function getUnionMemberSscTypeNames(app: AppSourceFile['app'], type: ts.UnionType) {
+  return [...new Set(type.getTypes().map((t) => getSscTypeName(app, t)))];
+}
+
 function getStringLiteral(value: string) {
   const bytes = new TextEncoder().encode(value);
   const text = Array.from(bytes, (byte) => {
@@ -1360,6 +1438,10 @@ function lowerNumber(
 ): string {
   if (node instanceof NodeParenthesizedExpression) {
     return `(${lowerNumber(node.expression, type, context)})`;
+  }
+
+  if (node instanceof NodeAsExpression && node.isConst) {
+    return lowerNumber(node.expression, type, context);
   }
 
   const nodeType = node.getType();
