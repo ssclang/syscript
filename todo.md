@@ -310,6 +310,24 @@ tsgo 연결
 - 범위 밖 배열 접근은 예외가 아니라 `undefined` 반환(`noUncheckedIndexedAccess` 강제). 정수 0 나누기 등 UB가 되는
   연산은 검사 후 throw. 메모리 부족과 스택 넘침 처리는 미정
 
+평가 순서 (미정, Windows 지원 시작 때 결정)
+- JS는 함수 인자와 이항 연산 피연산자를 왼쪽부터 평가. C++은 인자 순서를 정하지 않음(C++17도 indeterminately
+  sequenced). 우리 산술도 `ssc__core__fn__add(a, b, "i32")` 호출이라 같은 문제
+- 실측 `f(g(), h())`: clang Linux `g → h`, GCC `h → g`, clang MSVC 타깃 `h → g`
+- clang 규칙(`clang/lib/CodeGenUtils/CallUtils.cpp` `shouldEvaluateArgsLeftToRight`): MS ABI만 오른쪽부터
+  (호출된 쪽이 인자를 소멸시키는 ABI라서), Itanium 계열(Linux, macOS, Android, iOS, WebAssembly, MinGW)은 왼쪽부터.
+  지금은 이 동작에 기대고 `test/fixture/order.ts`가 회귀를 잡음
+- P0145는 인자를 왼쪽부터로 정하자는 원안이었으나 미지정 대안이 채택됨. clang에 순서를 강제하는 옵션은 찾지 못함
+- 후보와 단점
+  - 부수 효과를 추측해 필요한 곳만 임시 변수: 추측이 빗나가면 조용히 틀림. 채택 안 함
+  - 여러 값을 평가하는 모든 곳을 람다 + 임시 변수로 감쌈: 생성 코드와 컴파일 시간이 부풂
+  - 문장 단위 임시 변수(ANF, Zig C 백엔드·Cython·CHICKEN 방식): 확실하지만 lowering 전체와 `&&`·`?:`·루프 조건
+    구조를 바꾸는 큰 리팩터링
+  - 중괄호 초기화 `{a, b}`: [dcl.init.list]가 왼쪽부터를 보장하고 clang은 MSVC 타깃에서도 지킴(실측).
+    대신 연산자 함수는 집합체를 받고, TS 함수는 매개변수 집합체를 받고, C 함수는 래퍼가 필요해 호출 규약이 바뀜
+  - Windows를 MinGW ABI(`x86_64-w64-windows-gnu`)로만 지원: 코드 변경 없음, 표준이 아니라 고정한 clang 동작에 의존.
+    MSVC로 컴파일된 C++ 라이브러리와 섞을 수 없음
+
 빌드 플래그 (`SscBuildManager.clangCompileFlag`, `clangEmitFlag`, `clangCommonFlag`)
 - 공통(컴파일과 링크 모두): `-O{optLevel}`, `-flto=thin`. 링크에 `-flto`가 없으면 `-O`가 lld에 전달되지 않아
   조용히 lld 기본값 -O2로 동작함(측정 확인). ThinLTO는 컴파일(파일 단위 정리)과 링크(합친 뒤 최적화, 기계어) 모두
