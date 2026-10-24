@@ -280,6 +280,44 @@ test.each([
   await expect(runSource(source)).rejects.toThrow(message);
 });
 
+test('array.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'array.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      "[ 1, 2, 3 ] [ 'a', 'b' ] [] [ 1, 'x' ] [ [ 1, 2 ], [ 3 ] ]",
+      '3 1 3 undefined',
+      '[ 1, 20, 3 ]',
+      '5 [ 1, 20, 3, 4, 5 ]',
+      '5 4 undefined',
+      '5',
+      'b 1,20,3,4,6 w=a,b',
+      '34',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('array write at the length', async () => {
+  const source = 'const a: i32[] = [1];\na[1] = 2;\nexit(0);';
+
+  expect(await runSource(source)).toEqual({
+    status: 1,
+    stderr: 'RangeError: Index 1 is out of bounds for length 1\n',
+  });
+});
+
+test.each([
+  ['a fractional literal', 'a[1.5]'],
+  ['a negative literal', 'a[-1]'],
+  ['an i32 variable', 'a[signed]'],
+  ['an f64 variable', 'a[float]'],
+])('array index with %s', async (_, access) => {
+  const source = `const a: i32[] = [1];\nconst signed: i32 = 0;\nconst float: f64 = 0;\nconst x = ${access};`;
+
+  await expect(runSource(source)).rejects.toThrow('typescript errors');
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

@@ -112,6 +112,25 @@ path.json,  setting.json, config.json 등
   - 채택하지 않음: `{ptr, len}` 16바이트 값(Go, Zig, Rust &str 방식). 부분 문자열은 복사가 없지만 원본
     아레나를 붙잡고, union 8바이트와 맞지 않고, NUL 종료가 보장되지 않음
 
+[배열]
+- 배열은 RC 객체(`ref`, union `type_id` 48). JS 배열은 참조로 공유되므로(`const b = a; b.push(1)`) 값 타입이 아님
+- 메모리 표현: `header(16) | length(8) | capacity(8) | elements*(8)`, 40바이트
+  - 원소는 배열 객체 하나만 소유하는 별도 malloc 버퍼(RC 없음). 문자열처럼 객체 뒤에 붙이면 커질 때 객체가
+    재할당되어 주소가 바뀌고 다른 `ref`가 무효가 됨. V8(JSArray + FixedArray), Java ArrayList와 같은 구조.
+    Swift Array는 원소를 붙이지만 값 타입(COW)이라 가능함
+  - 용량이 차면 2배(Rust Vec과 같음. Go 2배→1.25배, Java 1.5배, V8 1.5배+16)
+  - `ref`, union 원소는 포인터 하나만 들고 있어 `realloc`으로 옮겨도 됨(trivial_abi)
+- 원소 shape별 C++ 템플릿 `ssc__core__struct__array<Element>`: i8~u64, f32, f64, boolean, char, ref, union.
+  shape stenciling이라 인스턴스 수가 이 이상 늘지 않음
+- 해제: 서술자의 배열 전용 소멸 함수가 원소의 RC를 내리고 버퍼를 `free`
+- 읽기 `a[i]`: `T | undefined`(`noUncheckedIndexedAccess` 강제). 범위 밖이면 `undefined`
+- 쓰기 `a[i] = x`: `0 <= i < length`만 허용, 그 밖은 `RangeError`. `i === length`도 오류(끝에 추가는 `push`로만).
+  JS는 길이를 늘리고 빈칸(hole)을 만들지만 `Array<i32>`는 빈칸을 표현할 수 없음. Rust, Go, Swift, Java도 오류
+- 인덱스: `[index: u64]: T`. 일반 대입 규칙을 그대로 따라 u64에 손실 없이 들어가는 타입(u8~u64, 범위 안 리터럴)만
+  받음. `a[1.5]`, `a[-1]`, i32·f64 변수는 TS 오류이고 `u64(i)` 생성자로 명시적으로 바꿈(음수는 생성자가 오류)
+- 첫 단계: `T[]` 타입, 리터럴, `length`(u64), 인덱스 읽기·쓰기, `push`, `pop`, `console.log` 출력
+- 나중: `length` 대입(잘라내기), `new Array(n)`, `map`/`filter` 등 콜백 메서드(클로저 필요)
+
 [메모리 모델]
 기본: 객체별 참조 카운트(RC) + RAII (아레나 모델을 대체함)
 - 할당과 해제는 컴파일러가 자동으로 넣음. 사용자에게 노출하지 않음

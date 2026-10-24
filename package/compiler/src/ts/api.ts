@@ -137,4 +137,12 @@ export class CheckerApi {
   typeToString(type: ts.Type) {
     return this.checker.typeToString(type);
   }
+
+  isArrayType(type: ts.Type) {
+    return this.checker.isArrayType(type);
+  }
+
+  getTypeArguments(type: ts.TypeReference) {
+    return this.checker.getTypeArguments(type);
+  }
 }

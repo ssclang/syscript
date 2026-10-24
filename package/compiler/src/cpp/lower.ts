@@ -10,6 +10,7 @@ import {
   AbstractStatement,
   AppSourceFile,
   isTypeFlagMatch,
+  NodeArrayLiteralExpression,
   NodeAsExpression,
   NodeBinaryExpression,
   NodeBlock,
@@ -17,6 +18,7 @@ import {
   NodeBreakStatement,
   NodeCallExpression,
   NodeContinueStatement,
+  NodeElementAccessExpression,
   NodeExpressionStatement,
   NodeForStatement,
   NodeFunctionDeclaration,
@@ -541,6 +543,14 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerAsExpression(node, context);
   }
 
+  if (node instanceof NodeArrayLiteralExpression) {
+    return lowerArrayLiteralExpression(node, context);
+  }
+
+  if (node instanceof NodeElementAccessExpression) {
+    return lowerElementAccessExpression(node, context);
+  }
+
   if (node instanceof NodePrefixUnaryExpression) {
     return lowerPrefixUnaryExpression(node, context);
   }
@@ -559,6 +569,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
   if (node instanceof NodeBinaryExpression) {
     const { kind } = node.binaryOperatorToken;
+
+    // =
+    if (kind === ast.SyntaxKind.EqualsToken && node.left instanceof NodeElementAccessExpression) {
+      return lowerElementAssignmentExpression(node.left, node.right, context);
+    }
 
     // =
     if (kind === ast.SyntaxKind.EqualsToken) {
@@ -709,7 +724,67 @@ function lowerMethodCallExpression(
     return `ssc__core__fn__console_${callee.name}(${args})`;
   }
 
+  if (expression.app.checker.isArrayType(expression.getType())) {
+    const elementType = getArrayElementSscTypeName(expression);
+    const array = lowerExpression(expression, context);
+
+    if (callee.name === 'push') {
+      const values = node.arguments.map((a) => `, ${lowerValue(a, context)}`).join('');
+
+      return `ssc__core__fn__array_push<${elementType}>(${array}${values})`;
+    }
+
+    if (callee.name === 'pop') {
+      return `ssc__core__fn__array_pop<${elementType}>(${array})`;
+    }
+  }
+
   throw new Error(`${callee.location()}: not implemented callee: ${callee.getText()}`);
+}
+
+function lowerArrayLiteralExpression(node: NodeArrayLiteralExpression, context: LowerContext) {
+  const elementType = getArrayElementSscTypeName(node);
+  const values = node.elements.map((e) => lowerValue(e, context)).join(', ');
+
+  return `ssc__core__fn__array_of<${elementType}>(${values})`;
+}
+
+function lowerElementAccessExpression(node: NodeElementAccessExpression, context: LowerContext) {
+  const { expression, argumentExpression } = node;
+  const elementType = getArrayElementSscTypeName(expression);
+
+  return `ssc__core__fn__array_get<${elementType}>(${lowerExpression(expression, context)}, ${lowerArrayIndex(argumentExpression, context)})`;
+}
+
+function lowerElementAssignmentExpression(
+  node: NodeElementAccessExpression,
+  value: AbstractNode<ast.Expression>,
+  context: LowerContext,
+) {
+  const { expression, argumentExpression } = node;
+  const elementType = getArrayElementSscTypeName(expression);
+  const array = lowerExpression(expression, context);
+  const index = lowerArrayIndex(argumentExpression, context);
+
+  return `ssc__core__fn__array_set<${elementType}>(${array}, ${index}, ${lowerValue(value, context)})`;
+}
+
+function lowerArrayIndex(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  return lowerNumber(node, 'u64', context);
+}
+
+function getArrayElementSscTypeName(node: AbstractNode<ast.Expression>) {
+  const { checker } = node.app;
+  const type = checker.getContextualType(node.tsNode) || node.getType();
+  const arrayType = checker.isArrayType(type) ? type : node.getType();
+
+  assert(checker.isArrayType(arrayType), `${node.location()}: not an array: ${node.getText()}`);
+
+  const [elementType] = checker.getTypeArguments(arrayType as ts.TypeReference);
+
+  assert(elementType, `${node.location()}: array element type not found: ${node.getText()}`);
+
+  return getSscTypeName(node.app, elementType);
 }
 
 function isPreludeDeclaration(node: NodeIdentifier) {
@@ -1160,12 +1235,20 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     return `ssc__core__fn__string_length(${lowerExpression(node.expression, context)})`;
   }
 
+  if (node.app.checker.isArrayType(node.expression.getType()) && node.name === 'length') {
+    return `ssc__core__fn__array_length(${lowerExpression(node.expression, context)})`;
+  }
+
   throw new Error(`${node.location()}: not implemented property: ${node.getText()}`);
 }
 
 function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext) {
   if (isStringType(node.expression.getType())) {
     return getStringLiteral('string');
+  }
+
+  if (node.app.checker.isArrayType(node.expression.getType())) {
+    return getStringLiteral('object');
   }
 
   const typeName = getSscTypeName(node.app, node.expression.getType());
@@ -1669,6 +1752,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   }
 
   if (isStringType(type)) {
+    return 'ssc__core__type__ref';
+  }
+
+  if (app.checker.isArrayType(type)) {
     return 'ssc__core__type__ref';
   }
 

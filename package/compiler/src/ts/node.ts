@@ -187,6 +187,14 @@ export abstract class AbstractExpression<
       return new NodeAsExpression(app, tsNode);
     }
 
+    if (ast.isArrayLiteralExpression(tsNode)) {
+      return new NodeArrayLiteralExpression(app, tsNode);
+    }
+
+    if (ast.isElementAccessExpression(tsNode)) {
+      return new NodeElementAccessExpression(app, tsNode);
+    }
+
     if (ast.isIdentifier(tsNode)) {
       return new NodeIdentifier(app, tsNode);
     }
@@ -525,6 +533,26 @@ export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpressio
   constructor(app: TsApp, tsNode: ast.TypeOfExpression) {
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
+  }
+}
+
+export class NodeArrayLiteralExpression extends AbstractExpression<ast.ArrayLiteralExpression> {
+  readonly elements: AbstractExpression[];
+
+  constructor(app: TsApp, tsNode: ast.ArrayLiteralExpression) {
+    super(app, tsNode);
+    this.elements = this.tsNode.elements.map((e) => AbstractExpression.of(app, e));
+  }
+}
+
+export class NodeElementAccessExpression extends AbstractExpression<ast.ElementAccessExpression> {
+  readonly expression: AbstractExpression;
+  readonly argumentExpression: AbstractExpression;
+
+  constructor(app: TsApp, tsNode: ast.ElementAccessExpression) {
+    super(app, tsNode);
+    this.expression = AbstractExpression.of(app, this.tsNode.expression);
+    this.argumentExpression = AbstractExpression.of(app, this.tsNode.argumentExpression);
   }
 }
 

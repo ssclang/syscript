@@ -80,7 +80,12 @@ declare global {
   }
 
   // js built-in
-  interface Array {}
+  interface Array<T> {
+    readonly length: u64;
+    push(...values: T[]): u64;
+    pop(): T | undefined;
+    [index: u64]: T;
+  }
   interface Boolean {}
   interface CallableFunction {}
   interface Function {}
