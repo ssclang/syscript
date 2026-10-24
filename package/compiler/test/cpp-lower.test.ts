@@ -1383,11 +1383,11 @@ test('string.ts', async () => {
         return ssc__core__fn__string_concat(ssc__ts__var__a, ssc__ts__var__b);
       }
       static ssc__core__type__ref ssc__ts__fn__withChar(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__char ssc__ts__var__c) {
-        return ssc__core__fn__string_concat(ssc__ts__var__a, ssc__core__fn__string_from_char(ssc__ts__var__c));
+        return ssc__core__fn__string_concat(ssc__ts__var__a, ssc__core__fn__to_string(ssc__ts__var__c));
       }
       static ssc__core__type__ref ssc__ts__fn__append(ssc__core__type__ref ssc__ts__var__a) {
         ssc__core__type__ref ssc__ts__var__s = ssc__ts__var__a;
-        (ssc__ts__var__s = ssc__core__fn__string_concat(ssc__ts__var__s, ssc__core__fn__string_from_char(ssc__core__type__char{33u})));
+        (ssc__ts__var__s = ssc__core__fn__string_concat(ssc__ts__var__s, ssc__core__fn__string_literal<u8"!">()));
         return ssc__ts__var__s;
       }
       static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__ref ssc__ts__var__s) {
@@ -1563,4 +1563,26 @@ test('shadow-name.ts', async () => {
 
 test('shadow-brand.ts', async () => {
   await expect(lowerFixture('shadow-brand.ts')).rejects.toThrow("'i8' is not the prelude type");
+});
+
+test('output.ts', async () => {
+  expect(await lowerFixture('output.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__b1e8e437e3db4b269c6da1a5acfa6655 {
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__ref ssc__ts__fn__greet(ssc__core__type__ref ssc__ts__var__name);
+      static ssc__core__type__ref ssc__ts__fn__greet(ssc__core__type__ref ssc__ts__var__name) {
+        return ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"hello, ">(), ssc__ts__var__name), ssc__core__fn__string_literal<u8"\\012">());
+      }
+      void ssc__core__fn__b1e8e437e3db4b269c6da1a5acfa6655() {
+        ssc__core__fn__write_stdout(ssc__ts__namespace__b1e8e437e3db4b269c6da1a5acfa6655::ssc__ts__fn__greet(ssc__core__fn__string_literal<u8"syscript">()));
+        ssc__core__fn__write_stdout(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"\\355\\225\\234\\352\\270\\200 ">(), ssc__core__fn__to_string(ssc__core__fn__char(ssc__core__type__u32{128077u}))), ssc__core__fn__string_literal<u8"\\012">()));
+        ssc__core__fn__write_stderr(ssc__core__fn__string_literal<u8"warning\\012">());
+        ssc__ts__namespace__b1e8e437e3db4b269c6da1a5acfa6655::exit(ssc__core__type__i32{0});
+      }
+    }"
+  `);
 });

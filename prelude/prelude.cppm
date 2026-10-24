@@ -390,6 +390,137 @@ export inline ssc__core__type__ref ssc__core__fn__string_from_char(ssc__core__ty
   return result;
 }
 
+inline ssc__core__type__ref ssc__core__fn__string_from_bytes(const char* pointer, ssc__core__type__u64 length) {
+  ssc__core__type__ref result = ssc__core__fn__allocate_string(length);
+
+  __builtin_memcpy(reinterpret_cast<ssc__core__struct__string*>(result.ssc__core__member__get_object_header_pointer())->ssc__core__member__bytes, pointer, length);
+
+  return result;
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__undefined) noexcept {
+  return ssc__core__fn__string_literal<u8"undefined">();
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__null) noexcept {
+  return ssc__core__fn__string_literal<u8"null">();
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__boolean value) noexcept {
+  return value ? ssc__core__fn__string_literal<u8"true">() : ssc__core__fn__string_literal<u8"false">();
+}
+
+export template <typename Type>
+  requires(17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24)
+inline ssc__core__type__ref ssc__core__fn__to_string(Type value) {
+  char buffer[24];
+  const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), value);
+
+  return ssc__core__fn__string_from_bytes(buffer, result.ptr - buffer);
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__char value) {
+  return ssc__core__fn__string_from_char(value);
+}
+
+export template <typename Type>
+  requires(__is_same(Type, ssc__core__type__f32) || __is_same(Type, ssc__core__type__f64))
+inline ssc__core__type__ref ssc__core__fn__to_string(Type value) {
+  if (__builtin_isnan(value)) {
+    return ssc__core__fn__string_literal<u8"NaN">();
+  }
+
+  if (__builtin_isinf(value)) {
+    return value < 0 ? ssc__core__fn__string_literal<u8"-Infinity">() : ssc__core__fn__string_literal<u8"Infinity">();
+  }
+
+  if (value == 0) {
+    return ssc__core__fn__string_literal<u8"0">();
+  }
+
+  char buffer[32];
+  const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), value);
+
+  return ssc__core__fn__string_from_bytes(buffer, result.ptr - buffer);
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__type__ref& value) noexcept {
+  if (value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer != __builtin_addressof(ssc__core__var__string_descriptor)) {
+    return ssc__core__fn__string_literal<u8"[object Object]">();
+  }
+
+  return value;
+}
+
+export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__type__union& value) {
+  const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
+  const auto& member = value.ssc__core__member__value;
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__undefined>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__undefined);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__null>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__null);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__boolean>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__boolean);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i8>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__i8);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i16>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__i16);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i32>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__i32);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__i64>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__i64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u8>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__u8);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u16>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__u16);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u32>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__u32);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__u64>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__u64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__char>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__char);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f32>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__f32);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__f64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
+    ssc__core__fn__clone_rc(member.ssc__core__member__object_header_pointer);
+
+    return ssc__core__fn__to_string(ssc__core__type__ref(member.ssc__core__member__object_header_pointer));
+  }
+
+  __builtin_trap();
+}
+
 export inline ssc__core__type__boolean ssc__core__fn__truthy_f32(ssc__core__type__f32 value) noexcept {
   return !__builtin_isnan(value) && value != 0;
 }
@@ -888,6 +1019,32 @@ export inline void ssc__core__fn__write_stdout(std::string_view string_view) noe
 
 export inline void ssc__core__fn__write_stderr(std::string_view string_view) noexcept {
   std::cerr.write(string_view.data(), string_view.size());
+}
+
+template <typename... Types> inline void ssc__core__fn__write_line(std::ostream& stream, const Types&... values) {
+  ssc__core__type__boolean is_first = true;
+
+  ([&] {
+    const ssc__core__type__ref string = ssc__core__fn__to_string(values);
+    const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
+
+    if (!is_first) {
+      stream.put(' ');
+    }
+
+    is_first = false;
+    stream.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+  }(), ...);
+
+  stream.put('\n');
+}
+
+export template <typename... Types> inline void ssc__core__fn__console_log(const Types&... values) {
+  ssc__core__fn__write_line(std::cout, values...);
+}
+
+export template <typename... Types> inline void ssc__core__fn__console_error(const Types&... values) {
+  ssc__core__fn__write_line(std::cerr, values...);
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_tdz_error(const char* var_name_pointer) {

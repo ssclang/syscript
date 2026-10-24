@@ -487,7 +487,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   if (isEffectiveNumericLiteral(node)) {
     const bigNumber = getNumberLiteralValue(node.app, node.getType());
     const value = bigNumber.toFixed();
-    const type = node.app.checker.getContextualType(node.tsNode) || node.getType();
+    const contextualType = node.app.checker.getContextualType(node.tsNode);
+    const type =
+      contextualType && !isTypeFlagMatch(contextualType, ts.TypeFlags.AnyOrUnknown) ?
+        contextualType
+      : node.getType();
 
     if (!type.isUnionType()) {
       return getNumericLiteral(value, getSscTypeName(node.app, type));
@@ -596,6 +600,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   if (node instanceof NodeCallExpression) {
     const callee = node.expression;
 
+    if (callee instanceof NodePropertyAccessExpression) {
+      return lowerMethodCallExpression(node, callee, context);
+    }
+
     assert(
       callee instanceof NodeIdentifier,
       `${callee.location()}: not implemented callee: ${callee.getText()}`,
@@ -640,6 +648,51 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   throw new Error(`not implemented expression: ${node.getText()}`);
+}
+
+function lowerMethodCallExpression(
+  node: NodeCallExpression,
+  callee: NodePropertyAccessExpression,
+  context: LowerContext,
+) {
+  const { expression } = callee;
+
+  if (
+    callee.name === 'write'
+    && expression instanceof NodePropertyAccessExpression
+    && (expression.name === 'stdout' || expression.name === 'stderr')
+    && expression.expression instanceof NodeIdentifier
+    && expression.expression.text === 'process'
+    && isPreludeDeclaration(expression.expression)
+  ) {
+    const [text] = node.arguments;
+
+    assert(text, `${node.location()}: '${callee.getText()}' takes an argument`);
+
+    return `ssc__core__fn__write_${expression.name}(${lowerString(text, context)})`;
+  }
+
+  if (
+    (callee.name === 'log' || callee.name === 'error')
+    && expression instanceof NodeIdentifier
+    && expression.text === 'console'
+    && isPreludeDeclaration(expression)
+  ) {
+    const args = node.arguments.map((a) => lowerExpression(a, context)).join(', ');
+
+    return `ssc__core__fn__console_${callee.name}(${args})`;
+  }
+
+  throw new Error(`${callee.location()}: not implemented callee: ${callee.getText()}`);
+}
+
+function isPreludeDeclaration(node: NodeIdentifier) {
+  const declarationFile = node.getValueDeclaration().getSourceFile();
+
+  return (
+    node.app.parser.tsPathToRealPath(declarationFile.fileName)
+    === node.app.preludeSourceFile.realPath
+  );
 }
 
 function lowerPreludeCallExpression(node: NodeCallExpression, name: string, context: LowerContext) {
@@ -1055,19 +1108,11 @@ function getLogicalOperator(kind: ast.BinaryOperator) {
 }
 
 function lowerString(node: AbstractNode<ast.Expression>, context: LowerContext) {
-  if (
-    getSscTypeName(node.app, node.getType()) === 'ssc__core__type__char'
-    || isCharLiteralType(node.getType())
-  ) {
-    return `ssc__core__fn__string_from_char(${lowerNumber(node, 'char', context)})`;
+  if (isStringType(node.getType())) {
+    return lowerExpression(node, context);
   }
 
-  assert(
-    isStringType(node.getType()),
-    `${node.location()}: not implemented string conversion: ${node.getText()}`,
-  );
-
-  return lowerExpression(node, context);
+  return `ssc__core__fn__to_string(${lowerExpression(node, context)})`;
 }
 
 function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, context: LowerContext) {
