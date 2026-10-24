@@ -134,6 +134,22 @@ test('wrap.ts', async () => {
   expect(await run(path.join(fixtureDir, 'wrap.ts'))).toBe(7);
 });
 
+test('union-value.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'union-value.ts'))).toBe(31);
+});
+
+test('union.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'union.ts'))).toBe(255);
+});
+
+test('string.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'string.ts'))).toBe(127);
+});
+
+test('equality.ts', async () => {
+  expect(await run(path.join(fixtureDir, 'equality.ts'))).toBe(63);
+});
+
 test('comparison.ts', async () => {
   expect(await run(path.join(fixtureDir, 'comparison.ts'))).toBe(119);
 });
