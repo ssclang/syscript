@@ -193,6 +193,8 @@ function getSscFunctionName(node: NodeFunctionDeclaration) {
   const name = node.identifier.text;
 
   if (node.isDeclared) {
+    assert(!name.startsWith('ssc__'), `${node.location()}: '${name}' is reserved`);
+
     return name;
   }
 
@@ -768,10 +770,11 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
   assert(common === type, `${node.location()}: common type ${common} does not match ${type}`);
 
   const target = lowerVariableReference(node.left, context);
+  const current = lowerExpression(node.left, context);
   const right = lowerNumber(node.right, type, context);
   const operator = getCompoundAssignmentOperator(kind);
 
-  return `(${target} = ${getArithmeticText(operator, type, target, right)})`;
+  return `(${target} = ${getArithmeticText(operator, type, current, right)})`;
 }
 
 function getCompoundAssignmentOperator(kind: ast.BinaryOperator) {
@@ -848,6 +851,18 @@ function lowerUpdateExpression(
   const target = lowerVariableReference(operand, context);
   const isPrefix = node instanceof NodePrefixUnaryExpression;
   const isIncrement = operator === ast.SyntaxKind.PlusPlusToken;
+  const declaredType = operand.app.checker.getTypeOfSymbol(operand.getSymbol());
+
+  if (getSscTypeName(operand.app, declaredType) === 'ssc__core__type__union') {
+    const one = getNumericLiteral('1', `ssc__core__type__${type}`);
+    const step =
+      includes(sscFloatTypes, type) ?
+        `previous ${isIncrement ? '+' : '-'} ${one}`
+      : `ssc__core__fn__${isIncrement ? 'add' : 'sub'}(previous, ${one}, "${type}")`;
+    const result = isPrefix ? 'next' : 'previous';
+
+    return `[&] { const ssc__core__type__${type} previous = ${lowerExpression(operand, context)}; const ssc__core__type__${type} next = ${step}; ${target} = next; return ${result}; }()`;
+  }
 
   if (includes(sscFloatTypes, type)) {
     const text = isIncrement ? '++' : '--';
@@ -1189,16 +1204,18 @@ function lowerEqualityOperand(
   other: AbstractNode<ast.Expression>,
   context: LowerContext,
 ) {
-  const otherType = other.getType();
-  const hasCharMember =
-    otherType.isUnionType()
-    && otherType.getTypes().some((t) => getSscTypeName(node.app, t) === 'ssc__core__type__char');
-
-  if (isCharLiteralType(node.getType()) && hasCharMember) {
+  if (isCharLiteralType(node.getType()) && hasCharMember(node.app, other.getType())) {
     return lowerNumber(node, 'char', context);
   }
 
   return lowerExpression(node, context);
+}
+
+function hasCharMember(app: AppSourceFile['app'], type: ts.Type) {
+  return (
+    type.isUnionType()
+    && type.getTypes().some((t) => getSscTypeName(app, t) === 'ssc__core__type__char')
+  );
 }
 
 function getComparisonOperator(kind: ast.BinaryOperator) {
@@ -1259,9 +1276,11 @@ function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
     return lowerExpression(node, context);
   }
 
-  const targetTypeName = getSscTypeName(node.app, targetType);
+  if (isCharLiteralType(node.getType()) && hasCharMember(node.app, targetType)) {
+    return lowerNumber(node, 'char', context);
+  }
 
-  const type = targetTypeName.replace('ssc__core__type__', '');
+  const type = getSscTypeName(node.app, targetType).replace('ssc__core__type__', '');
 
   if (includes(sscNumberTypes, type)) {
     return lowerNumber(node, type, context);
@@ -1528,7 +1547,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   const declarationFile = symbol.declarations[0]?.resolve()?.getSourceFile();
 
   assert(declarationFile, `declaration not found: ${symbol.name}`);
-  assert(app.parser.tsPathToRealPath(declarationFile.fileName) === app.preludeSourceFile.realPath);
+  assert(
+    app.parser.tsPathToRealPath(declarationFile.fileName) === app.preludeSourceFile.realPath,
+    `'${symbol.name}' is not the prelude type`,
+  );
 
   return `ssc__core__type__${symbol.name}`;
 }
@@ -1557,8 +1579,14 @@ function getNumericLiteral(value: string, type: string) {
   }
 
   if (type === 'ssc__core__type__f32' || type === 'ssc__core__type__f64') {
-    const float = value.includes('.') ? value : `${value}.0`;
     const suffix = type === 'ssc__core__type__f32' ? 'f' : '';
+    const number = type === 'ssc__core__type__f32' ? Math.fround(Number(value)) : Number(value);
+
+    if (!Number.isFinite(number)) {
+      return `${type}{${number < 0 ? '-' : ''}__builtin_inf${suffix}()}`;
+    }
+
+    const float = value.includes('.') ? value : `${value}.0`;
 
     return `${type}{${float}${suffix}}`;
   }

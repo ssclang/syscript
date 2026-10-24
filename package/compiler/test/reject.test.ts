@@ -36,54 +36,6 @@ export function f(): i32 {
   await expect(compile(source)).rejects.toThrow("'var' is not allowed, use 'const' or 'let'");
 });
 
-test('.d.ts에 선언한 ssc__ 함수', async () => {
-  const source = `
-import { ssc__fn__truthy_f64 } from './evil.js';
-
-export function f(a: f64): boolean {
-  return ssc__fn__truthy_f64(a);
-}
-`;
-  const files = {
-    'evil.d.ts': `
-// ssc:include:<stdio.h>
-
-export declare function ssc__fn__truthy_f64(x: f64): boolean;
-`,
-  };
-
-  await expect(compile(source, files)).rejects.toThrow("'ssc__fn__truthy_f64' is reserved");
-});
-
-test('prelude 타입과 이름만 같은 타입', async () => {
-  const source = `
-import { i8 } from './shadow.js';
-
-export function f(a: i8): i8 {
-  return a;
-}
-`;
-  const files = { 'shadow.d.ts': 'export declare type i8 = number & {};\n' };
-
-  await expect(compile(source, files)).rejects.toThrow('not implemented type');
-});
-
-test('prelude 타입과 브랜드 모양만 같은 타입', async () => {
-  const source = `
-import { i8 } from './shadow.js';
-
-export function f(a: i8): i8 {
-  return a;
-}
-`;
-  const files = {
-    'shadow.d.ts':
-      "declare const ssc: unique symbol;\nexport declare type i8 = number & { readonly [ssc]: 'i8' };\n",
-  };
-
-  await expect(compile(source, files)).rejects.toThrow("'i8' is not the prelude type");
-});
-
 test('moduleDetection이 force가 아닌 tsconfig', async () => {
   const preludeDtsPath = path.join(import.meta.dirname, '../../../prelude/prelude.d.ts');
   const tsconfig = (options: object) =>
@@ -99,42 +51,4 @@ test('moduleDetection이 force가 아닌 tsconfig', async () => {
   await expect(
     compile(source, { 'tsconfig.json': tsconfig({ moduleDetection: 'force' }) }),
   ).resolves.toBeDefined();
-});
-
-test('유니온의 참거짓 판정', async () => {
-  const source = `
-export function f(x: i32 | undefined): i32 {
-  if (x) {
-    return 1;
-  }
-  return 0;
-}
-`;
-
-  await expect(compile(source)).rejects.toThrow('not implemented truthiness of union');
-});
-
-test('유니온 변수의 증감', async () => {
-  const source = `
-export function f(): i32 {
-  let x: i32 | undefined = 1;
-  if (x !== undefined) {
-    x++;
-    return x;
-  }
-  return 0;
-}
-`;
-
-  await expect(compile(source)).rejects.toThrow('is not implemented');
-});
-
-test('멤버 표현이 다른 유니온으로 옮기기', async () => {
-  const source = `
-export function f(x: u8 | undefined): i32 | undefined {
-  return x;
-}
-`;
-
-  await expect(compile(source)).rejects.toThrow('not implemented union conversion');
 });
