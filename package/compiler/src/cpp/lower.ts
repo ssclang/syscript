@@ -432,16 +432,16 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
   const typeName = getSscTypeName(node.app, node.getType());
   const text = lowerExpression(node, context);
 
-  if (isStringType(node.getType())) {
-    return `ssc__core__fn__string_length(${text}) != 0`;
-  }
-
   return getTruthyCondition(typeName, text);
 }
 
 function getTruthyCondition(typeName: string, text: string) {
   if (typeName === 'ssc__core__type__union') {
     return `ssc__core__fn__truthy_union(${text})`;
+  }
+
+  if (typeName === 'ssc__core__type__ref') {
+    return `ssc__core__fn__truthy_ref(${text})`;
   }
 
   if (typeName === 'ssc__core__type__boolean') {
@@ -1406,8 +1406,11 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     return `(${lowerExpression(left, context)} == ${lowerExpression(right, context)})`;
   }
 
-  if (isStringType(left.getType()) && isStringType(right.getType())) {
-    return `ssc__core__fn__string_equals(${lowerExpression(left, context)}, ${lowerExpression(right, context)})`;
+  if (
+    getSscTypeName(left.app, left.getType()) === 'ssc__core__type__ref'
+    && getSscTypeName(right.app, right.getType()) === 'ssc__core__type__ref'
+  ) {
+    return `ssc__core__fn__strict_equals(${lowerExpression(left, context)}, ${lowerExpression(right, context)})`;
   }
 
   const type = commonType([...getOperands(left), ...getOperands(right)]);
