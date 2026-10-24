@@ -199,8 +199,12 @@ export abstract class AbstractExpression<
       return new NodeNumericLiteral(app, tsNode);
     }
 
-    if (ast.isStringLiteral(tsNode)) {
+    if (ast.isStringLiteral(tsNode) || ast.isNoSubstitutionTemplateLiteral(tsNode)) {
       return new NodeStringLiteral(app, tsNode);
+    }
+
+    if (ast.isTemplateExpression(tsNode)) {
+      return new NodeTemplateExpression(app, tsNode);
     }
 
     throw new Error(`not implemented expression: ${tsNode.getText()}`);
@@ -564,12 +568,28 @@ export class NodeNumericLiteral extends AbstractExpression<ast.NumericLiteral> {
   }
 }
 
-export class NodeStringLiteral extends AbstractExpression<ast.StringLiteral> {
+export class NodeStringLiteral extends AbstractExpression<
+  ast.StringLiteral | ast.NoSubstitutionTemplateLiteral
+> {
   readonly value: string;
 
-  constructor(app: TsApp, tsNode: ast.StringLiteral) {
+  constructor(app: TsApp, tsNode: ast.StringLiteral | ast.NoSubstitutionTemplateLiteral) {
     super(app, tsNode);
     this.value = tsNode.text;
+  }
+}
+
+export class NodeTemplateExpression extends AbstractExpression<ast.TemplateExpression> {
+  readonly head: string;
+  readonly spans: { expression: AbstractExpression; literal: string }[];
+
+  constructor(app: TsApp, tsNode: ast.TemplateExpression) {
+    super(app, tsNode);
+    this.head = this.tsNode.head.text;
+    this.spans = this.tsNode.templateSpans.map((s) => ({
+      expression: AbstractExpression.of(app, s.expression),
+      literal: s.literal.text,
+    }));
   }
 }
 
