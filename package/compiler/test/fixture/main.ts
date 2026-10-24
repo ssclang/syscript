@@ -3,34 +3,8 @@ import { clock, exit } from './libc.js';
 
 declare function abs(x: i32): i32;
 
-declare function putchar(c: i32): i32;
-
 function date_now(): i64 {
   return clock() / 1_000;
-}
-
-function console_log(value: i32): i32 {
-  let div: i32 = 1000000000;
-  let started: i32 = 0;
-
-  for (let i: i32 = 0; i < 10; i++) {
-    const digit: i32 = value / div;
-    const rest: i32 = digit % 10;
-
-    if (rest !== 0) {
-      started = 1;
-    } else if (i === 9) {
-      started = 1;
-    }
-
-    if (started === 1) {
-      putchar(48 + rest);
-    }
-
-    div = div / 10;
-  }
-
-  return putchar(10);
 }
 
 export function sum(n: i32): i32 {
@@ -191,14 +165,14 @@ export function main(): i32 {
   const total = abs(0 - sum(5));
   // const elapsed = date_now() - start;
 
-  console_log(total);
-  // console_log(elapsed);
-  console_log(fib(20));
-  console_log(isEven(10));
-  console_log(nanIsFalsy());
-  console_log(flags(1, true));
-  console_log(logic(1, true));
-  console_log(oddSum(10));
+  console.log(total);
+  // console.log(elapsed);
+  console.log(fib(20));
+  console.log(isEven(10));
+  console.log(nanIsFalsy());
+  console.log(flags(1, true));
+  console.log(logic(1, true));
+  console.log(oddSum(10));
 
   return total;
   // return total + elapsed;

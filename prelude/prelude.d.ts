@@ -59,6 +59,20 @@ declare global {
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;
   function mulWrap<T extends SscIntegerType>(left: T, right: T): T;
 
+  const process: {
+    readonly stdout: {
+      write(text: string): void;
+    };
+    readonly stderr: {
+      write(text: string): void;
+    };
+  };
+
+  const console: {
+    log(...values: unknown[]): void;
+    error(...values: unknown[]): void;
+  };
+
   class Pointer<V> {
     static ref<T>(value: T): Pointer<T>;
     read(): V;

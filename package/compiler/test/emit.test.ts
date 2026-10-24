@@ -8,19 +8,25 @@ import { SscManager } from '~/ssc/manager/ssc.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
 
-async function runProcess(entryPath: string) {
+async function spawn(entryPath: string) {
   const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
 
   try {
     const manager = await SscManager.init({ outDir, profile: 'test' });
     const { modules } = await manager.buildManager.compile(entryPath);
     const binPath = await manager.buildManager.emit(modules, { entryPath });
-    const { status, stderr } = spawnSync(binPath, { encoding: 'utf8' });
+    const { status, stdout, stderr } = spawnSync(binPath, { encoding: 'utf8' });
 
-    return { status, stderr };
+    return { status, stdout, stderr };
   } finally {
     await fs.rm(outDir, { recursive: true, force: true });
   }
+}
+
+async function runProcess(entryPath: string) {
+  const { status, stderr } = await spawn(entryPath);
+
+  return { status, stderr };
 }
 
 async function run(entryPath: string) {
@@ -168,11 +174,42 @@ test('top-level-export-let.ts', async () => {
 });
 
 test('main.ts', async () => {
-  expect(await run(path.join(fixtureDir, 'main.ts'))).toBe(10);
+  expect(await spawn(path.join(fixtureDir, 'main.ts'))).toEqual({
+    status: 10,
+    stdout: '10\n6765\n1\n0\n5\n11\n25\n',
+    stderr: '',
+  });
 });
 
 test('union-update.ts', async () => {
   expect(await run(path.join(fixtureDir, 'union-update.ts'))).toBe(15);
+});
+
+test('output.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'output.ts'))).toEqual({
+    status: 0,
+    stdout: 'hello, syscript\n한글 👍\n',
+    stderr: 'warning\n',
+  });
+});
+
+test('console.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'console.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      'integer: -42 18446744073709551615',
+      '0.30000000000000004 0.1 1e+21 1',
+      'NaN Infinity -Infinity 0',
+      'true null undefined 👍',
+      '7',
+      'text',
+      'undefined',
+      'n=-42, f=0.1, ok=true, c=👍',
+      '',
+      '',
+    ].join('\n'),
+    stderr: 'error 1\n',
+  });
 });
 
 test('comparison.ts', async () => {
