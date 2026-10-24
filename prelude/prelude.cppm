@@ -916,34 +916,35 @@ inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 typ
   return "#" + std::to_string(type_id);
 }
 
-[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_union_type_error(ssc__core__type__u64 type_id, const char* type_name_pointer) {
-  throw std::string("TypeError: Type '") + ssc__core__fn__get_display_type_name(type_id) + "' is not assignable to type '" + type_name_pointer + "'";
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_union_type_error(const ssc__core__type__union& value, const char* type_name_pointer) {
+  const std::string display_type_name = ssc__core__fn__union_is_string(value) ? "string" : ssc__core__fn__get_display_type_name(value.ssc__core__member__type_id);
+  throw std::string("TypeError: Type '") + display_type_name + "' is not assignable to type '" + type_name_pointer + "'";
 }
 
 export inline ssc__core__type__undefined ssc__core__fn__union_to_undefined(const ssc__core__type__union& value) {
   if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__undefined>) [[unlikely]] {
-    ssc__core__fn__throw_union_type_error(value.ssc__core__member__type_id, "undefined");
+    ssc__core__fn__throw_union_type_error(value, "undefined");
   }
   return ssc__core__var__undefined;
 }
 
 export inline ssc__core__type__null ssc__core__fn__union_to_null(const ssc__core__type__union& value) {
   if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__null>) [[unlikely]] {
-    ssc__core__fn__throw_union_type_error(value.ssc__core__member__type_id, "null");
+    ssc__core__fn__throw_union_type_error(value, "null");
   }
   return ssc__core__var__null;
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__union_to_boolean(const ssc__core__type__union& value) {
   if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__boolean>) [[unlikely]] {
-    ssc__core__fn__throw_union_type_error(value.ssc__core__member__type_id, "boolean");
+    ssc__core__fn__throw_union_type_error(value, "boolean");
   }
   return value.ssc__core__member__value.ssc__core__member__boolean;
 }
 
 export inline ssc__core__type__ref ssc__core__fn__union_to_ref(const ssc__core__type__union& value) {
   if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__ref>) [[unlikely]] {
-    ssc__core__fn__throw_union_type_error(value.ssc__core__member__type_id, "object");
+    ssc__core__fn__throw_union_type_error(value, "object");
   }
   ssc__core__struct__object_header* object_header_pointer = value.ssc__core__member__value.ssc__core__member__object_header_pointer;
   ssc__core__fn__clone_rc(object_header_pointer);
@@ -1000,7 +1001,41 @@ inline Type ssc__core__fn__union_to_number(const ssc__core__type__union& value) 
     return static_cast<Type>(member.ssc__core__member__f64);
   }
 
-  ssc__core__fn__throw_union_type_error(type_id, "number");
+  ssc__core__fn__throw_union_type_error(value, "number");
+}
+
+template <typename Type> inline ssc__core__type__boolean ssc__core__fn__union_is(const ssc__core__type__union& value) noexcept {
+  return value.ssc__core__member__type_id == ssc__core__var__type_id<Type>;
+}
+
+export template <typename Type>
+  requires(ssc__core__var__type_id<Type> != 0)
+inline Type ssc__core__fn__union_as(const ssc__core__type__union& value, const char* type_name_pointer) {
+  if (!ssc__core__fn__union_is<Type>(value)) [[unlikely]] {
+    ssc__core__fn__throw_union_type_error(value, type_name_pointer);
+  }
+
+  if constexpr (__is_same(Type, ssc__core__type__ref)) {
+    ssc__core__fn__clone_rc(value.ssc__core__member__value.ssc__core__member__object_header_pointer);
+
+    return ssc__core__type__ref(value.ssc__core__member__value.ssc__core__member__object_header_pointer);
+  } else {
+    Type result;
+
+    __builtin_memcpy(__builtin_addressof(result), __builtin_addressof(value.ssc__core__member__value), sizeof(Type));
+
+    return result;
+  }
+}
+
+export template <typename... Types>
+  requires((ssc__core__var__type_id<Types> != 0) && ...)
+inline ssc__core__type__union ssc__core__fn__union_as_union(const ssc__core__type__union& value, const char* type_name_pointer) {
+  if (!(ssc__core__fn__union_is<Types>(value) || ...)) [[unlikely]] {
+    ssc__core__fn__throw_union_type_error(value, type_name_pointer);
+  }
+
+  return value;
 }
 
 export inline void ssc__core__fn__write_stdout(ssc__core__type__ref string) noexcept {
