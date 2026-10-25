@@ -373,6 +373,24 @@ test('closure.ts', async () => {
   });
 });
 
+test('array-callback.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'array-callback.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '0:1 1:2 2:3 3:4 ',
+      '[ 10, 20, 30, 40 ] [ 1, 2, 3 ]',
+      "[ 2, 4 ] [ 'bb', 'ccc' ]",
+      '110 >abbccc',
+      '3 undefined bb',
+      'true false',
+      'true false',
+      '2 -1 2',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

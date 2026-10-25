@@ -82,9 +82,20 @@ declare global {
   // js built-in
   interface Array<T> {
     readonly length: u64;
+
+    [index: u64]: T;
+
     push(...values: T[]): u64;
     pop(): T | undefined;
-    [index: u64]: T;
+
+    forEach(callback: (value: T, index: u64, array: T[]) => void): void;
+    map<U>(callback: (value: T, index: u64, array: T[]) => U): U[];
+    filter(callback: (value: T, index: u64, array: T[]) => boolean): T[];
+    reduce<U>(callback: (accumulator: U, value: T, index: u64, array: T[]) => U, initial: U): U;
+    find(callback: (value: T, index: u64, array: T[]) => boolean): T | undefined;
+    some(callback: (value: T, index: u64, array: T[]) => boolean): boolean;
+    every(callback: (value: T, index: u64, array: T[]) => boolean): boolean;
+    indexOf(value: T): i64;
   }
   interface Boolean {}
   interface CallableFunction {}

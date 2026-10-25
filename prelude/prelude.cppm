@@ -385,10 +385,14 @@ export inline ssc__core__type__ref ssc__core__fn__function_value(const ssc__core
   return ssc__core__type__ref(const_cast<ssc__core__struct__object_header*>(__builtin_addressof(closure.ssc__core__member__object_header)));
 }
 
-export inline ssc__core__type__union ssc__core__fn__call(const ssc__core__type__ref& function, std::initializer_list<ssc__core__type__union> arguments) {
+inline ssc__core__type__union ssc__core__fn__call_span(const ssc__core__type__ref& function, ssc__core__struct__span<ssc__core__type__union> arguments) {
   const ssc__core__struct__closure* closure_pointer = reinterpret_cast<const ssc__core__struct__closure*>(function.ssc__core__member__get_object_header_pointer());
 
-  return closure_pointer->ssc__core__member__function(closure_pointer, {arguments.size(), arguments.begin()});
+  return closure_pointer->ssc__core__member__function(closure_pointer, arguments);
+}
+
+export inline ssc__core__type__union ssc__core__fn__call(const ssc__core__type__ref& function, std::initializer_list<ssc__core__type__union> arguments) {
+  return ssc__core__fn__call_span(function, {arguments.size(), arguments.begin()});
 }
 
 inline const ssc__core__struct__string* ssc__core__fn__get_string_pointer(const ssc__core__type__ref& string) noexcept {
@@ -1375,6 +1379,142 @@ export template <typename Element> inline ssc__core__type__union ssc__core__fn__
   std::destroy_at(element_pointer);
 
   return ssc__core__type__union(static_cast<Element&&>(element));
+}
+
+template <typename Type> inline Type ssc__core__fn__union_to(const ssc__core__type__union& value) {
+  if constexpr (__is_same(Type, ssc__core__type__union)) {
+    return value;
+  } else if constexpr (__is_same(Type, ssc__core__type__ref)) {
+    return ssc__core__fn__union_to_ref(value);
+  } else if constexpr (__is_same(Type, ssc__core__type__boolean)) {
+    return ssc__core__fn__union_to_boolean(value);
+  } else if constexpr (__is_same(Type, ssc__core__type__undefined)) {
+    return ssc__core__fn__union_to_undefined(value);
+  } else if constexpr (__is_same(Type, ssc__core__type__null)) {
+    return ssc__core__fn__union_to_null(value);
+  } else {
+    return ssc__core__fn__union_to_number<Type>(value);
+  }
+}
+
+template <typename Element> inline ssc__core__type__union ssc__core__fn__array_callback(const ssc__core__type__ref& callback, const ssc__core__type__ref& array, ssc__core__type__u64 index) {
+  const ssc__core__type__union arguments[] = {
+    ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
+    ssc__core__type__union(index),
+    ssc__core__type__union(ssc__core__type__ref(array)),
+  };
+
+  return ssc__core__fn__call_span(callback, {3, arguments});
+}
+
+template <typename Element> inline ssc__core__type__boolean ssc__core__fn__is_array_index(const ssc__core__type__ref& array, ssc__core__type__u64 index) noexcept {
+  return index < ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__length;
+}
+
+export template <typename Element> inline void ssc__core__fn__array_for_each(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    ssc__core__fn__array_callback<Element>(callback, array, index);
+  }
+}
+
+export template <typename Element, typename Result> inline ssc__core__type__ref ssc__core__fn__array_map(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+  ssc__core__type__ref result = ssc__core__fn__array_of<Result>();
+
+  ssc__core__fn__array_reserve(ssc__core__fn__get_array_pointer<Result>(result), length);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    ssc__core__fn__array_push<Result>(result, ssc__core__fn__union_to<Result>(ssc__core__fn__array_callback<Element>(callback, array, index)));
+  }
+
+  return result;
+}
+
+export template <typename Element> inline ssc__core__type__ref ssc__core__fn__array_filter(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+  ssc__core__type__ref result = ssc__core__fn__array_of<Element>();
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+      ssc__core__fn__array_push<Element>(result, Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index]));
+    }
+  }
+
+  return result;
+}
+
+export template <typename Element> inline ssc__core__type__union ssc__core__fn__array_reduce(const ssc__core__type__ref& array, const ssc__core__type__ref& callback, ssc__core__type__union initial) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+  ssc__core__type__union accumulator = static_cast<ssc__core__type__union&&>(initial);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    const ssc__core__type__union arguments[] = {
+      accumulator,
+      ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
+      ssc__core__type__union(index),
+      ssc__core__type__union(ssc__core__type__ref(array)),
+    };
+
+    accumulator = ssc__core__fn__call_span(callback, {4, arguments});
+  }
+
+  return accumulator;
+}
+
+export template <typename Element> inline ssc__core__type__union ssc__core__fn__array_find(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+      return ssc__core__fn__array_get<Element>(array, index);
+    }
+  }
+
+  return ssc__core__type__union(ssc__core__var__undefined);
+}
+
+export template <typename Element> inline ssc__core__type__boolean ssc__core__fn__array_some(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export template <typename Element> inline ssc__core__type__boolean ssc__core__fn__array_every(const ssc__core__type__ref& array, const ssc__core__type__ref& callback) {
+  const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
+
+  for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
+    if (!ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export template <typename Element> inline ssc__core__type__i64 ssc__core__fn__array_index_of(const ssc__core__type__ref& array, const Element& value) {
+  const ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
+
+  for (ssc__core__type__u64 index = 0; index < array_pointer->ssc__core__member__length; index++) {
+    const Element& element = array_pointer->ssc__core__member__elements_pointer[index];
+
+    if constexpr (__is_same(Element, ssc__core__type__ref) || __is_same(Element, ssc__core__type__union)) {
+      if (ssc__core__fn__strict_equals(element, value)) {
+        return static_cast<ssc__core__type__i64>(index);
+      }
+    } else if (element == value) {
+      return static_cast<ssc__core__type__i64>(index);
+    }
+  }
+
+  return -1;
 }
 
 export inline void ssc__core__fn__write_stdout(ssc__core__type__ref string) noexcept {

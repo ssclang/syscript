@@ -23,8 +23,8 @@ import {
   NodeElementAccessExpression,
   NodeExpressionStatement,
   NodeForStatement,
-  NodeFunctionExpression,
   NodeFunctionDeclaration,
+  NodeFunctionExpression,
   NodeIdentifier,
   NodeIfStatement,
   NodeImportDeclaration,
@@ -555,7 +555,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       .getTypes()
       .filter((t) => !isTypeFlagMatch(t, ts.TypeFlags.Literal))
       .map((t) => getSscTypeName(node.app, t).replace('ssc__core__type__', ''))
-      .filter((t) => includes(sscNumberTypes, t));
+      .filter<SscNumberType>((t) => includes(sscNumberTypes, t));
     const [numberType] = numberTypes;
 
     if (numberTypes.length === 1 && numberType) {
@@ -903,6 +903,49 @@ function lowerMethodCallExpression(
 
     if (callee.name === 'pop') {
       return `ssc__core__fn__array_pop<${elementType}>(${array})`;
+    }
+
+    const [first, second] = node.arguments;
+
+    assert(first, `${node.location()}: '${callee.getText()}' takes an argument`);
+
+    const argument = lowerValue(first, context);
+
+    if (callee.name === 'map') {
+      return `ssc__core__fn__array_map<${elementType}, ${getArrayElementSscTypeName(node)}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'reduce') {
+      assert(second, `${node.location()}: 'reduce' takes an initial value`);
+
+      const text = `ssc__core__fn__array_reduce<${elementType}>(${array}, ${argument}, ssc__core__type__union(${lowerValue(second, context)}))`;
+      const typeName = getSscTypeName(node.app, node.getType());
+
+      return typeName === 'ssc__core__type__union' ? text : getUnionReadText(typeName, text);
+    }
+
+    if (callee.name === 'forEach') {
+      return `ssc__core__fn__array_for_each<${elementType}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'filter') {
+      return `ssc__core__fn__array_filter<${elementType}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'find') {
+      return `ssc__core__fn__array_find<${elementType}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'some') {
+      return `ssc__core__fn__array_some<${elementType}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'every') {
+      return `ssc__core__fn__array_every<${elementType}>(${array}, ${argument})`;
+    }
+
+    if (callee.name === 'indexOf') {
+      return `ssc__core__fn__array_index_of<${elementType}>(${array}, ${argument})`;
     }
   }
 

@@ -129,7 +129,10 @@ path.json,  setting.json, config.json 등
 - 인덱스: `[index: u64]: T`. 일반 대입 규칙을 그대로 따라 u64에 손실 없이 들어가는 타입(u8~u64, 범위 안 리터럴)만
   받음. `a[1.5]`, `a[-1]`, i32·f64 변수는 TS 오류이고 `u64(i)` 생성자로 명시적으로 바꿈(음수는 생성자가 오류)
 - 첫 단계: `T[]` 타입, 리터럴, `length`(u64), 인덱스 읽기·쓰기, `push`, `pop`, `console.log` 출력
-- 나중: `length` 대입(잘라내기), `new Array(n)`, `map`/`filter` 등 콜백 메서드(클로저 필요)
+- 콜백 메서드(`forEach`, `map`, `filter`, `reduce`, `find`, `some`, `every`, `indexOf`)는 지금 prelude C++로 구현.
+  제네릭이 생기면 TS 표준 라이브러리로 옮김. C++에는 할당, `length`, 원소 읽기·쓰기, `push`/`pop`, `call` 같은
+  기본 연산만 남김
+- 나중: `length` 대입(잘라내기), `new Array(n)`
 
 [메모리 모델]
 기본: 객체별 참조 카운트(RC) + RAII (아레나 모델을 대체함)
