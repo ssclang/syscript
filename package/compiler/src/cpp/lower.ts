@@ -30,6 +30,7 @@ import {
   NodeImportDeclaration,
   NodeNullLiteral,
   NodeNumericLiteral,
+  NodeObjectLiteralExpression,
   NodeParenthesizedExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
@@ -37,6 +38,7 @@ import {
   NodeReturnStatement,
   NodeStringLiteral,
   NodeTemplateExpression,
+  NodeTypeDeclaration,
   NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
@@ -61,6 +63,7 @@ type GlobalContext = {
   programContext: ProgramContext;
   importedForwardMap: Map<RealPath, Map<string, string>>;
   functionValueDefinitionMap: Map<string, string>;
+  shapeDefinitionMap: Map<string, string>;
 };
 
 type TopLevelContext = {
@@ -91,6 +94,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     programContext,
     importedForwardMap: new Map<RealPath, Map<string, string>>(),
     functionValueDefinitionMap: new Map<string, string>(),
+    shapeDefinitionMap: new Map<string, string>(),
   } as const satisfies GlobalContext;
   const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
@@ -140,6 +144,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   w.block(`namespace ${namespaceName}`, () => [
     ...topLevelVariableDefinitions,
     ...functionForwards,
+    ...globalContext.shapeDefinitionMap.values(),
     ...globalContext.functionValueDefinitionMap.values(),
     ...definedFunctionLines,
     ...topLevelStatements,
@@ -381,6 +386,10 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
     return lowerWhileStatement(node, context);
   }
 
+  if (node instanceof NodeTypeDeclaration) {
+    return [];
+  }
+
   if (node instanceof NodeBreakStatement) {
     return ['break;'];
   }
@@ -609,6 +618,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerElementAccessExpression(node, context);
   }
 
+  if (node instanceof NodeObjectLiteralExpression) {
+    return lowerObjectLiteralExpression(node, context);
+  }
+
   if (node instanceof NodePrefixUnaryExpression) {
     return lowerPrefixUnaryExpression(node, context);
   }
@@ -635,6 +648,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     // =
     if (kind === ast.SyntaxKind.EqualsToken && node.left instanceof NodeElementAccessExpression) {
       return lowerElementAssignmentExpression(node.left, node.right, context);
+    }
+
+    // =
+    if (kind === ast.SyntaxKind.EqualsToken && node.left instanceof NodePropertyAccessExpression) {
+      return `(${lowerFieldReference(node.left, context)} = ${lowerValue(node.right, context)})`;
     }
 
     // =
@@ -1462,7 +1480,237 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     return `ssc__core__fn__array_length(${lowerExpression(node.expression, context)})`;
   }
 
+  if (isObjectType(node.app, node.expression.getType())) {
+    const text = lowerFieldReference(node, context);
+    const fieldTypeName = getShape(node.expression, context).fields.find(
+      (f) => f.name === node.name,
+    )?.typeName;
+    const typeName = getSscTypeName(node.app, node.getType());
+
+    if (fieldTypeName === 'ssc__core__type__union' && typeName !== 'ssc__core__type__union') {
+      return getUnionReadText(typeName, text);
+    }
+
+    return text;
+  }
+
   throw new Error(`${node.location()}: not implemented property: ${node.getText()}`);
+}
+
+type Shape = { id: string; structName: string; fields: { name: string; typeName: string }[] };
+
+function getShape(
+  node: AbstractNode<ast.Expression>,
+  context: LowerContext,
+  type = node.getType(),
+): Shape {
+  const { checker } = node.app;
+  const fields = checker
+    .getPropertiesOfType(type)
+    .map((s) => ({ name: s.name, typeName: getSscTypeName(node.app, checker.getTypeOfSymbol(s)) }))
+    .sort((a, b) =>
+      a.name < b.name ? -1
+      : a.name > b.name ? 1
+      : 0,
+    );
+  const id = getHash(fields.map((f) => `${f.name}:${f.typeName}`).join(','));
+  const structName = `ssc__ts__shape__${id}`;
+  const definitions = context.globalContext.shapeDefinitionMap;
+
+  if (!definitions.has(structName)) {
+    const members = fields.map((f) => ` ${f.typeName} ssc__ts__member__${f.name};`).join('');
+    const getOffsets = (typeName: string) =>
+      fields
+        .filter((f) => f.typeName === typeName)
+        .map((f) => `__builtin_offsetof(${structName}, ssc__ts__member__${f.name})`);
+    const refOffsets = getOffsets('ssc__core__type__ref');
+    const unionOffsets = getOffsets('ssc__core__type__union');
+    const fieldInfos = fields.map((f) => {
+      const kind =
+        f.typeName === 'ssc__core__type__union' ?
+          'ssc__core__var__union_kind'
+        : `ssc__core__var__type_id<${f.typeName}>`;
+
+      return `{"${f.name}", __builtin_offsetof(${structName}, ssc__ts__member__${f.name}), ${kind}}`;
+    });
+    const defineArray = (suffix: string, type: string, items: string[]) => {
+      if (items.length === 0) {
+        return '{}';
+      }
+
+      definitions.set(
+        `${structName}__${suffix}`,
+        `inline constexpr ${type} ${structName}__${suffix}[] = {${items.join(', ')}};`,
+      );
+
+      return `{${items.length}, ${structName}__${suffix}}`;
+    };
+
+    definitions.set(
+      structName,
+      `struct ${structName} { ssc__core__struct__object_header ssc__core__member__object_header;${members} };`,
+    );
+
+    const refs = defineArray('ref_offsets', 'ssc__core__type__u64', refOffsets);
+    const unions = defineArray('union_offsets', 'ssc__core__type__u64', unionOffsets);
+    const infos = defineArray('fields', 'ssc__core__struct__field', fieldInfos);
+
+    definitions.set(
+      `${structName}__shape`,
+      `inline constexpr ssc__core__struct__shape ${structName}__shape{${refs}, ${unions}, ${infos}, 0x${id}ull};`,
+    );
+  }
+
+  return { id, structName, fields };
+}
+
+function getDescriptorName(shape: Shape, keys: string[], context: LowerContext) {
+  const indices = keys.map((k) => shape.fields.findIndex((f) => f.name === k));
+  const name = `${shape.structName}__descriptor__${indices.join('_')}`;
+  const definitions = context.globalContext.shapeDefinitionMap;
+
+  if (!definitions.has(name)) {
+    const keySpan = indices.length === 0 ? '{}' : `{${indices.length}, ${name}__keys}`;
+
+    if (indices.length !== 0) {
+      definitions.set(
+        `${name}__keys`,
+        `inline constexpr ssc__core__type__u64 ${name}__keys[] = {${indices.join(', ')}};`,
+      );
+    }
+
+    definitions.set(
+      name,
+      `inline constexpr ssc__core__struct__descriptor ${name}{__builtin_addressof(${shape.structName}__shape), nullptr, nullptr, ssc__core__fn__object_inspect, ${keySpan}};`,
+    );
+  }
+
+  return name;
+}
+
+function getHash(text: string) {
+  let hash = 0xcbf29ce484222325n;
+
+  for (const byte of new TextEncoder().encode(text)) {
+    hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
+  }
+
+  return hash.toString(16).padStart(16, '0');
+}
+
+function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context: LowerContext) {
+  const contextualType = node.app.checker.getContextualType(node.tsNode);
+  const objectTypes = (
+    contextualType?.isUnionType() ?
+      contextualType.getTypes()
+    : [contextualType]).filter((t): t is ts.Type => t !== undefined && isObjectType(node.app, t));
+  const [targetType] = objectTypes;
+  const shape = getShape(
+    node,
+    context,
+    objectTypes.length === 1 && targetType ? targetType : node.getType(),
+  );
+  const keys = node.properties.map((p) => p.name);
+  const descriptor = getDescriptorName(shape, keys, context);
+  const field = (name: string) => `__builtin_addressof(object->ssc__ts__member__${name})`;
+  const values = node.properties.map(
+    (p) => `ssc__core__fn__construct(${field(p.name)}, ${lowerValue(p.value, context)});`,
+  );
+  const missings = shape.fields
+    .filter((f) => !keys.includes(f.name))
+    .map((f) => {
+      assert(
+        f.typeName === 'ssc__core__type__union',
+        `${node.location()}: not implemented missing property: ${f.name}`,
+      );
+
+      return `ssc__core__fn__construct(${field(f.name)}, ssc__core__type__union(ssc__core__var__undefined));`;
+    });
+  const allocation = `${shape.structName}* object = reinterpret_cast<${shape.structName}*>(ssc__core__fn__allocate_object(sizeof(${shape.structName}), __builtin_addressof(${descriptor})));`;
+
+  return `[&] { ${[allocation, ...values, ...missings].join(' ')} return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }()`;
+}
+
+function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerContext) {
+  const shape = getShape(node.expression, context);
+  const field = shape.fields.find((f) => f.name === node.name);
+
+  assert(field, `${node.location()}: not implemented property: ${node.getText()}`);
+
+  return `ssc__core__fn__field<${field.typeName}>(${lowerExpression(node.expression, context)}, 0x${shape.id}ull, __builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name}), "${node.name}")`;
+}
+
+function isObjectType(app: AppSourceFile['app'], type: ts.Type) {
+  if (isStringType(type) || app.checker.isArrayType(type) || isFunctionType(app, type)) {
+    return false;
+  }
+
+  if (type.isIntersectionType()) {
+    return type.getTypes().every((t) => isTypeFlagMatch(t, ts.TypeFlags.Object));
+  }
+
+  return isTypeFlagMatch(type, ts.TypeFlags.Object);
+}
+
+function checkSharedRepresentation(node: AbstractNode<ast.Expression>, targetType: ts.Type) {
+  if (node instanceof NodeArrayLiteralExpression || node instanceof NodeObjectLiteralExpression) {
+    return;
+  }
+
+  const { checker } = node.app;
+  const sourceType = node.getType();
+
+  assert(
+    isSameRepresentation(node.app, sourceType, targetType, new Set()),
+    `${node.location()}: '${checker.typeToString(sourceType)}' and '${checker.typeToString(targetType)}' can not share a value because their element or property representations differ, create a new value instead (e.g. 'values.map((value) => value)' or '{ x: value.x }')`,
+  );
+}
+
+function isSameRepresentation(
+  app: AppSourceFile['app'],
+  source: ts.Type,
+  target: ts.Type,
+  visited: Set<string>,
+): boolean {
+  const { checker } = app;
+  const key = `${checker.typeToString(source)}\0${checker.typeToString(target)}`;
+
+  if (visited.has(key)) {
+    return true;
+  }
+
+  visited.add(key);
+
+  const isSameSlot = (s: ts.Type, t: ts.Type) =>
+    getSscTypeName(app, s) === getSscTypeName(app, t) && isSameRepresentation(app, s, t, visited);
+
+  if (source.isUnionType() || target.isUnionType()) {
+    const targets = target.isUnionType() ? target.getTypes() : [target];
+    const sources = source.isUnionType() ? source.getTypes() : [source];
+
+    return sources
+      .filter((s) => checker.isArrayType(s) || isObjectType(app, s))
+      .every((s) => targets.some((t) => isSameSlot(s, t)));
+  }
+
+  if (checker.isArrayType(source) && checker.isArrayType(target)) {
+    const [sourceElement] = checker.getTypeArguments(source as ts.TypeReference);
+    const [targetElement] = checker.getTypeArguments(target as ts.TypeReference);
+
+    return !sourceElement || !targetElement || isSameSlot(sourceElement, targetElement);
+  }
+
+  if (isObjectType(app, source) && isObjectType(app, target)) {
+    const sourceProperties = checker.getPropertiesOfType(source);
+
+    return checker.getPropertiesOfType(target).every((t) => {
+      const s = sourceProperties.find((p) => p.name === t.name);
+
+      return !s || isSameSlot(checker.getTypeOfSymbol(s), checker.getTypeOfSymbol(t));
+    });
+  }
+
+  return true;
 }
 
 function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext) {
@@ -1600,6 +1848,10 @@ function getJsTypeOf(typeName: string) {
 
   if (includes(sscNumberTypes, typeName.replace('ssc__core__type__', ''))) {
     return 'number';
+  }
+
+  if (typeName === 'ssc__core__type__ref') {
+    return 'object';
   }
 
   throw new Error(`not implemented typeof: ${typeName}`);
@@ -1755,9 +2007,11 @@ function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
 function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
   const targetType = node.app.checker.getContextualType(node.tsNode);
 
-  if (!targetType) {
+  if (!targetType || isTypeFlagMatch(targetType, ts.TypeFlags.AnyOrUnknown)) {
     return lowerExpression(node, context);
   }
+
+  checkSharedRepresentation(node, targetType);
 
   if (isCharLiteralType(node.getType()) && hasCharMember(node.app, targetType)) {
     return lowerNumber(node, 'char', context);
@@ -2053,6 +2307,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   // `boolean` is also a `true | false` union, so this must come after the BooleanLike check
   if (type.isUnionType()) {
     return 'ssc__core__type__union';
+  }
+
+  if (isObjectType(app, type)) {
+    return 'ssc__core__type__ref';
   }
 
   const { checker } = app;

@@ -111,6 +111,10 @@ export class CheckerApi {
     return this.checker.getSymbolAtLocation(node);
   }
 
+  getShorthandAssignmentValueSymbol(node: ast.Node) {
+    return this.checker.getShorthandAssignmentValueSymbol(node);
+  }
+
   getSymbolOfNode(node: ast.Node) {
     return this.checker.getSymbolOfNode(node);
   }
@@ -141,6 +145,10 @@ export class CheckerApi {
 
   isArrayType(type: ts.Type) {
     return this.checker.isArrayType(type);
+  }
+
+  getPropertiesOfType(type: ts.Type) {
+    return this.checker.getPropertiesOfType(type);
   }
 
   getSignaturesOfType(type: ts.Type, kind: ts.SignatureKind) {

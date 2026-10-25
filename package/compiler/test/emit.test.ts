@@ -391,6 +391,31 @@ test('array-callback.ts', async () => {
   });
 });
 
+test('object-literal.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'object-literal.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '{ y: 2, x: 1 } { y: 2, x: 1 } { x: 10, y: 20 } { size: 3 }',
+      '3 3 true',
+      '5',
+      "max tom max { name: 'max', breed: 'pug' }",
+      "undefined object { point: { y: 2, x: 5 }, tags: [ 'a' ] }",
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test.each([
+  [
+    'a property to an optional property',
+    'const p: { x: i32 } = { x: 1 };\nconst q: { x?: i32 } = p;',
+  ],
+  ['an element to a union element', 'const a: i32[] = [1];\nconst b: (i32 | string)[] = a;'],
+])('representation change of %s', async (_, source) => {
+  await expect(runSource(source)).rejects.toThrow('representations differ');
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

@@ -41,7 +41,11 @@ export abstract class AbstractNode<T extends ast.Node> {
 
   getSymbol() {
     const { checker } = this.app;
-    const symbol = checker.getSymbolAtLocation(this.tsNode);
+    const { parent } = this.tsNode;
+    const symbol =
+      ast.isShorthandPropertyAssignment(parent) && parent.name === (this.tsNode as ast.Node) ?
+        checker.getShorthandAssignmentValueSymbol(parent)
+      : checker.getSymbolAtLocation(this.tsNode);
 
     assert(symbol, `${this.location()}: symbol not found: ${this.getText()}`);
 
@@ -103,6 +107,10 @@ export abstract class AbstractStatement<
 
     if (ast.isFunctionDeclaration(tsNode)) {
       return new NodeFunctionDeclaration(app, tsNode);
+    }
+
+    if (ast.isInterfaceDeclaration(tsNode) || ast.isTypeAliasDeclaration(tsNode)) {
+      return new NodeTypeDeclaration(app, tsNode);
     }
 
     if (ast.isBlock(tsNode)) {
@@ -197,6 +205,10 @@ export abstract class AbstractExpression<
 
     if (ast.isArrayLiteralExpression(tsNode)) {
       return new NodeArrayLiteralExpression(app, tsNode);
+    }
+
+    if (ast.isObjectLiteralExpression(tsNode)) {
+      return new NodeObjectLiteralExpression(app, tsNode);
     }
 
     if (ast.isElementAccessExpression(tsNode)) {
@@ -466,6 +478,10 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
   }
 }
 
+export class NodeTypeDeclaration extends AbstractStatement<
+  ast.InterfaceDeclaration | ast.TypeAliasDeclaration
+> {}
+
 export class NodeAmbientDeclaration extends AbstractStatement {
   constructor(app: TsApp, tsNode: ast.Statement) {
     super(app, tsNode);
@@ -550,6 +566,25 @@ export class NodeArrayLiteralExpression extends AbstractExpression<ast.ArrayLite
   constructor(app: TsApp, tsNode: ast.ArrayLiteralExpression) {
     super(app, tsNode);
     this.elements = this.tsNode.elements.map((e) => AbstractExpression.of(app, e));
+  }
+}
+
+export class NodeObjectLiteralExpression extends AbstractExpression<ast.ObjectLiteralExpression> {
+  readonly properties: { name: string; value: AbstractExpression }[];
+
+  constructor(app: TsApp, tsNode: ast.ObjectLiteralExpression) {
+    super(app, tsNode);
+    this.properties = this.tsNode.properties.map((p) => {
+      if (ast.isPropertyAssignment(p) && ast.isIdentifier(p.name)) {
+        return { name: p.name.text, value: AbstractExpression.of(app, p.initializer) };
+      }
+
+      if (ast.isShorthandPropertyAssignment(p) && ast.isIdentifier(p.name)) {
+        return { name: p.name.text, value: AbstractExpression.of(app, p.name) };
+      }
+
+      throw new Error(`not implemented object literal property: ${p.getText()}`);
+    });
   }
 }
 

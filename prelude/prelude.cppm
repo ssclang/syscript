@@ -60,9 +60,17 @@ export struct ssc__core__struct__object_header {
   const ssc__core__struct__descriptor* ssc__core__member__descriptor_pointer;
 };
 
+export struct ssc__core__struct__field {
+  const char* ssc__core__member__name;
+  ssc__core__type__u64 ssc__core__member__offset;
+  ssc__core__type__u64 ssc__core__member__kind;
+};
+
 export struct ssc__core__struct__shape {
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__ref_offsets;
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__union_offsets;
+  ssc__core__struct__span<ssc__core__struct__field> ssc__core__member__fields;
+  ssc__core__type__u64 ssc__core__member__id;
 };
 
 export struct ssc__core__struct__descriptor {
@@ -70,6 +78,7 @@ export struct ssc__core__struct__descriptor {
   void (*ssc__core__member__destroy_pointer)(ssc__core__struct__object_header* object_header_pointer);
   ssc__core__type__ref (*ssc__core__member__to_string_pointer)(const ssc__core__type__ref& value);
   ssc__core__type__ref (*ssc__core__member__inspect_pointer)(const ssc__core__type__ref& value);
+  ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__keys;
 };
 
 export struct ssc__core__struct__string {
@@ -287,8 +296,8 @@ static_assert(sizeof(ssc__core__struct__string) == 24);
 static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
 static_assert(sizeof(ssc__core__struct__object_header) == 16);
-static_assert(sizeof(ssc__core__struct__shape) == 32);
-static_assert(sizeof(ssc__core__struct__descriptor) == 32);
+static_assert(sizeof(ssc__core__struct__shape) == 56);
+static_assert(sizeof(ssc__core__struct__descriptor) == 48);
 
 export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
 export inline constexpr ssc__core__type__null ssc__core__var__null{};
@@ -1211,6 +1220,149 @@ inline ssc__core__type__ref ssc__core__fn__console_string(const ssc__core__type_
   return ssc__core__fn__union_is_string(value) ? ssc__core__fn__union_to_ref(value) : ssc__core__fn__inspect(value);
 }
 
+export inline constexpr ssc__core__type__u64 ssc__core__var__union_kind = 4;
+
+export inline ssc__core__struct__object_header* ssc__core__fn__allocate_object(ssc__core__type__u64 size, const ssc__core__struct__descriptor* descriptor_pointer) {
+  void* pointer = malloc(size);
+
+  if (!pointer) [[unlikely]] {
+    __builtin_trap();
+  }
+
+  ssc__core__struct__object_header* object_header_pointer = static_cast<ssc__core__struct__object_header*>(pointer);
+  *object_header_pointer = {1, descriptor_pointer};
+
+  return object_header_pointer;
+}
+
+export template <typename Type, typename Value> inline void ssc__core__fn__construct(Type* pointer, Value&& value) {
+  std::construct_at(pointer, static_cast<Value&&>(value));
+}
+
+inline ssc__core__type__u64 ssc__core__fn__field_offset(const ssc__core__struct__object_header* object_header_pointer, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
+  const ssc__core__struct__shape* shape_pointer = object_header_pointer->ssc__core__member__descriptor_pointer->ssc__core__member__shape_pointer;
+
+  if (shape_pointer->ssc__core__member__id == shape_id) [[likely]] {
+    return offset;
+  }
+
+  for (const ssc__core__struct__field& field : shape_pointer->ssc__core__member__fields) {
+    if (__builtin_strcmp(field.ssc__core__member__name, name) == 0) {
+      return field.ssc__core__member__offset;
+    }
+  }
+
+  __builtin_trap();
+}
+
+export template <typename Type> inline Type& ssc__core__fn__field(const ssc__core__type__ref& object, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
+  ssc__core__struct__object_header* object_header_pointer = object.ssc__core__member__get_object_header_pointer();
+
+  return *reinterpret_cast<Type*>(reinterpret_cast<char*>(object_header_pointer) + ssc__core__fn__field_offset(object_header_pointer, shape_id, offset, name));
+}
+
+template <typename Type> inline ssc__core__type__ref ssc__core__fn__inspect_at(const char* pointer) {
+  return ssc__core__fn__inspect(*reinterpret_cast<const Type*>(pointer));
+}
+
+inline ssc__core__type__ref ssc__core__fn__inspect_field(const char* pointer, ssc__core__type__u64 kind) {
+  if (kind == ssc__core__var__union_kind) {
+    return ssc__core__fn__inspect_at<ssc__core__type__union>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__undefined>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__undefined>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__null>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__null>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__boolean>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__boolean>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__i8>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__i8>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__i16>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__i16>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__i32>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__i32>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__i64>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__i64>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__u8>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__u8>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__u16>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__u16>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__u32>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__u32>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__u64>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__u64>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__char>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__char>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__f32>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__f32>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__f64>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__f64>(pointer);
+  }
+
+  if (kind == ssc__core__var__type_id<ssc__core__type__ref>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__ref>(pointer);
+  }
+
+  __builtin_trap();
+}
+
+export inline ssc__core__type__ref ssc__core__fn__object_inspect(const ssc__core__type__ref& object) {
+  const ssc__core__struct__object_header* object_header_pointer = object.ssc__core__member__get_object_header_pointer();
+  const ssc__core__struct__descriptor* descriptor_pointer = object_header_pointer->ssc__core__member__descriptor_pointer;
+  const ssc__core__struct__span<ssc__core__struct__field> fields = descriptor_pointer->ssc__core__member__shape_pointer->ssc__core__member__fields;
+
+  if (descriptor_pointer->ssc__core__member__keys.ssc__core__member__length == 0) {
+    return ssc__core__fn__string_literal<u8"{}">();
+  }
+
+  std::string buffer = "{ ";
+  ssc__core__type__boolean is_first = true;
+
+  for (const ssc__core__type__u64 key : descriptor_pointer->ssc__core__member__keys) {
+    const ssc__core__struct__field& field = fields[key];
+
+    if (!is_first) {
+      buffer.append(", ");
+    }
+
+    is_first = false;
+    buffer.append(field.ssc__core__member__name);
+    buffer.append(": ");
+    ssc__core__fn__append_string(buffer, ssc__core__fn__inspect_field(reinterpret_cast<const char*>(object_header_pointer) + field.ssc__core__member__offset, field.ssc__core__member__kind));
+  }
+
+  buffer.append(" }");
+
+  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+}
+
 export template <typename Element> struct ssc__core__struct__array {
   ssc__core__struct__object_header ssc__core__member__object_header;
   ssc__core__type__u64 ssc__core__member__length;
@@ -1399,9 +1551,9 @@ template <typename Type> inline Type ssc__core__fn__union_to(const ssc__core__ty
 
 template <typename Element> inline ssc__core__type__union ssc__core__fn__array_callback(const ssc__core__type__ref& callback, const ssc__core__type__ref& array, ssc__core__type__u64 index) {
   const ssc__core__type__union arguments[] = {
-    ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-    ssc__core__type__union(index),
-    ssc__core__type__union(ssc__core__type__ref(array)),
+      ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
+      ssc__core__type__union(index),
+      ssc__core__type__union(ssc__core__type__ref(array)),
   };
 
   return ssc__core__fn__call_span(callback, {3, arguments});
@@ -1451,10 +1603,10 @@ export template <typename Element> inline ssc__core__type__union ssc__core__fn__
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
     const ssc__core__type__union arguments[] = {
-      accumulator,
-      ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-      ssc__core__type__union(index),
-      ssc__core__type__union(ssc__core__type__ref(array)),
+        accumulator,
+        ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
+        ssc__core__type__union(index),
+        ssc__core__type__union(ssc__core__type__ref(array)),
     };
 
     accumulator = ssc__core__fn__call_span(callback, {4, arguments});

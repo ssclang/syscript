@@ -1829,3 +1829,88 @@ test('closure.ts', async () => {
     }"
   `);
 });
+
+test('object-literal.ts', async () => {
+  expect(await lowerFixture('object-literal.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f {
+      static ssc__core__type__ref ssc__ts__var__point;
+      static ssc__core__type__ref ssc__ts__var__pair;
+      static ssc__core__type__i32 ssc__ts__var__x;
+      static ssc__core__type__ref ssc__ts__var__shorthand;
+      static ssc__core__type__ref ssc__ts__var__dog;
+      static ssc__core__type__ref ssc__ts__var__cat;
+      static ssc__core__type__ref ssc__ts__var__options;
+      static ssc__core__type__ref ssc__ts__var__nested;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__ref ssc__ts__var__point);
+      static void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name);
+      static ssc__core__type__ref ssc__ts__fn__describe(ssc__core__type__ref ssc__ts__var__animal);
+      struct ssc__ts__shape__76a1102b326949c2 { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__i32 ssc__ts__member__x; ssc__core__type__i32 ssc__ts__member__y; };
+      inline constexpr ssc__core__struct__field ssc__ts__shape__76a1102b326949c2__fields[] = {{"x", __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), ssc__core__var__type_id<ssc__core__type__i32>}, {"y", __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), ssc__core__var__type_id<ssc__core__type__i32>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__76a1102b326949c2__shape{{}, {}, {2, ssc__ts__shape__76a1102b326949c2__fields}, 0x76a1102b326949c2ull};
+      struct ssc__ts__shape__80bdf0a5cc1c9a6f { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__ref ssc__ts__member__name; };
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__80bdf0a5cc1c9a6f__ref_offsets[] = {__builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name)};
+      inline constexpr ssc__core__struct__field ssc__ts__shape__80bdf0a5cc1c9a6f__fields[] = {{"name", __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), ssc__core__var__type_id<ssc__core__type__ref>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__80bdf0a5cc1c9a6f__shape{{1, ssc__ts__shape__80bdf0a5cc1c9a6f__ref_offsets}, {}, {1, ssc__ts__shape__80bdf0a5cc1c9a6f__fields}, 0x80bdf0a5cc1c9a6full};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__76a1102b326949c2__descriptor__1_0__keys[] = {1, 0};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__76a1102b326949c2__descriptor__1_0{__builtin_addressof(ssc__ts__shape__76a1102b326949c2__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__76a1102b326949c2__descriptor__1_0__keys}};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__76a1102b326949c2__descriptor__0_1__keys[] = {0, 1};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__76a1102b326949c2__descriptor__0_1{__builtin_addressof(ssc__ts__shape__76a1102b326949c2__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__76a1102b326949c2__descriptor__0_1__keys}};
+      struct ssc__ts__shape__208f716220376f6a { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__ref ssc__ts__member__breed; ssc__core__type__ref ssc__ts__member__name; };
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__208f716220376f6a__ref_offsets[] = {__builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__breed), __builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__name)};
+      inline constexpr ssc__core__struct__field ssc__ts__shape__208f716220376f6a__fields[] = {{"breed", __builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__breed), ssc__core__var__type_id<ssc__core__type__ref>}, {"name", __builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__name), ssc__core__var__type_id<ssc__core__type__ref>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__208f716220376f6a__shape{{2, ssc__ts__shape__208f716220376f6a__ref_offsets}, {}, {2, ssc__ts__shape__208f716220376f6a__fields}, 0x208f716220376f6aull};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__208f716220376f6a__descriptor__1_0__keys[] = {1, 0};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__208f716220376f6a__descriptor__1_0{__builtin_addressof(ssc__ts__shape__208f716220376f6a__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__208f716220376f6a__descriptor__1_0__keys}};
+      struct ssc__ts__shape__a83c75e30b8aa0e2 { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__i32 ssc__ts__member__lives; ssc__core__type__ref ssc__ts__member__name; };
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__a83c75e30b8aa0e2__ref_offsets[] = {__builtin_offsetof(ssc__ts__shape__a83c75e30b8aa0e2, ssc__ts__member__name)};
+      inline constexpr ssc__core__struct__field ssc__ts__shape__a83c75e30b8aa0e2__fields[] = {{"lives", __builtin_offsetof(ssc__ts__shape__a83c75e30b8aa0e2, ssc__ts__member__lives), ssc__core__var__type_id<ssc__core__type__i32>}, {"name", __builtin_offsetof(ssc__ts__shape__a83c75e30b8aa0e2, ssc__ts__member__name), ssc__core__var__type_id<ssc__core__type__ref>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__a83c75e30b8aa0e2__shape{{1, ssc__ts__shape__a83c75e30b8aa0e2__ref_offsets}, {}, {2, ssc__ts__shape__a83c75e30b8aa0e2__fields}, 0xa83c75e30b8aa0e2ull};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__a83c75e30b8aa0e2__descriptor__0_1__keys[] = {0, 1};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__a83c75e30b8aa0e2__descriptor__0_1{__builtin_addressof(ssc__ts__shape__a83c75e30b8aa0e2__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__a83c75e30b8aa0e2__descriptor__0_1__keys}};
+      struct ssc__ts__shape__0d5ab165223eb3c9 { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__union ssc__ts__member__label; ssc__core__type__i32 ssc__ts__member__size; };
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__0d5ab165223eb3c9__union_offsets[] = {__builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__label)};
+      inline constexpr ssc__core__struct__field ssc__ts__shape__0d5ab165223eb3c9__fields[] = {{"label", __builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__label), ssc__core__var__union_kind}, {"size", __builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__size), ssc__core__var__type_id<ssc__core__type__i32>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__0d5ab165223eb3c9__shape{{}, {1, ssc__ts__shape__0d5ab165223eb3c9__union_offsets}, {2, ssc__ts__shape__0d5ab165223eb3c9__fields}, 0x0d5ab165223eb3c9ull};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__0d5ab165223eb3c9__descriptor__1__keys[] = {1};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__0d5ab165223eb3c9__descriptor__1{__builtin_addressof(ssc__ts__shape__0d5ab165223eb3c9__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {1, ssc__ts__shape__0d5ab165223eb3c9__descriptor__1__keys}};
+      struct ssc__ts__shape__cb2f883bd87ccd8c { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__ref ssc__ts__member__point; ssc__core__type__ref ssc__ts__member__tags; };
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__cb2f883bd87ccd8c__ref_offsets[] = {__builtin_offsetof(ssc__ts__shape__cb2f883bd87ccd8c, ssc__ts__member__point), __builtin_offsetof(ssc__ts__shape__cb2f883bd87ccd8c, ssc__ts__member__tags)};
+      inline constexpr ssc__core__struct__field ssc__ts__shape__cb2f883bd87ccd8c__fields[] = {{"point", __builtin_offsetof(ssc__ts__shape__cb2f883bd87ccd8c, ssc__ts__member__point), ssc__core__var__type_id<ssc__core__type__ref>}, {"tags", __builtin_offsetof(ssc__ts__shape__cb2f883bd87ccd8c, ssc__ts__member__tags), ssc__core__var__type_id<ssc__core__type__ref>}};
+      inline constexpr ssc__core__struct__shape ssc__ts__shape__cb2f883bd87ccd8c__shape{{2, ssc__ts__shape__cb2f883bd87ccd8c__ref_offsets}, {}, {2, ssc__ts__shape__cb2f883bd87ccd8c__fields}, 0xcb2f883bd87ccd8cull};
+      inline constexpr ssc__core__type__u64 ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1__keys[] = {0, 1};
+      inline constexpr ssc__core__struct__descriptor ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1{__builtin_addressof(ssc__ts__shape__cb2f883bd87ccd8c__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1__keys}};
+      static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__ref ssc__ts__var__point) {
+        return ssc__core__fn__add(ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x"), ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), "y"), "i32");
+      }
+      static void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name) {
+        (ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__var__animal, 0x80bdf0a5cc1c9a6full, __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), "name") = ssc__ts__var__name);
+      }
+      static ssc__core__type__ref ssc__ts__fn__describe(ssc__core__type__ref ssc__ts__var__animal) {
+        return ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__var__animal, 0x80bdf0a5cc1c9a6full, __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), "name");
+      }
+      void ssc__core__fn__dbc18dde7ade4de58d8dc304ce48705f() {
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point = [&] { ssc__ts__shape__76a1102b326949c2* object = reinterpret_cast<ssc__ts__shape__76a1102b326949c2*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__76a1102b326949c2), __builtin_addressof(ssc__ts__shape__76a1102b326949c2__descriptor__1_0))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__y), ssc__core__type__i32{2}); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__x), ssc__core__type__i32{1}); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__pair = ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point;
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__x = ssc__core__type__i32{10};
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__shorthand = [&] { ssc__ts__shape__76a1102b326949c2* object = reinterpret_cast<ssc__ts__shape__76a1102b326949c2*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__76a1102b326949c2), __builtin_addressof(ssc__ts__shape__76a1102b326949c2__descriptor__0_1))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__x), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__x); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__y), ssc__core__type__i32{20}); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__dog = [&] { ssc__ts__shape__208f716220376f6a* object = reinterpret_cast<ssc__ts__shape__208f716220376f6a*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__208f716220376f6a), __builtin_addressof(ssc__ts__shape__208f716220376f6a__descriptor__1_0))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__name), ssc__core__fn__string_literal<u8"rex">()); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__breed), ssc__core__fn__string_literal<u8"pug">()); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__cat = [&] { ssc__ts__shape__a83c75e30b8aa0e2* object = reinterpret_cast<ssc__ts__shape__a83c75e30b8aa0e2*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__a83c75e30b8aa0e2), __builtin_addressof(ssc__ts__shape__a83c75e30b8aa0e2__descriptor__0_1))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__lives), ssc__core__type__i32{9}); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__name), ssc__core__fn__string_literal<u8"tom">()); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__options = [&] { ssc__ts__shape__0d5ab165223eb3c9* object = reinterpret_cast<ssc__ts__shape__0d5ab165223eb3c9*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__0d5ab165223eb3c9), __builtin_addressof(ssc__ts__shape__0d5ab165223eb3c9__descriptor__1))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__size), ssc__core__type__i32{3}); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__label), ssc__core__type__union(ssc__core__var__undefined)); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__nested = [&] { ssc__ts__shape__cb2f883bd87ccd8c* object = reinterpret_cast<ssc__ts__shape__cb2f883bd87ccd8c*>(ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__cb2f883bd87ccd8c), __builtin_addressof(ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1))); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__point), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point); ssc__core__fn__construct(__builtin_addressof(object->ssc__ts__member__tags), ssc__core__fn__array_of<ssc__core__type__ref>(ssc__core__fn__string_literal<u8"a">())); return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }();
+        ssc__core__fn__console_log(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point, ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__pair, ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__shorthand, ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__options);
+        ssc__core__fn__console_log(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__fn__sum(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__fn__sum(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__pair), ssc__core__fn__strict_equals(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point, ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__pair));
+        (ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x") = ssc__core__type__i32{5});
+        ssc__core__fn__console_log(ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__pair, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x"));
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__fn__rename(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__dog, ssc__core__fn__string_literal<u8"max">());
+        ssc__core__fn__console_log(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__fn__describe(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__dog), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__fn__describe(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__cat), ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__dog, 0x208f716220376f6aull, __builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__name), "name"), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__dog);
+        ssc__core__fn__console_log(ssc__core__fn__field<ssc__core__type__union>(ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__options, 0x0d5ab165223eb3c9ull, __builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__label), "label"), ssc__core__fn__string_literal<u8"object">(), ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::ssc__ts__var__nested);
+        ssc__ts__namespace__dbc18dde7ade4de58d8dc304ce48705f::exit(ssc__core__type__i32{0});
+      }
+    }"
+  `);
+});
