@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { lower } from '~/cpp/lower.js';
+import { analyzeClosure } from '~/cpp/closure.js';
 import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscBuildManager } from '~/ssc/manager/build.js';
 import { SscManager } from '~/ssc/manager/ssc.js';
@@ -56,12 +57,15 @@ async function lowerFixture(name: string) {
     const sourceFiles = modules.map((m) => m.sourceFile);
     const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
       analyzeTdz(sourceFiles);
+    const { boxedVariableSymbolIdSet, closureCaptureMap } = analyzeClosure(sourceFiles);
     const output = lower(module.sourceFile, {
       kind: 'program',
       pathToId: (path) => manager.idManager.loadId(path),
       topLevelVariableSymbolIdSet,
       tdzVariableSymbolIdSet,
       tdzReferenceNodeSet,
+      boxedVariableSymbolIdSet,
+      closureCaptureMap,
     }).render();
 
     await manager.flush();
@@ -1748,6 +1752,79 @@ test('conditional.ts', async () => {
         ssc__core__fn__console_log(ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orZero(ssc__core__type__i32{5}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orZero(ssc__core__var__undefined), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orText(ssc__core__type__i32{6}), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orText(ssc__core__var__undefined), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orDefault(ssc__core__var__null), ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__fn__orDefault(ssc__core__fn__string_literal<u8"x">()));
         ssc__core__fn__console_log((ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__var__flag ? ssc__core__fn__string_literal<u8"yes">() : ssc__core__fn__string_literal<u8"no">()), ((!(ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::ssc__ts__var__flag)) ? ssc__core__type__union(ssc__core__type__f64{1.0}) : ssc__core__type__union(ssc__core__type__f64{2.0})));
         ssc__ts__namespace__d7efaeb5e75e4195bb5820440e1d5e6a::exit(ssc__core__type__i32{0});
+      }
+    }"
+  `);
+});
+
+test('closure.ts', async () => {
+  expect(await lowerFixture('closure.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2 {
+      static ssc__core__type__i32 ssc__ts__var__total;
+      static ssc__core__type__ref ssc__ts__var__addTotal;
+      static ssc__core__type__ref ssc__ts__var__a;
+      static ssc__core__type__ref ssc__ts__var__b;
+      static ssc__core__type__ref ssc__ts__var__add5;
+      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__ref ssc__ts__fn__makeCounter();
+      static ssc__core__type__i32 ssc__ts__fn__apply(ssc__core__type__ref ssc__ts__var__f, ssc__core__type__i32 ssc__ts__var__value);
+      static ssc__core__type__i32 ssc__ts__fn__double(ssc__core__type__i32 ssc__ts__var__x);
+      static ssc__core__type__ref ssc__ts__fn__makeAdder(ssc__core__type__i32 ssc__ts__var__step);
+      static ssc__core__type__i32 ssc__ts__fn__shared();
+      static ssc__core__type__i32 ssc__ts__fn__nested();
+      static ssc__core__type__i32 ssc__ts__fn__loop();
+      const ssc__core__struct__closure ssc__ts__closure__double{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, +[](const ssc__core__struct__closure*, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { return ssc__core__type__union(ssc__ts__fn__double(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__var__arguments[0]))); }, {0, nullptr}};
+      static ssc__core__type__ref ssc__ts__fn__makeCounter() {
+        ssc__core__type__ref ssc__ts__box__count = ssc__core__fn__box(ssc__core__type__union(ssc__core__type__i32{0}));
+        return ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { return ssc__core__type__union([&] { const ssc__core__type__i32 previous = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0])); const ssc__core__type__i32 next = ssc__core__fn__add(previous, ssc__core__type__i32{1}, "i32"); ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0]) = next; return next; }()); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__ts__box__count.ssc__core__member__get_object_header_pointer()});
+      }
+      static ssc__core__type__i32 ssc__ts__fn__apply(ssc__core__type__ref ssc__ts__var__f, ssc__core__type__i32 ssc__ts__var__value) {
+        return ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__ts__var__f, {ssc__core__type__union(ssc__ts__var__value)}));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__double(ssc__core__type__i32 ssc__ts__var__x) {
+        return ssc__core__fn__mul(ssc__ts__var__x, ssc__core__type__i32{2}, "i32");
+      }
+      static ssc__core__type__ref ssc__ts__fn__makeAdder(ssc__core__type__i32 ssc__ts__var__step) {
+        ssc__core__type__ref ssc__ts__box__step = ssc__core__fn__box(ssc__ts__var__step);
+        return ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { const ssc__core__type__i32 ssc__ts__var__x = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__var__arguments[0]); return ssc__core__type__union(ssc__core__fn__add(ssc__ts__var__x, ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0])), "i32")); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__ts__box__step.ssc__core__member__get_object_header_pointer()});
+      }
+      static ssc__core__type__i32 ssc__ts__fn__shared() {
+        ssc__core__type__ref ssc__ts__box__value = ssc__core__fn__box(ssc__core__type__union(ssc__core__type__i32{1}));
+        const ssc__core__type__ref ssc__ts__var__set = ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { const ssc__core__type__i32 ssc__ts__var__next = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__var__arguments[0]); (ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0]) = ssc__ts__var__next); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__ts__box__value.ssc__core__member__get_object_header_pointer()});
+        ssc__core__fn__call(ssc__ts__var__set, {ssc__core__type__union(ssc__core__type__i32{10})});
+        return ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__ts__box__value.ssc__core__member__get_object_header_pointer()));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__nested() {
+        ssc__core__type__ref ssc__ts__box__base = ssc__core__fn__box(ssc__core__type__union(ssc__core__type__i32{1}));
+        const ssc__core__type__ref ssc__ts__var__outer = ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { return ssc__core__type__union(ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { return ssc__core__type__union(ssc__core__fn__add(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0])), ssc__core__type__i32{1}, "i32")); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__core__var__closure->ssc__core__member__captures[0]})); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__ts__box__base.ssc__core__member__get_object_header_pointer()});
+        (ssc__core__fn__box_value(ssc__ts__box__base.ssc__core__member__get_object_header_pointer()) = ssc__core__type__i32{5});
+        return ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__core__fn__union_to_ref(ssc__core__fn__call(ssc__ts__var__outer, {})), {}));
+      }
+      static ssc__core__type__i32 ssc__ts__fn__loop() {
+        const ssc__core__type__ref ssc__ts__var__functions = ssc__core__fn__array_of<ssc__core__type__ref>();
+        for (ssc__core__type__ref ssc__ts__box__i = ssc__core__fn__box(ssc__core__type__union(ssc__core__type__i32{0})); (ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__ts__box__i.ssc__core__member__get_object_header_pointer())) < ssc__core__type__i32{3}); ssc__ts__box__i = ssc__core__fn__box(ssc__core__fn__box_value(ssc__ts__box__i.ssc__core__member__get_object_header_pointer())), [&] { const ssc__core__type__i32 previous = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__ts__box__i.ssc__core__member__get_object_header_pointer())); const ssc__core__type__i32 next = ssc__core__fn__add(previous, ssc__core__type__i32{1}, "i32"); ssc__core__fn__box_value(ssc__ts__box__i.ssc__core__member__get_object_header_pointer()) = next; return previous; }()) {
+          ssc__core__fn__array_push<ssc__core__type__ref>(ssc__ts__var__functions, ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { return ssc__core__type__union(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__box_value(ssc__core__var__closure->ssc__core__member__captures[0]))); return ssc__core__type__union(ssc__core__var__undefined); }, {ssc__ts__box__i.ssc__core__member__get_object_header_pointer()}));
+        }
+        return ssc__core__fn__add(ssc__core__fn__add(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call((ssc__core__fn__union_as<ssc__core__type__ref>(ssc__core__fn__array_get<ssc__core__type__ref>(ssc__ts__var__functions, ssc__core__type__u64{0u}), "() => i32")), {})), ssc__core__fn__mul(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call((ssc__core__fn__union_as<ssc__core__type__ref>(ssc__core__fn__array_get<ssc__core__type__ref>(ssc__ts__var__functions, ssc__core__type__u64{1u}), "() => i32")), {})), ssc__core__type__i32{10}, "i32"), "i32"), ssc__core__fn__mul(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call((ssc__core__fn__union_as<ssc__core__type__ref>(ssc__core__fn__array_get<ssc__core__type__ref>(ssc__ts__var__functions, ssc__core__type__u64{2u}), "() => i32")), {})), ssc__core__type__i32{100}, "i32"), "i32");
+      }
+      void ssc__core__fn__e9b71495dc8c4c9c932ad2b67d2405d2() {
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__total = ssc__core__type__i32{0};
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__addTotal = ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { const ssc__core__type__i32 ssc__ts__var__x = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__var__arguments[0]); (ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__total = ssc__core__fn__add(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__total, ssc__ts__var__x, "i32")); return ssc__core__type__union(ssc__core__var__undefined); }, {});
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a = ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__makeCounter();
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__b = ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__makeCounter();
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__add5 = ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__makeAdder(ssc__core__type__i32{5});
+        ssc__core__fn__console_log(ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a, {})), ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a, {})), ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__b, {})), ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a, {})));
+        ssc__core__fn__console_log(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__apply(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__add5, ssc__core__type__i32{10}), ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__apply(ssc__core__fn__function_value(ssc__ts__closure__double), ssc__core__type__i32{21}), ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__apply(ssc__core__fn__closure(+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { const ssc__core__type__i32 ssc__ts__var__x = ssc__core__fn__union_to_number<ssc__core__type__i32>(ssc__core__var__arguments[0]); return ssc__core__type__union(ssc__core__fn__sub(ssc__ts__var__x, ssc__core__type__i32{1}, "i32")); return ssc__core__type__union(ssc__core__var__undefined); }, {}), ssc__core__type__i32{1}));
+        ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__addTotal, {ssc__core__type__union(ssc__core__type__i32{3})});
+        ssc__core__fn__call(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__addTotal, {ssc__core__type__union(ssc__core__type__i32{4})});
+        ssc__core__fn__console_log(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__total);
+        ssc__core__fn__console_log(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__shared(), ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__nested(), ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__fn__loop());
+        ssc__core__fn__console_log(ssc__core__fn__string_literal<u8"function">(), ssc__core__fn__strict_equals(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a, ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a), ssc__core__fn__strict_equals(ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__a, ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::ssc__ts__var__b));
+        ssc__ts__namespace__e9b71495dc8c4c9c932ad2b67d2405d2::exit(ssc__core__type__i32{0});
       }
     }"
   `);

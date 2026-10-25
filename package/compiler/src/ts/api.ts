@@ -1,3 +1,4 @@
+// TODO: call linked functions when self hosting
 import { CliExitError } from '@syscript/cli';
 import { createRequire } from 'module';
 import * as ast from 'typescript7/ast';
@@ -140,6 +141,10 @@ export class CheckerApi {
 
   isArrayType(type: ts.Type) {
     return this.checker.isArrayType(type);
+  }
+
+  getSignaturesOfType(type: ts.Type, kind: ts.SignatureKind) {
+    return this.checker.getSignaturesOfType(type, kind);
   }
 
   getTypeArguments(type: ts.TypeReference) {

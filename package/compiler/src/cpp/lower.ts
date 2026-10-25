@@ -2,6 +2,7 @@ import { assert, assertNever } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
+import { Capture } from '~/cpp/closure.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
@@ -22,6 +23,7 @@ import {
   NodeElementAccessExpression,
   NodeExpressionStatement,
   NodeForStatement,
+  NodeFunctionExpression,
   NodeFunctionDeclaration,
   NodeIdentifier,
   NodeIfStatement,
@@ -48,14 +50,17 @@ export type ProgramContext = {
   topLevelVariableSymbolIdSet: Set<number>;
   tdzVariableSymbolIdSet: Set<number>;
   tdzReferenceNodeSet: Set<ast.Node>;
+  boxedVariableSymbolIdSet: Set<number>;
+  closureCaptureMap: Map<ast.Node, Capture[]>;
 };
 
-type LowerContext = TopLevelContext | FunctionContext;
+type LowerContext = TopLevelContext | FunctionContext | ClosureContext;
 
 type GlobalContext = {
   kind: 'global';
   programContext: ProgramContext;
   importedForwardMap: Map<RealPath, Map<string, string>>;
+  functionValueDefinitionMap: Map<string, string>;
 };
 
 type TopLevelContext = {
@@ -66,6 +71,12 @@ type TopLevelContext = {
 type FunctionContext = {
   kind: 'function';
   globalContext: GlobalContext;
+};
+
+type ClosureContext = {
+  kind: 'closure';
+  globalContext: GlobalContext;
+  captures: Capture[];
 };
 
 export function lower(sourceFile: AppSourceFile, programContext: ProgramContext) {
@@ -79,6 +90,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     kind: 'global',
     programContext,
     importedForwardMap: new Map<RealPath, Map<string, string>>(),
+    functionValueDefinitionMap: new Map<string, string>(),
   } as const satisfies GlobalContext;
   const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
@@ -128,6 +140,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   w.block(`namespace ${namespaceName}`, () => [
     ...topLevelVariableDefinitions,
     ...functionForwards,
+    ...globalContext.functionValueDefinitionMap.values(),
     ...definedFunctionLines,
     ...topLevelStatements,
   ]);
@@ -206,6 +219,10 @@ function getSscFunctionName(node: NodeFunctionDeclaration) {
   return `ssc__ts__fn__${name}`;
 }
 
+function getSscBoxName(name: string) {
+  return `ssc__ts__box__${name}`;
+}
+
 function getSscTdzTagName(name: string) {
   return `ssc__ts__tdz__${name}`;
 }
@@ -255,10 +272,21 @@ function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelC
 
   w.block(getFunctionSignature(node), () => {
     assert(node.block); // TODO: remove
-    return node.block.statements
-      .values()
-      .flatMap((s) => lowerStatement(s, context))
-      .toArray();
+    const boxes = node.parameters
+      .map((p) => p.bindingName.identifier)
+      .filter((i) => isBoxedVariable(i, context))
+      .map(
+        (i) =>
+          `ssc__core__type__ref ${getSscBoxName(i.text)} = ssc__core__fn__box(${getSscVariableName(i.text)});`,
+      );
+
+    return [
+      ...boxes,
+      ...node.block.statements
+        .values()
+        .flatMap((s) => lowerStatement(s, context))
+        .toArray(),
+    ];
   });
 
   return w.lines();
@@ -326,6 +354,13 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   }
 
   if (node instanceof NodeReturnStatement) {
+    if (context.kind === 'closure') {
+      const value =
+        node.expression ? lowerValue(node.expression, context) : 'ssc__core__var__undefined';
+
+      return [`return ssc__core__type__union(${value});`];
+    }
+
     const line = node.expression ? `return ${lowerValue(node.expression, context)};` : 'return;';
     return [line];
   }
@@ -359,6 +394,12 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
 
 function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerContext) {
   const { identifier } = node.bindingName;
+
+  if (isBoxedVariable(identifier, context)) {
+    const value = node.initializer ? lowerValue(node.initializer, context) : '';
+
+    return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(ssc__core__type__union(${value}))`;
+  }
   const constness = node.keyword === 'const' ? 'const ' : '';
   const signature = getVariableSignature(identifier);
 
@@ -398,7 +439,15 @@ function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
 function lowerForStatement(node: NodeForStatement, context: LowerContext) {
   const declarations = node.declarations.map((d) => lowerVariableDeclaration(d, context));
   const condition = lowerCondition(node.condition, context);
-  const incrementor = lowerExpression(node.incrementor, context);
+  const renewals = node.declarations
+    .map((d) => d.bindingName.identifier)
+    .filter((i) => isBoxedVariable(i, context))
+    .map((i) => {
+      const name = getSscBoxName(i.text);
+
+      return `${name} = ssc__core__fn__box(ssc__core__fn__box_value(${name}.ssc__core__member__get_object_header_pointer())), `;
+    });
+  const incrementor = `${renewals.join('')}${lowerExpression(node.incrementor, context)}`;
   const lowerBody = () => node.block.statements.flatMap((s) => lowerStatement(s, context));
   const w = new CppWriter();
 
@@ -548,6 +597,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerConditionalExpression(node, context);
   }
 
+  if (node instanceof NodeFunctionExpression) {
+    return lowerFunctionExpression(node, context);
+  }
+
   if (node instanceof NodeArrayLiteralExpression) {
     return lowerArrayLiteralExpression(node, context);
   }
@@ -569,7 +622,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return 'ssc__core__var__undefined';
     }
 
-    return narrowUnion(node, lowerVariableReference(node, context));
+    if (ast.isFunctionDeclaration(node.getValueDeclaration())) {
+      return lowerFunctionValue(node, context);
+    }
+
+    return narrowUnion(node, lowerVariableReference(node, context), context);
   }
 
   if (node instanceof NodeBinaryExpression) {
@@ -655,10 +712,12 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return lowerMethodCallExpression(node, callee, context);
     }
 
-    assert(
-      callee instanceof NodeIdentifier,
-      `${callee.location()}: not implemented callee: ${callee.getText()}`,
-    );
+    if (
+      !(callee instanceof NodeIdentifier)
+      || !ast.isFunctionDeclaration(callee.getValueDeclaration())
+    ) {
+      return lowerFunctionValueCallExpression(node, context);
+    }
 
     const declaration = callee.getValueDeclaration();
     const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
@@ -699,6 +758,104 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   throw new Error(`not implemented expression: ${node.getText()}`);
+}
+
+function lowerFunctionValueCallExpression(node: NodeCallExpression, context: LowerContext) {
+  const args = node.arguments.map((a) => `ssc__core__type__union(${lowerValue(a, context)})`);
+  const text = `ssc__core__fn__call(${lowerExpression(node.expression, context)}, {${args.join(', ')}})`;
+  const typeName = getSscTypeName(node.app, node.getType());
+
+  if (typeName === 'void' || typeName === 'ssc__core__type__union') {
+    return text;
+  }
+
+  return getUnionReadText(typeName, text);
+}
+
+function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerContext) {
+  const captures = context.globalContext.programContext.closureCaptureMap.get(node.tsNode) || [];
+  const closureContext = {
+    kind: 'closure',
+    globalContext: context.globalContext,
+    captures,
+  } as const satisfies ClosureContext;
+  const parameters = node.parameters.map((p, index) => {
+    const { identifier } = p.bindingName;
+    const argument = `ssc__core__var__arguments[${index}]`;
+
+    if (isBoxedVariable(identifier, closureContext)) {
+      return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(${argument});`;
+    }
+
+    const typeName = getSscTypeName(node.app, identifier.getType());
+    const value =
+      typeName === 'ssc__core__type__union' ? argument : getUnionReadText(typeName, argument);
+
+    return `const ${typeName} ${getSscVariableName(identifier.text)} = ${value};`;
+  });
+  const body =
+    node.body instanceof NodeBlock ?
+      node.body.statements.flatMap((s) => lowerStatement(s, closureContext))
+    : [`return ssc__core__type__union(${lowerValue(node.body, closureContext)});`];
+  const lines = [
+    ...parameters,
+    ...body,
+    'return ssc__core__type__union(ssc__core__var__undefined);',
+  ];
+  const lambda = `+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${lines.join(' ')} }`;
+  const boxes = captures.map((c) => getBoxPointerText(c, context));
+
+  return `ssc__core__fn__closure(${lambda}, {${boxes.join(', ')}})`;
+}
+
+function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
+  const declaration = new NodeFunctionDeclaration(
+    node.app,
+    node.getValueDeclaration() as ast.FunctionDeclaration,
+  );
+
+  assert(
+    !declaration.isDeclared && declaration.getSourceFile() === node.getSourceFile(),
+    `${node.location()}: not implemented function value: ${node.text}`,
+  );
+
+  const name = `ssc__ts__closure__${declaration.identifier.text}`;
+  const parameters = declaration.parameters.map((p, index) => {
+    const typeName = getSscTypeName(node.app, p.bindingName.identifier.getType());
+    const argument = `ssc__core__var__arguments[${index}]`;
+
+    return typeName === 'ssc__core__type__union' ? argument : getUnionReadText(typeName, argument);
+  });
+  const call = `${getSscFunctionName(declaration)}(${parameters.join(', ')})`;
+  const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
+  const body =
+    isVoid ?
+      `${call}; return ssc__core__type__union(ssc__core__var__undefined);`
+    : `return ssc__core__type__union(${call});`;
+
+  context.globalContext.functionValueDefinitionMap.set(
+    name,
+    `const ssc__core__struct__closure ${name}{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, +[](const ssc__core__struct__closure*, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${body} }, {0, nullptr}};`,
+  );
+
+  return `ssc__core__fn__function_value(${name})`;
+}
+
+function isBoxedVariable(node: NodeIdentifier, context: LowerContext) {
+  return context.globalContext.programContext.boxedVariableSymbolIdSet.has(node.getSymbol().id);
+}
+
+function getBoxPointerText(capture: Capture, context: LowerContext) {
+  const index =
+    context.kind === 'closure' ?
+      context.captures.findIndex((c) => c.symbolId === capture.symbolId)
+    : -1;
+
+  if (index !== -1) {
+    return `ssc__core__var__closure->ssc__core__member__captures[${index}]`;
+  }
+
+  return `${getSscBoxName(capture.name)}.ssc__core__member__get_object_header_pointer()`;
 }
 
 function lowerMethodCallExpression(
@@ -925,7 +1082,7 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
   if (isStringType(node.left.getType())) {
     const target = lowerVariableReference(node.left, context);
 
-    return `(${target} = ssc__core__fn__string_concat(${target}, ${lowerString(node.right, context)}))`;
+    return `(${target} = ssc__core__fn__string_concat(${lowerExpression(node.left, context)}, ${lowerString(node.right, context)}))`;
   }
 
   const type = getSscNumberType(node.left);
@@ -1015,9 +1172,7 @@ function lowerUpdateExpression(
   const target = lowerVariableReference(operand, context);
   const isPrefix = node instanceof NodePrefixUnaryExpression;
   const isIncrement = operator === ast.SyntaxKind.PlusPlusToken;
-  const declaredType = operand.app.checker.getTypeOfSymbol(operand.getSymbol());
-
-  if (getSscTypeName(operand.app, declaredType) === 'ssc__core__type__union') {
+  if (isUnionStorage(operand, context)) {
     const one = getNumericLiteral('1', `ssc__core__type__${type}`);
     const step =
       includes(sscFloatTypes, type) ?
@@ -1274,6 +1429,10 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
 
   if (node.app.checker.isArrayType(node.expression.getType())) {
     return getStringLiteral('object');
+  }
+
+  if (isFunctionType(node.app, node.expression.getType())) {
+    return getStringLiteral('function');
   }
 
   const typeName = getSscTypeName(node.app, node.expression.getType());
@@ -1687,6 +1846,12 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
     `${node.location()}: '${node.text}' is not a variable identifier`,
   );
 
+  if (isBoxedVariable(node, context)) {
+    const capture = { symbolId: node.getSymbol().id, name: node.text };
+
+    return `ssc__core__fn__box_value(${getBoxPointerText(capture, context)})`;
+  }
+
   if (!topLevelVariableSymbolIdSet.has(node.getSymbol().id)) {
     return getSscVariableName(node.text);
   }
@@ -1750,10 +1915,8 @@ function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
   );
 }
 
-function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
-  const declaredType = node.app.checker.getTypeOfSymbol(node.getSymbol());
-
-  if (getSscTypeName(node.app, declaredType) !== 'ssc__core__type__union') {
+function narrowUnion(node: NodeIdentifier, text: string, context: LowerContext) {
+  if (!isUnionStorage(node, context)) {
     return text;
   }
 
@@ -1764,6 +1927,15 @@ function narrowUnion(node: AbstractNode<ast.Expression>, text: string) {
   }
 
   return getUnionReadText(typeName, text);
+}
+
+function isUnionStorage(node: NodeIdentifier, context: LowerContext) {
+  const declaredType = node.app.checker.getTypeOfSymbol(node.getSymbol());
+
+  return (
+    isBoxedVariable(node, context)
+    || getSscTypeName(node.app, declaredType) === 'ssc__core__type__union'
+  );
 }
 
 function getUnionReadText(typeName: string, text: string) {
@@ -1798,6 +1970,10 @@ function isStringType(type: ts.Type) {
   return isTypeFlagMatch(type, ts.TypeFlags.StringLike);
 }
 
+function isFunctionType(app: AppSourceFile['app'], type: ts.Type) {
+  return app.checker.getSignaturesOfType(type, ts.SignatureKind.Call).length !== 0;
+}
+
 function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   if (isTypeFlagMatch(type, ts.TypeFlags.Void)) {
     return 'void';
@@ -1824,6 +2000,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   }
 
   if (app.checker.isArrayType(type)) {
+    return 'ssc__core__type__ref';
+  }
+
+  if (isFunctionType(app, type)) {
     return 'ssc__core__type__ref';
   }
 

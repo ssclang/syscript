@@ -191,6 +191,10 @@ export abstract class AbstractExpression<
       return new NodeConditionalExpression(app, tsNode);
     }
 
+    if (ast.isArrowFunction(tsNode) || ast.isFunctionExpression(tsNode)) {
+      return new NodeFunctionExpression(app, tsNode);
+    }
+
     if (ast.isArrayLiteralExpression(tsNode)) {
       return new NodeArrayLiteralExpression(app, tsNode);
     }
@@ -557,6 +561,30 @@ export class NodeElementAccessExpression extends AbstractExpression<ast.ElementA
     super(app, tsNode);
     this.expression = AbstractExpression.of(app, this.tsNode.expression);
     this.argumentExpression = AbstractExpression.of(app, this.tsNode.argumentExpression);
+  }
+}
+
+export class NodeFunctionExpression extends AbstractExpression<
+  ast.ArrowFunction | ast.FunctionExpression
+> {
+  readonly parameters: NodeParameterDeclaration[];
+  readonly body: NodeBlock | AbstractExpression;
+
+  constructor(app: TsApp, tsNode: ast.ArrowFunction | ast.FunctionExpression) {
+    super(app, tsNode);
+    this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
+    this.body =
+      ast.isBlock(this.tsNode.body) ?
+        new NodeBlock(app, this.tsNode.body)
+      : AbstractExpression.of(app, this.tsNode.body);
+  }
+
+  getSignature() {
+    return this.app.checker.getSignatureFromDeclaration(this.tsNode);
+  }
+
+  getReturnType() {
+    return this.getSignature().getReturnType();
   }
 }
 

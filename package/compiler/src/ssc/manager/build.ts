@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { lower, ProgramContext, renderMainCpp, renderTsCppm } from '~/cpp/lower.js';
+import { analyzeClosure } from '~/cpp/closure.js';
 import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
 import { TsApp } from '~/ts/app.js';
@@ -304,12 +305,15 @@ export class SscBuildManager {
     const sourceFiles = modules.map((m) => m.sourceFile);
     const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
       analyzeTdz(sourceFiles);
+    const { boxedVariableSymbolIdSet, closureCaptureMap } = analyzeClosure(sourceFiles);
     const programContext = {
       kind: 'program',
       pathToId: (p) => this.idManager.loadId(p),
       topLevelVariableSymbolIdSet,
       tdzVariableSymbolIdSet,
       tdzReferenceNodeSet,
+      boxedVariableSymbolIdSet,
+      closureCaptureMap,
     } as const satisfies ProgramContext;
 
     for (const module of modules) {

@@ -365,6 +365,14 @@ test('order.ts', async () => {
   });
 });
 
+test('closure.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'closure.ts'))).toEqual({
+    status: 0,
+    stdout: '1 2 1 3\n15 42 0\n7\n10 6 210\nfunction true false\n',
+    stderr: '',
+  });
+});
+
 test('template.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'template.ts'))).toEqual({
     status: 0,

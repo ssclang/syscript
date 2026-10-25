@@ -49,6 +49,10 @@ export template <typename Type> struct ssc__core__struct__span {
   inline const Type* end() const noexcept {
     return ssc__core__member__elements_pointer + ssc__core__member__length;
   }
+
+  inline const Type& operator[](ssc__core__type__u64 index) const noexcept {
+    return ssc__core__member__elements_pointer[index];
+  }
 };
 
 export struct ssc__core__struct__object_header {
@@ -306,6 +310,85 @@ export template <ssc__core__type__u64 Size> struct ssc__core__struct__string_lit
 
 export template <ssc__core__struct__string_literal Text> inline ssc__core__type__ref ssc__core__fn__string_literal() noexcept {
   return ssc__core__type__ref(const_cast<ssc__core__struct__object_header*>(__builtin_addressof(Text.ssc__core__member__object_header)));
+}
+
+export struct ssc__core__struct__box {
+  ssc__core__struct__object_header ssc__core__member__object_header;
+  ssc__core__type__union ssc__core__member__value;
+};
+
+inline constexpr ssc__core__type__u64 ssc__core__var__box_union_offsets[] = {__builtin_offsetof(ssc__core__struct__box, ssc__core__member__value)};
+inline constexpr ssc__core__struct__shape ssc__core__var__box_shape{{}, {1, ssc__core__var__box_union_offsets}};
+inline constexpr ssc__core__struct__descriptor ssc__core__var__box_descriptor{__builtin_addressof(ssc__core__var__box_shape)};
+
+export inline ssc__core__type__ref ssc__core__fn__box(ssc__core__type__union value) {
+  void* pointer = malloc(sizeof(ssc__core__struct__box));
+
+  if (!pointer) [[unlikely]] {
+    __builtin_trap();
+  }
+
+  ssc__core__struct__box* box_pointer = static_cast<ssc__core__struct__box*>(pointer);
+  box_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__box_descriptor)};
+  std::construct_at(__builtin_addressof(box_pointer->ssc__core__member__value), static_cast<ssc__core__type__union&&>(value));
+
+  return ssc__core__type__ref(__builtin_addressof(box_pointer->ssc__core__member__object_header));
+}
+
+export inline ssc__core__type__union& ssc__core__fn__box_value(ssc__core__struct__object_header* object_header_pointer) noexcept {
+  return reinterpret_cast<ssc__core__struct__box*>(object_header_pointer)->ssc__core__member__value;
+}
+
+export struct ssc__core__struct__closure {
+  ssc__core__struct__object_header ssc__core__member__object_header;
+  ssc__core__type__union (*ssc__core__member__function)(const ssc__core__struct__closure* closure, ssc__core__struct__span<ssc__core__type__union> arguments);
+  ssc__core__struct__span<ssc__core__struct__object_header*> ssc__core__member__captures;
+};
+
+inline void ssc__core__fn__closure_destroy(ssc__core__struct__object_header* object_header_pointer) noexcept {
+  for (ssc__core__struct__object_header* capture : reinterpret_cast<ssc__core__struct__closure*>(object_header_pointer)->ssc__core__member__captures) {
+    ssc__core__fn__drop_rc(capture);
+  }
+}
+
+inline ssc__core__type__ref ssc__core__fn__closure_to_string(const ssc__core__type__ref&) {
+  return ssc__core__fn__string_literal<u8"[Function]">();
+}
+
+inline constexpr ssc__core__struct__shape ssc__core__var__closure_shape{};
+export inline constexpr ssc__core__struct__descriptor ssc__core__var__closure_descriptor{__builtin_addressof(ssc__core__var__closure_shape), ssc__core__fn__closure_destroy, ssc__core__fn__closure_to_string, ssc__core__fn__closure_to_string};
+
+export inline ssc__core__type__ref ssc__core__fn__closure(decltype(ssc__core__struct__closure::ssc__core__member__function) function, std::initializer_list<ssc__core__struct__object_header*> captures) {
+  void* pointer = malloc(sizeof(ssc__core__struct__closure) + captures.size() * sizeof(ssc__core__struct__object_header*));
+
+  if (!pointer) [[unlikely]] {
+    __builtin_trap();
+  }
+
+  ssc__core__struct__closure* closure_pointer = static_cast<ssc__core__struct__closure*>(pointer);
+  ssc__core__struct__object_header** captures_pointer = reinterpret_cast<ssc__core__struct__object_header**>(closure_pointer + 1);
+  ssc__core__type__u64 index = 0;
+
+  for (ssc__core__struct__object_header* capture : captures) {
+    ssc__core__fn__clone_rc(capture);
+    captures_pointer[index++] = capture;
+  }
+
+  closure_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__closure_descriptor)};
+  closure_pointer->ssc__core__member__function = function;
+  closure_pointer->ssc__core__member__captures = {captures.size(), captures_pointer};
+
+  return ssc__core__type__ref(__builtin_addressof(closure_pointer->ssc__core__member__object_header));
+}
+
+export inline ssc__core__type__ref ssc__core__fn__function_value(const ssc__core__struct__closure& closure) noexcept {
+  return ssc__core__type__ref(const_cast<ssc__core__struct__object_header*>(__builtin_addressof(closure.ssc__core__member__object_header)));
+}
+
+export inline ssc__core__type__union ssc__core__fn__call(const ssc__core__type__ref& function, std::initializer_list<ssc__core__type__union> arguments) {
+  const ssc__core__struct__closure* closure_pointer = reinterpret_cast<const ssc__core__struct__closure*>(function.ssc__core__member__get_object_header_pointer());
+
+  return closure_pointer->ssc__core__member__function(closure_pointer, {arguments.size(), arguments.begin()});
 }
 
 inline const ssc__core__struct__string* ssc__core__fn__get_string_pointer(const ssc__core__type__ref& string) noexcept {
@@ -648,11 +731,18 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_string(const ssc_
   return value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor);
 }
 
+export inline ssc__core__type__boolean ssc__core__fn__union_is_function(const ssc__core__type__union& value) noexcept {
+  if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__ref>) {
+    return false;
+  }
+  return value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__closure_descriptor);
+}
+
 export inline ssc__core__type__boolean ssc__core__fn__union_is_object(const ssc__core__type__union& value) noexcept {
   if (ssc__core__fn__union_is_null(value)) {
     return true;
   }
-  return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && !ssc__core__fn__union_is_string(value);
+  return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && !ssc__core__fn__union_is_string(value) && !ssc__core__fn__union_is_function(value);
 }
 
 template <typename Left, typename Right> inline constexpr ssc__core__type__boolean ssc__core__fn__integer_equals(Left left, Right right) noexcept {
@@ -888,6 +978,10 @@ export inline ssc__core__type__ref ssc__core__fn__typeof(const ssc__core__type__
 
   if (ssc__core__fn__union_is_string(value)) {
     return ssc__core__fn__string_literal<u8"string">();
+  }
+
+  if (ssc__core__fn__union_is_function(value)) {
+    return ssc__core__fn__string_literal<u8"function">();
   }
 
   return ssc__core__fn__string_literal<u8"object">();
@@ -1304,17 +1398,19 @@ export inline void ssc__core__fn__write_stderr(std::string_view string_view) noe
 template <typename... Types> inline void ssc__core__fn__write_line(std::ostream& stream, const Types&... values) {
   ssc__core__type__boolean is_first = true;
 
-  ([&] {
-    const ssc__core__type__ref string = ssc__core__fn__console_string(values);
-    const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
+  (
+      [&] {
+        const ssc__core__type__ref string = ssc__core__fn__console_string(values);
+        const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
 
-    if (!is_first) {
-      stream.put(' ');
-    }
+        if (!is_first) {
+          stream.put(' ');
+        }
 
-    is_first = false;
-    stream.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
-  }(), ...);
+        is_first = false;
+        stream.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+      }(),
+      ...);
 
   stream.put('\n');
 }
