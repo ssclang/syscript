@@ -25,6 +25,7 @@ static_assert(__UINT64_MAX__ == 18446744073709551615U);
 
 export struct ssc__core__type__undefined {};
 export struct ssc__core__type__null {};
+export using ssc__core__type__void = void;
 export using ssc__core__type__boolean = bool;
 export using ssc__core__type__i8 = __INT8_TYPE__;
 export using ssc__core__type__i16 = __INT16_TYPE__;

@@ -5,6 +5,7 @@ import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
 import {
   CppBooleanLiteral,
+  CppNode,
   CppNullLiteral,
   CppNumericLiteral,
   CppStringLiteral,
@@ -240,12 +241,12 @@ function getSscTdzTagName(name: string) {
 }
 
 function getVariableSignature(identifier: NodeIdentifier) {
-  return `${getSscTypeName(identifier.app, identifier.getType())} ${getSscVariableName(identifier.text)}`;
+  return `${CppNode.toCppTypeName(getSscTypeName(identifier.app, identifier.getType()))} ${getSscVariableName(identifier.text)}`;
 }
 
 function getFunctionSignature(node: NodeFunctionDeclaration) {
   const linkage = getFunctionLinkage(node);
-  const returnType = getSscTypeName(node.app, node.getReturnType());
+  const returnType = CppNode.toCppTypeName(getSscTypeName(node.app, node.getReturnType()));
   const parameters = node.parameters
     .map((p) => getVariableSignature(p.bindingName.identifier))
     .join(', ');
@@ -502,36 +503,36 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
 }
 
 function getTruthyCondition(typeName: string, text: string) {
-  if (typeName === 'ssc__core__type__union') {
+  if (typeName === 'union') {
     return `ssc__core__fn__truthy_union(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__ref') {
+  if (typeName === 'ref') {
     return `ssc__core__fn__truthy_ref(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__boolean') {
+  if (typeName === 'boolean') {
     return text;
   }
 
-  if (typeName === 'ssc__core__type__f32') {
+  if (typeName === 'f32') {
     return `ssc__core__fn__truthy_f32(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__f64') {
+  if (typeName === 'f64') {
     return `ssc__core__fn__truthy_f64(${text})`;
   }
 
   if (
-    typeName === 'ssc__core__type__i8'
-    || typeName === 'ssc__core__type__i16'
-    || typeName === 'ssc__core__type__i32'
-    || typeName === 'ssc__core__type__i64'
-    || typeName === 'ssc__core__type__u8'
-    || typeName === 'ssc__core__type__u16'
-    || typeName === 'ssc__core__type__u32'
-    || typeName === 'ssc__core__type__u64'
-    || typeName === 'ssc__core__type__char'
+    typeName === 'i8'
+    || typeName === 'i16'
+    || typeName === 'i32'
+    || typeName === 'i64'
+    || typeName === 'u8'
+    || typeName === 'u16'
+    || typeName === 'u32'
+    || typeName === 'u64'
+    || typeName === 'char'
   ) {
     return `${text} != 0`;
   }
@@ -570,7 +571,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     const numberTypes = type
       .getTypes()
       .filter((t) => !isTypeFlagMatch(t, ts.TypeFlags.Literal))
-      .map((t) => getSscTypeName(node.app, t).replace('ssc__core__type__', ''))
+      .map((t) => getSscTypeName(node.app, t))
       .filter<SscNumberType>((t) => includes(sscNumberTypes, t));
     const [numberType] = numberTypes;
 
@@ -787,7 +788,7 @@ function lowerFunctionValueCallExpression(node: NodeCallExpression, context: Low
   const text = `ssc__core__fn__call(${lowerExpression(node.expression, context)}, {${args.join(', ')}})`;
   const typeName = getSscTypeName(node.app, node.getType());
 
-  if (typeName === 'void' || typeName === 'ssc__core__type__union') {
+  if (typeName === 'void' || typeName === 'union') {
     return text;
   }
 
@@ -810,10 +811,9 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
     }
 
     const typeName = getSscTypeName(node.app, identifier.getType());
-    const value =
-      typeName === 'ssc__core__type__union' ? argument : getUnionReadText(typeName, argument);
+    const value = typeName === 'union' ? argument : getUnionReadText(typeName, argument);
 
-    return `const ${typeName} ${getSscVariableName(identifier.text)} = ${value};`;
+    return `const ${CppNode.toCppTypeName(typeName)} ${getSscVariableName(identifier.text)} = ${value};`;
   });
   const body =
     node.body instanceof NodeBlock ?
@@ -846,7 +846,7 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
     const typeName = getSscTypeName(node.app, p.bindingName.identifier.getType());
     const argument = `ssc__core__var__arguments[${index}]`;
 
-    return typeName === 'ssc__core__type__union' ? argument : getUnionReadText(typeName, argument);
+    return typeName === 'union' ? argument : getUnionReadText(typeName, argument);
   });
   const call = `${getSscFunctionName(declaration)}(${parameters.join(', ')})`;
   const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
@@ -943,7 +943,7 @@ function lowerMethodCallExpression(
       const text = `ssc__core__fn__array_reduce<${elementType}>(${array}, ${argument}, ssc__core__type__union(${lowerValue(second, context)}))`;
       const typeName = getSscTypeName(node.app, node.getType());
 
-      return typeName === 'ssc__core__type__union' ? text : getUnionReadText(typeName, text);
+      return typeName === 'union' ? text : getUnionReadText(typeName, text);
     }
 
     if (callee.name === 'forEach') {
@@ -1016,7 +1016,7 @@ function getArrayElementSscTypeName(node: AbstractNode<ast.Expression>) {
 
   assert(elementType, `${node.location()}: array element type not found: ${node.getText()}`);
 
-  return getSscTypeName(node.app, elementType);
+  return CppNode.toCppTypeName(getSscTypeName(node.app, elementType));
 }
 
 function isPreludeDeclaration(node: NodeIdentifier) {
@@ -1245,7 +1245,7 @@ function lowerUpdateExpression(
       : `ssc__core__fn__${isIncrement ? 'add' : 'sub'}(previous, ${one}, "${type}")`;
     const result = isPrefix ? 'next' : 'previous';
 
-    return `[&] { const ssc__core__type__${type} previous = ${lowerExpression(operand, context)}; const ssc__core__type__${type} next = ${step}; ${target} = next; return ${result}; }()`;
+    return `[&] { const ${CppNode.toCppTypeName(type)} previous = ${lowerExpression(operand, context)}; const ${CppNode.toCppTypeName(type)} next = ${step}; ${target} = next; return ${result}; }()`;
   }
 
   if (includes(sscFloatTypes, type)) {
@@ -1394,7 +1394,7 @@ function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContex
   const { kind } = node.binaryOperatorToken;
   const typeName = getSscTypeName(node.app, node.getType());
 
-  if (typeName === 'ssc__core__type__boolean') {
+  if (typeName === 'boolean') {
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
@@ -1402,7 +1402,7 @@ function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContex
   }
 
   assert(
-    typeName !== 'ssc__core__type__union',
+    typeName !== 'union',
     `${node.location()}: not implemented logical operator with a union result: ${node.getText()}`,
   );
 
@@ -1413,12 +1413,12 @@ function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContex
 
   // &&
   if (kind === ast.SyntaxKind.AmpersandAmpersandToken) {
-    return `[&] { const ${typeName} left = ${left}; return ${condition} ? ${right} : left; }()`;
+    return `[&] { const ${CppNode.toCppTypeName(typeName)} left = ${left}; return ${condition} ? ${right} : left; }()`;
   }
 
   // ||
   if (kind === ast.SyntaxKind.BarBarToken) {
-    return `[&] { const ${typeName} left = ${left}; return ${condition} ? left : ${right}; }()`;
+    return `[&] { const ${CppNode.toCppTypeName(typeName)} left = ${left}; return ${condition} ? left : ${right}; }()`;
   }
 
   assertNever(kind as never);
@@ -1428,13 +1428,13 @@ function lowerNullishExpression(node: NodeBinaryExpression, context: LowerContex
   const typeName = getSscTypeName(node.app, node.getType());
 
   assert(
-    getSscTypeName(node.app, node.left.getType()) === 'ssc__core__type__union',
+    getSscTypeName(node.app, node.left.getType()) === 'union',
     `${node.location()}: not implemented '??' with a non-union left operand: ${node.getText()}`,
   );
 
   const left = lowerExpression(node.left, context);
   const right = lowerValueAs(node.right, typeName, context);
-  const value = typeName === 'ssc__core__type__union' ? 'left' : getUnionReadText(typeName, 'left');
+  const value = typeName === 'union' ? 'left' : getUnionReadText(typeName, 'left');
 
   return `[&] { const ssc__core__type__union left = ${left}; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ${right} : ${value}; }()`;
 }
@@ -1491,7 +1491,7 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     )?.typeName;
     const typeName = getSscTypeName(node.app, node.getType());
 
-    if (fieldTypeName === 'ssc__core__type__union' && typeName !== 'ssc__core__type__union') {
+    if (fieldTypeName === 'union' && typeName !== 'union') {
       return getUnionReadText(typeName, text);
     }
 
@@ -1517,23 +1517,25 @@ function getShape(
       : a.name > b.name ? 1
       : 0,
     );
-  const id = getHash(fields.map((f) => `${f.name}:${f.typeName}`).join(','));
+  const id = getHash(fields.map((f) => `${f.name}:${CppNode.toCppTypeName(f.typeName)}`).join(','));
   const structName = `ssc__ts__shape__${id}`;
   const definitions = context.globalContext.shapeDefinitionMap;
 
   if (!definitions.has(structName)) {
-    const members = fields.map((f) => ` ${f.typeName} ssc__ts__member__${f.name};`).join('');
+    const members = fields
+      .map((f) => ` ${CppNode.toCppTypeName(f.typeName)} ssc__ts__member__${f.name};`)
+      .join('');
     const getOffsets = (typeName: string) =>
       fields
         .filter((f) => f.typeName === typeName)
         .map((f) => `__builtin_offsetof(${structName}, ssc__ts__member__${f.name})`);
-    const refOffsets = getOffsets('ssc__core__type__ref');
-    const unionOffsets = getOffsets('ssc__core__type__union');
+    const refOffsets = getOffsets('ref');
+    const unionOffsets = getOffsets('union');
     const fieldInfos = fields.map((f) => {
       const kind =
-        f.typeName === 'ssc__core__type__union' ?
+        f.typeName === 'union' ?
           'ssc__core__var__union_kind'
-        : `ssc__core__var__type_id<${f.typeName}>`;
+        : `ssc__core__var__type_id<${CppNode.toCppTypeName(f.typeName)}>`;
 
       return `{"${f.name}", __builtin_offsetof(${structName}, ssc__ts__member__${f.name}), ${kind}}`;
     });
@@ -1624,7 +1626,7 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
     .filter((f) => !keys.includes(f.name))
     .map((f) => {
       assert(
-        f.typeName === 'ssc__core__type__union',
+        f.typeName === 'union',
         `${node.location()}: not implemented missing property: ${f.name}`,
       );
 
@@ -1641,7 +1643,7 @@ function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerC
 
   assert(field, `${node.location()}: not implemented property: ${node.getText()}`);
 
-  return `ssc__core__fn__field<${field.typeName}>(${lowerExpression(node.expression, context)}, 0x${shape.id}ull, __builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name}), "${node.name}")`;
+  return `ssc__core__fn__field<${CppNode.toCppTypeName(field.typeName)}>(${lowerExpression(node.expression, context)}, 0x${shape.id}ull, __builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name}), "${node.name}")`;
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {
@@ -1732,7 +1734,7 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
 
   const typeName = getSscTypeName(node.app, node.expression.getType());
 
-  if (typeName === 'ssc__core__type__union') {
+  if (typeName === 'union') {
     return `ssc__core__fn__typeof(${lowerExpression(node.expression, context)})`;
   }
 
@@ -1749,18 +1751,13 @@ function lowerConditionalExpression(node: NodeConditionalExpression, context: Lo
 }
 
 function lowerValueAs(node: AbstractNode<ast.Expression>, typeName: string, context: LowerContext) {
-  const type = typeName.replace('ssc__core__type__', '');
-
-  if (includes(sscNumberTypes, type)) {
-    return lowerNumber(node, type, context);
+  if (includes(sscNumberTypes, typeName)) {
+    return lowerNumber(node, typeName, context);
   }
 
   const text = lowerExpression(node, context);
 
-  if (
-    typeName === 'ssc__core__type__union'
-    && getSscTypeName(node.app, node.getType()) !== 'ssc__core__type__union'
-  ) {
+  if (typeName === 'union' && getSscTypeName(node.app, node.getType()) !== 'union') {
     return `ssc__core__type__union(${text})`;
   }
 
@@ -1786,27 +1783,21 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
   const isLiteral =
     isTypeFlagMatch(sourceType, ts.TypeFlags.NumberLiteral) || isCharLiteralType(sourceType);
 
-  const targetNumberType = target.replace('ssc__core__type__', '');
-
-  if (isLiteral && includes(sscNumberTypes, targetNumberType)) {
-    return lowerNumber(expression, targetNumberType, context);
+  if (isLiteral && includes(sscNumberTypes, target)) {
+    return lowerNumber(expression, target, context);
   }
 
   const text = lowerExpression(expression, context);
   const source = getSscTypeName(node.app, sourceType);
 
-  if (
-    source === 'ssc__core__type__union'
-    && target === 'ssc__core__type__union'
-    && targetType.isUnionType()
-  ) {
+  if (source === 'union' && target === 'union' && targetType.isUnionType()) {
     const memberNames = getUnionMemberSscTypeNames(node.app, targetType);
 
-    return `ssc__core__fn__union_as_union<${memberNames.join(', ')}>(${text}, "${targetName}")`;
+    return `ssc__core__fn__union_as_union<${memberNames.map((n) => CppNode.toCppTypeName(n)).join(', ')}>(${text}, "${targetName}")`;
   }
 
-  if (source === 'ssc__core__type__union') {
-    return `ssc__core__fn__union_as<${target}>(${text}, "${targetName}")`;
+  if (source === 'union') {
+    return `ssc__core__fn__union_as<${CppNode.toCppTypeName(target)}>(${text}, "${targetName}")`;
   }
 
   if (targetType.isUnionType()) {
@@ -1825,23 +1816,23 @@ function getUnionMemberSscTypeNames(app: AppSourceFile['app'], type: ts.UnionTyp
 }
 
 function getJsTypeOf(typeName: string) {
-  if (typeName === 'ssc__core__type__undefined') {
+  if (typeName === 'undefined') {
     return 'undefined';
   }
 
-  if (typeName === 'ssc__core__type__null') {
+  if (typeName === 'null') {
     return 'object';
   }
 
-  if (typeName === 'ssc__core__type__boolean') {
+  if (typeName === 'boolean') {
     return 'boolean';
   }
 
-  if (includes(sscNumberTypes, typeName.replace('ssc__core__type__', ''))) {
+  if (includes(sscNumberTypes, typeName)) {
     return 'number';
   }
 
-  if (typeName === 'ssc__core__type__ref') {
+  if (typeName === 'ref') {
     return 'object';
   }
 
@@ -1905,8 +1896,8 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
   }
 
   if (
-    getSscTypeName(left.app, left.getType()) === 'ssc__core__type__ref'
-    && getSscTypeName(right.app, right.getType()) === 'ssc__core__type__ref'
+    getSscTypeName(left.app, left.getType()) === 'ref'
+    && getSscTypeName(right.app, right.getType()) === 'ref'
   ) {
     return `ssc__core__fn__strict_equals(${lowerExpression(left, context)}, ${lowerExpression(right, context)})`;
   }
@@ -1921,7 +1912,7 @@ function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
 
   return (
     isTypeFlagMatch(type, ts.TypeFlags.Undefined | ts.TypeFlags.Null)
-    || getSscTypeName(node.app, type) === 'ssc__core__type__union'
+    || getSscTypeName(node.app, type) === 'union'
   );
 }
 
@@ -1938,10 +1929,7 @@ function lowerEqualityOperand(
 }
 
 function hasCharMember(app: AppSourceFile['app'], type: ts.Type) {
-  return (
-    type.isUnionType()
-    && type.getTypes().some((t) => getSscTypeName(app, t) === 'ssc__core__type__char')
-  );
+  return type.isUnionType() && type.getTypes().some((t) => getSscTypeName(app, t) === 'char');
 }
 
 function getComparisonOperator(kind: ast.BinaryOperator) {
@@ -2008,7 +1996,7 @@ function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
     return lowerNumber(node, 'char', context);
   }
 
-  const type = getSscTypeName(node.app, targetType).replace('ssc__core__type__', '');
+  const type = getSscTypeName(node.app, targetType);
 
   if (includes(sscNumberTypes, type)) {
     return lowerNumber(node, type, context);
@@ -2065,13 +2053,13 @@ function lowerNumber(
       return new CppNumericLiteral(type, value.toFixed()).code();
     }
 
-    return `static_cast<ssc__core__type__${type}>(${lowerExpression(node, context)})`;
+    return `static_cast<${CppNode.toCppTypeName(type)}>(${lowerExpression(node, context)})`;
   }
 
   const text = lowerExpression(node, context);
 
-  if (getSscTypeName(node.app, nodeType) === 'ssc__core__type__union') {
-    return `ssc__core__fn__union_to_number<ssc__core__type__${type}>(${text})`;
+  if (getSscTypeName(node.app, nodeType) === 'union') {
+    return `ssc__core__fn__union_to_number<${CppNode.toCppTypeName(type)}>(${text})`;
   }
 
   const source = getSscNumberType(node, nodeType);
@@ -2085,7 +2073,7 @@ function lowerNumber(
     `${node.location()}: ${source} can not be converted to ${type} without loss`,
   );
 
-  return `static_cast<ssc__core__type__${type}>(${text})`;
+  return `static_cast<${CppNode.toCppTypeName(type)}>(${text})`;
 }
 
 function getNumberLiteralValue(app: AppSourceFile['app'], type: ts.Type) {
@@ -2103,7 +2091,7 @@ function isCharLiteralType(type: ts.Type): type is ts.StringLiteralType {
 }
 
 function getSscNumberType(node: AbstractNode<ast.Expression>, type = node.getType()) {
-  const name = getSscTypeName(node.app, type).replace('ssc__core__type__', '');
+  const name = getSscTypeName(node.app, type);
 
   assert(includes(sscNumberTypes, name), `${node.location()}: not implemented type: ${name}`);
 
@@ -2210,7 +2198,7 @@ function narrowUnion(node: NodeIdentifier, text: string, context: LowerContext) 
 
   const typeName = getSscTypeName(node.app, node.getType());
 
-  if (typeName === 'ssc__core__type__union') {
+  if (typeName === 'union') {
     return text;
   }
 
@@ -2220,30 +2208,27 @@ function narrowUnion(node: NodeIdentifier, text: string, context: LowerContext) 
 function isUnionStorage(node: NodeIdentifier, context: LowerContext) {
   const declaredType = node.app.checker.getTypeOfSymbol(node.getSymbol());
 
-  return (
-    isBoxedVariable(node, context)
-    || getSscTypeName(node.app, declaredType) === 'ssc__core__type__union'
-  );
+  return isBoxedVariable(node, context) || getSscTypeName(node.app, declaredType) === 'union';
 }
 
 function getUnionReadText(typeName: string, text: string) {
-  if (typeName === 'ssc__core__type__undefined') {
+  if (typeName === 'undefined') {
     return `ssc__core__fn__union_to_undefined(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__null') {
+  if (typeName === 'null') {
     return `ssc__core__fn__union_to_null(${text})`;
   }
 
-  if (includes(sscNumberTypes, typeName.replace('ssc__core__type__', ''))) {
-    return `ssc__core__fn__union_to_number<${typeName}>(${text})`;
+  if (includes(sscNumberTypes, typeName)) {
+    return `ssc__core__fn__union_to_number<${CppNode.toCppTypeName(typeName)}>(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__boolean') {
+  if (typeName === 'boolean') {
     return `ssc__core__fn__union_to_boolean(${text})`;
   }
 
-  if (typeName === 'ssc__core__type__ref') {
+  if (typeName === 'ref') {
     return `ssc__core__fn__union_to_ref(${text})`;
   }
 
@@ -2268,40 +2253,40 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Undefined)) {
-    return 'ssc__core__type__undefined';
+    return 'undefined';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Null)) {
-    return 'ssc__core__type__null';
+    return 'null';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.BooleanLike)) {
-    return 'ssc__core__type__boolean';
+    return 'boolean';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
-    return 'ssc__core__type__f64';
+    return 'f64';
   }
 
   if (isStringType(type)) {
-    return 'ssc__core__type__ref';
+    return 'ref';
   }
 
   if (app.checker.isArrayType(type)) {
-    return 'ssc__core__type__ref';
+    return 'ref';
   }
 
   if (isFunctionType(app, type)) {
-    return 'ssc__core__type__ref';
+    return 'ref';
   }
 
   // `boolean` is also a `true | false` union, so this must come after the BooleanLike check
   if (type.isUnionType()) {
-    return 'ssc__core__type__union';
+    return 'union';
   }
 
   if (isObjectType(app, type)) {
-    return 'ssc__core__type__ref';
+    return 'ref';
   }
 
   const { checker } = app;
@@ -2325,5 +2310,5 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
     `'${symbol.name}' is not the prelude type`,
   );
 
-  return `ssc__core__type__${symbol.name}`;
+  return symbol.name;
 }

@@ -138,7 +138,7 @@ test('import-function.ts', async () => {
     }
 
     namespace ssc__ts__namespace__c456d5b4cd564961a9f46c7eef225ca6 {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__status);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__status);
     }
 
     namespace ssc__ts__namespace__57d2373578f744bc847a72c32b933972 {
@@ -156,26 +156,26 @@ test('function.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__29254185632d4dbdbb0df860ab1cca3d {
-      static void ssc__ts__fn__noop1();
-      static void ssc__ts__fn__noop2();
+      static ssc__core__type__void ssc__ts__fn__noop1();
+      static ssc__core__type__void ssc__ts__fn__noop2();
       static ssc__core__type__i32 ssc__ts__fn__noop3();
       static ssc__core__type__i32 ssc__ts__fn__noop4();
       static ssc__core__type__f64 ssc__ts__fn__noop5();
       static ssc__core__type__f64 ssc__ts__fn__noop6();
       static ssc__core__type__f32 ssc__ts__fn__noop7();
-      static void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a);
+      static ssc__core__type__void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__f64 ssc__ts__var__b);
-      static void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c);
+      static ssc__core__type__void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c);
       static ssc__core__type__i64 ssc__ts__fn__noop11(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b);
       static ssc__core__type__i64 ssc__ts__fn__noop12();
       extern "C" ssc__core__type__i32 abs(ssc__core__type__i32 ssc__ts__var__x);
       static ssc__core__type__i32 ssc__ts__fn__noop13();
-      void ssc__ts__fn__noop14();
+      ssc__core__type__void ssc__ts__fn__noop14();
       static ssc__core__type__i32 ssc__ts__fn__noop15();
       static ssc__core__type__i32 ssc__ts__fn__noop16();
-      static void ssc__ts__fn__noop1() {
+      static ssc__core__type__void ssc__ts__fn__noop1() {
       }
-      static void ssc__ts__fn__noop2() {
+      static ssc__core__type__void ssc__ts__fn__noop2() {
         return;
       }
       static ssc__core__type__i32 ssc__ts__fn__noop3() {
@@ -193,12 +193,12 @@ test('function.ts', async () => {
       static ssc__core__type__f32 ssc__ts__fn__noop7() {
         return ssc__core__type__f32{2.2f};
       }
-      static void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a) {
+      static ssc__core__type__void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a) {
       }
       static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__f64 ssc__ts__var__b) {
         return ssc__core__type__i32{1};
       }
-      static void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c) {
+      static ssc__core__type__void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c) {
         return;
       }
       static ssc__core__type__i64 ssc__ts__fn__noop11(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b) {
@@ -210,7 +210,7 @@ test('function.ts', async () => {
       static ssc__core__type__i32 ssc__ts__fn__noop13() {
         return ssc__ts__namespace__29254185632d4dbdbb0df860ab1cca3d::abs(ssc__core__type__i32{5});
       }
-      void ssc__ts__fn__noop14() {
+      ssc__core__type__void ssc__ts__fn__noop14() {
       }
       static ssc__core__type__i32 ssc__ts__fn__noop15() {
         return ssc__ts__namespace__29254185632d4dbdbb0df860ab1cca3d::ssc__ts__fn__noop16();
@@ -357,9 +357,9 @@ test('top-level-variable.ts', async () => {
       static ssc__core__type__i32 ssc__ts__var__total;
       static ssc__core__type__i32 ssc__ts__var__step;
       static ssc__core__type__i32 ssc__ts__var__later;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
-      static void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n);
-      static void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n) {
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
+      static ssc__core__type__void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n);
+      static ssc__core__type__void ssc__ts__fn__add(ssc__core__type__i32 ssc__ts__var__n) {
         (ssc__ts__namespace__654cf73b67494900aa5601b67e1e4792::ssc__ts__var__total = ssc__core__fn__add(ssc__ts__namespace__654cf73b67494900aa5601b67e1e4792::ssc__ts__var__total, ssc__ts__var__n, "i32"));
       }
       void ssc__core__fn__654cf73b67494900aa5601b67e1e4792() {
@@ -381,12 +381,12 @@ test('top-level-import.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70 {
-      void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
+      ssc__core__type__void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
       extern ssc__core__type__i32 ssc__ts__var__count;
     }
 
     namespace ssc__ts__namespace__ddee6b61e35c4860959aebec5ed03fa3 {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       void ssc__core__fn__ddee6b61e35c4860959aebec5ed03fa3() {
         ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70::ssc__ts__fn__increase(ssc__core__type__i32{3});
         ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70::ssc__ts__fn__increase(ssc__core__type__i32{4});
@@ -403,12 +403,12 @@ test('top-level-rename.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70 {
-      void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
+      ssc__core__type__void ssc__ts__fn__increase(ssc__core__type__i32 ssc__ts__var__n);
       extern ssc__core__type__i32 ssc__ts__var__count;
     }
 
     namespace ssc__ts__namespace__8352f580dfad49fc88300ba2e38411e2 {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       void ssc__core__fn__8352f580dfad49fc88300ba2e38411e2() {
         ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70::ssc__ts__fn__increase(ssc__core__type__i32{5});
         ssc__ts__namespace__8352f580dfad49fc88300ba2e38411e2::exit(ssc__ts__namespace__f6039c360aa04e0cb574493e78682e70::ssc__ts__var__count);
@@ -426,7 +426,7 @@ test('tdz-function.ts', async () => {
     namespace ssc__ts__namespace__2b5ab7f93a274e82999ad7801d747f5d {
       static ssc__core__type__i32 ssc__ts__var__value;
       static ssc__core__type__boolean ssc__ts__tdz__value;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__read();
       static ssc__core__type__i32 ssc__ts__fn__read() {
         return (ssc__core__fn__throw_if_tdz(ssc__ts__namespace__2b5ab7f93a274e82999ad7801d747f5d::ssc__ts__tdz__value, "value"), ssc__ts__namespace__2b5ab7f93a274e82999ad7801d747f5d::ssc__ts__var__value);
@@ -453,7 +453,7 @@ test('tdz-cycle.ts', async () => {
     namespace ssc__ts__namespace__e8d5a4ede16b43388a609f5053d5cea4 {
       ssc__core__type__i32 ssc__ts__var__value;
       ssc__core__type__boolean ssc__ts__tdz__value;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       ssc__core__type__i32 ssc__ts__fn__readValue();
       ssc__core__type__i32 ssc__ts__fn__readValue() {
         return (ssc__core__fn__throw_if_tdz(ssc__ts__namespace__e8d5a4ede16b43388a609f5053d5cea4::ssc__ts__tdz__value, "value"), ssc__ts__namespace__e8d5a4ede16b43388a609f5053d5cea4::ssc__ts__var__value);
@@ -477,7 +477,7 @@ test('tdz-reference.ts', async () => {
       static ssc__core__type__boolean ssc__ts__var__run;
       static ssc__core__type__i32 ssc__ts__var__value;
       static ssc__core__type__boolean ssc__ts__tdz__value;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__early();
       static ssc__core__type__i32 ssc__ts__fn__late();
       static ssc__core__type__i32 ssc__ts__fn__early() {
@@ -510,7 +510,7 @@ test('tdz-extern.ts', async () => {
     }
 
     namespace ssc__ts__namespace__23d30bdf603342d098b9bdf50c13e1fc {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       void ssc__core__fn__23d30bdf603342d098b9bdf50c13e1fc() {
         ssc__ts__namespace__23d30bdf603342d098b9bdf50c13e1fc::exit(ssc__ts__namespace__e3d81720d32d43cfa1956ae9123fa63f::ssc__ts__var__value);
       }
@@ -525,7 +525,7 @@ test('arithmetic.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9 {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__integer(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__f64 ssc__ts__fn__float(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__integer(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b) {
@@ -551,7 +551,7 @@ test('comparison.ts', async () => {
     namespace ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab {
       static ssc__core__type__i32 ssc__ts__var__zero;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__boolean ssc__ts__fn__less(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u32 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__lessEqual(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__greater(ssc__core__type__u64 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
@@ -619,7 +619,7 @@ test('literal-type.ts', async () => {
     namespace ssc__ts__namespace__28949e895eb34893875d3030db111b2e {
       static ssc__core__type__f64 ssc__ts__var__five;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__parenthesized(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__constant(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__assignment(ssc__core__type__i32 ssc__ts__var__a);
@@ -659,7 +659,7 @@ test('bitwise.ts', async () => {
     namespace ssc__ts__namespace__0c20efdbea734ed1acb26d93d7ed16fc {
       static ssc__core__type__i32 ssc__ts__var__zero;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__u8 ssc__ts__fn__and(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__or(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__u16 ssc__ts__fn__xor(ssc__core__type__u16 ssc__ts__var__a, ssc__core__type__u16 ssc__ts__var__b);
@@ -723,7 +723,7 @@ test('logical.ts', async () => {
       static ssc__core__type__i32 ssc__ts__var__n;
       static ssc__core__type__f64 ssc__ts__var__x;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__count(ssc__core__type__i32 ssc__ts__var__value);
       static ssc__core__type__i32 ssc__ts__fn__and(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__or(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
@@ -789,7 +789,7 @@ test('unary.ts', async () => {
 
     namespace ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec {
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i16 ssc__ts__fn__negate(ssc__core__type__u8 ssc__ts__var__a);
       static ssc__core__type__f32 ssc__ts__fn__negateFloat(ssc__core__type__f32 ssc__ts__var__a);
       static ssc__core__type__f64 ssc__ts__fn__plus(ssc__core__type__i32 ssc__ts__var__a);
@@ -855,7 +855,7 @@ test('update.ts', async () => {
 
     namespace ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab {
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__postfix(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__prefix(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__u8 ssc__ts__fn__decrement(ssc__core__type__u8 ssc__ts__var__a);
@@ -937,7 +937,7 @@ test('loop.ts', async () => {
 
     namespace ssc__ts__namespace__1d0dc1890b964f4a9160bf718ad5dfef {
       static ssc__core__type__i32 ssc__ts__var__top;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__i32 ssc__ts__var__n);
       static ssc__core__type__i32 ssc__ts__fn__countdown(ssc__core__type__i32 ssc__ts__var__n);
       static ssc__core__type__i32 ssc__ts__fn__oddSum(ssc__core__type__i32 ssc__ts__var__n);
@@ -1009,7 +1009,7 @@ test('constructor.ts', async () => {
 
     namespace ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220 {
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i64 ssc__ts__fn__widen(ssc__core__type__i32 ssc__ts__var__v);
       static ssc__core__type__char ssc__ts__fn__of(ssc__core__type__u32 ssc__ts__var__codePoint);
       static ssc__core__type__u32 ssc__ts__fn__offset(ssc__core__type__char ssc__ts__var__c);
@@ -1066,7 +1066,7 @@ test('wrap.ts', async () => {
 
     namespace ssc__ts__namespace__3da35d8c78d64ecb962040b7b235551b {
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__boolean ssc__ts__fn__u8s(ssc__core__type__u8 ssc__ts__var__a);
       static ssc__core__type__boolean ssc__ts__fn__i32s(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__boolean ssc__ts__fn__u16s(ssc__core__type__u16 ssc__ts__var__a);
@@ -1105,7 +1105,7 @@ test('union-value.ts', async () => {
     namespace ssc__ts__namespace__0479b71b21ab4e1fbc1e561aaa70b3cd {
       static ssc__core__type__union ssc__ts__var__stored;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__orZero(ssc__core__type__union ssc__ts__var__v);
       static ssc__core__type__i32 ssc__ts__fn__fromU8(ssc__core__type__u8 ssc__ts__var__a);
       static ssc__core__type__union ssc__ts__fn__returned(ssc__core__type__u8 ssc__ts__var__a);
@@ -1173,7 +1173,7 @@ test('union.ts', async () => {
       static ssc__core__type__i32 ssc__ts__var__result;
       static ssc__core__type__u8 ssc__ts__var__smallValue;
       static ssc__core__type__i8 ssc__ts__var__negative;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__union ssc__ts__fn__find(ssc__core__type__i32 ssc__ts__var__target);
       static ssc__core__type__i32 ssc__ts__fn__use(ssc__core__type__i32 ssc__ts__var__target);
       static ssc__core__type__i32 ssc__ts__fn__remember(ssc__core__type__i32 ssc__ts__var__a);
@@ -1336,7 +1336,7 @@ test('string.ts', async () => {
       static ssc__core__type__ref ssc__ts__var__top;
       static ssc__core__type__u64 ssc__ts__var__topLength;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__u64 ssc__ts__fn__length(ssc__core__type__ref ssc__ts__var__s);
       static ssc__core__type__boolean ssc__ts__fn__equals(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__ref ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__differs(ssc__core__type__ref ssc__ts__var__a, ssc__core__type__ref ssc__ts__var__b);
@@ -1441,7 +1441,7 @@ test('equality.ts', async () => {
       static ssc__core__type__u64 ssc__ts__var__big;
       static ssc__core__type__i64 ssc__ts__var__minus;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__boolean ssc__ts__fn__isFive(ssc__core__type__union ssc__ts__var__x);
       static ssc__core__type__boolean ssc__ts__fn__isHi(ssc__core__type__union ssc__ts__var__s);
       static ssc__core__type__boolean ssc__ts__fn__same(ssc__core__type__union ssc__ts__var__a, ssc__core__type__union ssc__ts__var__b);
@@ -1511,7 +1511,7 @@ test('numeric.ts', async () => {
       static ssc__core__type__f32 ssc__ts__var__negative;
       static ssc__core__type__i32 ssc__ts__var__fromUnderflow;
       static ssc__core__type__i32 ssc__ts__var__result;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__twice(ssc__core__type__i32 ssc__ts__var__v);
       static ssc__core__type__boolean ssc__ts__fn__u8s(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__i32s(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
@@ -1576,7 +1576,7 @@ test('output.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__3cbe4d4831ec4c1fb5685af9d5b1824c {
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__ref ssc__ts__fn__greet(ssc__core__type__ref ssc__ts__var__name);
       static ssc__core__type__ref ssc__ts__fn__greet(ssc__core__type__ref ssc__ts__var__name) {
         return ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"hello, ">(), ssc__ts__var__name), ssc__core__fn__string_literal<u8"\\012">());
@@ -1604,7 +1604,7 @@ test('template.ts', async () => {
       static ssc__core__type__char ssc__ts__var__emoji;
       static ssc__core__type__boolean ssc__ts__var__flag;
       static ssc__core__type__union ssc__ts__var__value;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       void ssc__core__fn__3bc3403a854e470cb5adeee04d3d7fad() {
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__name = ssc__core__fn__string_literal<u8"syscript">();
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__count = ssc__core__type__i32{3};
@@ -1634,7 +1634,7 @@ test('as.ts', async () => {
 
     namespace ssc__ts__namespace__00b06f02e0264eee82624684b84a6d23 {
       static ssc__core__type__i32 ssc__ts__var__literal;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__toInteger(ssc__core__type__union ssc__ts__var__value);
       static ssc__core__type__ref ssc__ts__fn__toText(ssc__core__type__union ssc__ts__var__value);
       static ssc__core__type__union ssc__ts__fn__toOptionalText(ssc__core__type__union ssc__ts__var__value);
@@ -1686,7 +1686,7 @@ test('array.ts', async () => {
       static ssc__core__type__ref ssc__ts__var__shared;
       static ssc__core__type__u64 ssc__ts__var__index;
       static ssc__core__type__i32 ssc__ts__var__total;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       void ssc__core__fn__d3944d1aef8e41bdb6300fec9e713af7() {
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers = ssc__core__fn__array_of<ssc__core__type__i32>(ssc__core__type__i32{1}, ssc__core__type__i32{2}, ssc__core__type__i32{3});
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__words = ssc__core__fn__array_of<ssc__core__type__ref>(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"b">());
@@ -1725,7 +1725,7 @@ test('conditional.ts', async () => {
 
     namespace ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13 {
       static ssc__core__type__boolean ssc__ts__var__flag;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i64 ssc__ts__fn__pick(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b);
       static ssc__core__type__union ssc__ts__fn__choose(ssc__core__type__boolean ssc__ts__var__c, ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__orZero(ssc__core__type__union ssc__ts__var__u);
@@ -1769,7 +1769,7 @@ test('closure.ts', async () => {
       static ssc__core__type__ref ssc__ts__var__a;
       static ssc__core__type__ref ssc__ts__var__b;
       static ssc__core__type__ref ssc__ts__var__add5;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__ref ssc__ts__fn__makeCounter();
       static ssc__core__type__i32 ssc__ts__fn__apply(ssc__core__type__ref ssc__ts__var__f, ssc__core__type__i32 ssc__ts__var__value);
       static ssc__core__type__i32 ssc__ts__fn__double(ssc__core__type__i32 ssc__ts__var__x);
@@ -1845,9 +1845,9 @@ test('object-literal.ts', async () => {
       static ssc__core__type__ref ssc__ts__var__cat;
       static ssc__core__type__ref ssc__ts__var__options;
       static ssc__core__type__ref ssc__ts__var__nested;
-      extern "C" void exit(ssc__core__type__i32 ssc__ts__var__code);
+      extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__ref ssc__ts__var__point);
-      static void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name);
+      static ssc__core__type__void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name);
       static ssc__core__type__ref ssc__ts__fn__describe(ssc__core__type__ref ssc__ts__var__animal);
       struct ssc__ts__shape__76a1102b326949c2 { ssc__core__struct__object_header ssc__core__member__object_header; ssc__core__type__i32 ssc__ts__member__x; ssc__core__type__i32 ssc__ts__member__y; };
       inline constexpr ssc__core__struct__field ssc__ts__shape__76a1102b326949c2__fields[] = {{"x", __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), ssc__core__var__type_id<ssc__core__type__i32>}, {"y", __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), ssc__core__var__type_id<ssc__core__type__i32>}};
@@ -1887,7 +1887,7 @@ test('object-literal.ts', async () => {
       static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__ref ssc__ts__var__point) {
         return ssc__core__fn__add(ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x"), ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), "y"), "i32");
       }
-      static void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name) {
+      static ssc__core__type__void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name) {
         (ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__var__animal, 0x80bdf0a5cc1c9a6full, __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), "name") = ssc__ts__var__name);
       }
       static ssc__core__type__ref ssc__ts__fn__describe(ssc__core__type__ref ssc__ts__var__animal) {
