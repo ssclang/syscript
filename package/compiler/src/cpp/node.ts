@@ -27,6 +27,8 @@ export abstract class CppNode {
 
 export abstract class CppExpression extends CppNode {}
 
+// region variable
+
 export class CppVariableDeclaration extends CppNode {
   readonly isConst: boolean;
   readonly ref: CppVariableReference;
@@ -75,6 +77,42 @@ export class CppVariableReference extends CppExpression {
 
   code() {
     return this.cppVariableName;
+  }
+}
+
+// region literal
+
+export class CppUndefinedLiteral extends CppExpression {
+  code() {
+    return 'ssc__core__var__undefined';
+  }
+}
+
+export class CppNullLiteral extends CppExpression {
+  code() {
+    return 'ssc__core__var__null';
+  }
+}
+
+export class CppBooleanLiteral extends CppExpression {
+  readonly value: boolean;
+
+  constructor(value: boolean) {
+    super();
+    this.value = value;
+  }
+
+  code() {
+    if (this.value) {
+      return 'true';
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!this.value) {
+      return 'false';
+    }
+
+    assertNever(this.value);
   }
 }
 

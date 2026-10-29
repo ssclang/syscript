@@ -3,7 +3,13 @@ import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
-import { CppNumericLiteral, CppStringLiteral } from '~/cpp/node.js';
+import {
+  CppBooleanLiteral,
+  CppNullLiteral,
+  CppNumericLiteral,
+  CppStringLiteral,
+  CppUndefinedLiteral,
+} from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
@@ -362,7 +368,7 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   if (node instanceof NodeReturnStatement) {
     if (context.kind === 'closure') {
       const value =
-        node.expression ? lowerValue(node.expression, context) : 'ssc__core__var__undefined';
+        node.expression ? lowerValue(node.expression, context) : new CppUndefinedLiteral().code();
 
       return [`return ssc__core__type__union(${value});`];
     }
@@ -537,11 +543,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   const { pathToId } = context.globalContext.programContext;
 
   if (node instanceof NodeBooleanLiteral) {
-    return node.value.toString();
+    return new CppBooleanLiteral(node.value).code();
   }
 
   if (node instanceof NodeNullLiteral) {
-    return 'ssc__core__var__null';
+    return new CppNullLiteral().code();
   }
 
   if (node instanceof NodeParenthesizedExpression) {
@@ -630,7 +636,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
   if (node instanceof NodeIdentifier) {
     if (node.app.checker.isUndefinedSymbol(node.getSymbol())) {
-      return 'ssc__core__var__undefined';
+      return new CppUndefinedLiteral().code();
     }
 
     if (ast.isFunctionDeclaration(node.getValueDeclaration())) {
@@ -816,7 +822,7 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
   const lines = [
     ...parameters,
     ...body,
-    'return ssc__core__type__union(ssc__core__var__undefined);',
+    `return ssc__core__type__union(${new CppUndefinedLiteral().code()});`,
   ];
   const lambda = `+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${lines.join(' ')} }`;
   const boxes = captures.map((c) => getBoxPointerText(c, context));
@@ -846,7 +852,7 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
   const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
   const body =
     isVoid ?
-      `${call}; return ssc__core__type__union(ssc__core__var__undefined);`
+      `${call}; return ssc__core__type__union(${new CppUndefinedLiteral().code()});`
     : `return ssc__core__type__union(${call});`;
 
   context.globalContext.functionValueDefinitionMap.set(
@@ -1622,7 +1628,7 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
         `${node.location()}: not implemented missing property: ${f.name}`,
       );
 
-      return `ssc__core__fn__construct(${field(f.name)}, ssc__core__type__union(ssc__core__var__undefined));`;
+      return `ssc__core__fn__construct(${field(f.name)}, ssc__core__type__union(${new CppUndefinedLiteral().code()}));`;
     });
   const allocation = `${shape.structName}* object = reinterpret_cast<${shape.structName}*>(ssc__core__fn__allocate_object(sizeof(${shape.structName}), __builtin_addressof(${descriptor})));`;
 
