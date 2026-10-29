@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
-import { CppNumericLiteral } from '~/cpp/node.js';
+import { CppNumericLiteral, CppStringLiteral } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
@@ -581,7 +581,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodeStringLiteral) {
-    return getStringLiteral(node.value);
+    return new CppStringLiteral(node.value).code();
   }
 
   if (node instanceof NodeTemplateExpression) {
@@ -1456,13 +1456,13 @@ function lowerString(node: AbstractNode<ast.Expression>, context: LowerContext) 
 }
 
 function lowerTemplateExpression(node: NodeTemplateExpression, context: LowerContext) {
-  const parts = node.head ? [getStringLiteral(node.head)] : [];
+  const parts = node.head ? [new CppStringLiteral(node.head).code()] : [];
 
   for (const { expression, literal } of node.spans) {
     parts.push(lowerString(expression, context));
 
     if (literal) {
-      parts.push(getStringLiteral(literal));
+      parts.push(new CppStringLiteral(literal).code());
     }
   }
 
@@ -1713,15 +1713,15 @@ function isSameRepresentation(
 
 function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext) {
   if (isStringType(node.expression.getType())) {
-    return getStringLiteral('string');
+    return new CppStringLiteral('string').code();
   }
 
   if (node.app.checker.isArrayType(node.expression.getType())) {
-    return getStringLiteral('object');
+    return new CppStringLiteral('object').code();
   }
 
   if (isFunctionType(node.app, node.expression.getType())) {
-    return getStringLiteral('function');
+    return new CppStringLiteral('function').code();
   }
 
   const typeName = getSscTypeName(node.app, node.expression.getType());
@@ -1730,7 +1730,7 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
     return `ssc__core__fn__typeof(${lowerExpression(node.expression, context)})`;
   }
 
-  return getStringLiteral(getJsTypeOf(typeName));
+  return new CppStringLiteral(getJsTypeOf(typeName)).code();
 }
 
 function lowerConditionalExpression(node: NodeConditionalExpression, context: LowerContext) {
@@ -1816,19 +1816,6 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
 
 function getUnionMemberSscTypeNames(app: AppSourceFile['app'], type: ts.UnionType) {
   return [...new Set(type.getTypes().map((t) => getSscTypeName(app, t)))];
-}
-
-function getStringLiteral(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const text = Array.from(bytes, (byte) => {
-    if (0x20 <= byte && byte < 0x7f && byte !== 0x22 && byte !== 0x5c && byte !== 0x3f) {
-      return String.fromCharCode(byte);
-    }
-
-    return `\\${byte.toString(8).padStart(3, '0')}`;
-  }).join('');
-
-  return `ssc__core__fn__string_literal<u8"${text}">()`;
 }
 
 function getJsTypeOf(typeName: string) {

@@ -119,3 +119,25 @@ export class CppNumericLiteral extends CppExpression {
     assertNever(type);
   }
 }
+
+export class CppStringLiteral extends CppExpression {
+  readonly value: string;
+
+  constructor(value: string) {
+    super();
+    this.value = value;
+  }
+
+  code() {
+    const bytes = new TextEncoder().encode(this.value);
+    const text = Array.from(bytes, (b) => {
+      if (0x20 <= b && b < 0x7f && b !== 0x22 && b !== 0x5c && b !== 0x3f) {
+        return String.fromCharCode(b);
+      }
+
+      return `\\${b.toString(8).padStart(3, '0')}`;
+    }).join('');
+
+    return `ssc__core__fn__string_literal<u8"${text}">()`;
+  }
+}
