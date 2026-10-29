@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
+import { CppNumericLiteral } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
 import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
@@ -557,7 +558,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       : node.getType();
 
     if (!type.isUnionType()) {
-      return getNumericLiteral(value, getSscTypeName(node.app, type));
+      return new CppNumericLiteral(getSscNumberType(node, type), value).code();
     }
 
     const numberTypes = type
@@ -573,13 +574,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
         `${node.location()}: '${node.getText()}' can not be converted to ${numberType}`,
       );
 
-      return getNumericLiteral(value, `ssc__core__type__${numberType}`);
+      return new CppNumericLiteral(numberType, value).code();
     }
 
-    return getNumericLiteral(
-      value,
-      `ssc__core__type__${getUnionNumberLiteralStorageType(bigNumber)}`,
-    );
+    return new CppNumericLiteral(getUnionNumberLiteralStorageType(bigNumber), value).code();
   }
 
   if (node instanceof NodeStringLiteral) {
@@ -1096,7 +1094,7 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
       return `(-${text})`;
     }
 
-    const zero = getNumericLiteral('0', `ssc__core__type__${type}`);
+    const zero = new CppNumericLiteral(type, '0').code();
 
     return `ssc__core__fn__sub(${zero}, ${text}, "${type}")`;
   }
@@ -1234,7 +1232,7 @@ function lowerUpdateExpression(
   const isPrefix = node instanceof NodePrefixUnaryExpression;
   const isIncrement = operator === ast.SyntaxKind.PlusPlusToken;
   if (isUnionStorage(operand, context)) {
-    const one = getNumericLiteral('1', `ssc__core__type__${type}`);
+    const one = new CppNumericLiteral(type, '1').code();
     const step =
       includes(sscFloatTypes, type) ?
         `previous ${isIncrement ? '+' : '-'} ${one}`
@@ -2059,7 +2057,7 @@ function lowerNumber(
       `${node.location()}: '${node.getText()}' can not be converted to ${type}`,
     );
 
-    return getNumericLiteral(String(nodeType.value.codePointAt(0)), `ssc__core__type__${type}`);
+    return new CppNumericLiteral(type, String(nodeType.value.codePointAt(0))).code();
   }
 
   if (isTypeFlagMatch(nodeType, ts.TypeFlags.NumberLiteral)) {
@@ -2071,7 +2069,7 @@ function lowerNumber(
     );
 
     if (isEffectiveNumericLiteral(node)) {
-      return getNumericLiteral(value.toFixed(), `ssc__core__type__${type}`);
+      return new CppNumericLiteral(type, value.toFixed()).code();
     }
 
     return `static_cast<ssc__core__type__${type}>(${lowerExpression(node, context)})`;
@@ -2335,47 +2333,4 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   );
 
   return `ssc__core__type__${symbol.name}`;
-}
-
-function getNumericLiteral(value: string, type: string) {
-  if (
-    type === 'ssc__core__type__i8'
-    || type === 'ssc__core__type__i16'
-    || type === 'ssc__core__type__i32'
-    || type === 'ssc__core__type__i64'
-  ) {
-    if (value === '-9223372036854775808') {
-      return `${type}{-9223372036854775807 - 1}`;
-    }
-
-    return `${type}{${value}}`;
-  }
-
-  if (
-    type === 'ssc__core__type__u8'
-    || type === 'ssc__core__type__u16'
-    || type === 'ssc__core__type__u32'
-    || type === 'ssc__core__type__u64'
-  ) {
-    return `${type}{${value}u}`;
-  }
-
-  if (type === 'ssc__core__type__f32' || type === 'ssc__core__type__f64') {
-    const suffix = type === 'ssc__core__type__f32' ? 'f' : '';
-    const number = type === 'ssc__core__type__f32' ? Math.fround(Number(value)) : Number(value);
-
-    if (!Number.isFinite(number)) {
-      return `${type}{${number < 0 ? '-' : ''}__builtin_inf${suffix}()}`;
-    }
-
-    const float = value.includes('.') ? value : `${value}.0`;
-
-    return `${type}{${float}${suffix}}`;
-  }
-
-  if (type === 'ssc__core__type__char') {
-    return `${type}{${value}u}`;
-  }
-
-  assertNever(type as never);
 }
