@@ -1546,7 +1546,18 @@ function lowerNullishExpression(node: NodeBinaryExpression, context: LowerContex
   const right = lowerValueAs(node.right, typeName, context);
   const value = typeName === 'union' ? 'left' : getUnionReadText(typeName, 'left');
 
-  return `[&] { const ssc__core__type__union left = ${left}; return ssc__core__fn__union_is_undefined(left) || ssc__core__fn__union_is_null(left) ? ${right} : ${value}; }()`;
+  const isUndefined = new CppCoreFunctionCall(
+    'ssc__core__fn__union_is_undefined',
+    [],
+    [new CppUnknownExpression('left')],
+  ).code();
+  const isNull = new CppCoreFunctionCall(
+    'ssc__core__fn__union_is_null',
+    [],
+    [new CppUnknownExpression('left')],
+  ).code();
+
+  return `[&] { const ssc__core__type__union left = ${left}; return ${isUndefined} || ${isNull} ? ${right} : ${value}; }()`;
 }
 
 function getLogicalOperator(kind: ast.BinaryOperator) {
@@ -1845,7 +1856,9 @@ function lowerTypeOfExpression(node: NodeTypeOfExpression, context: LowerContext
   const typeName = getSscTypeName(node.app, node.expression.getType());
 
   if (typeName === 'union') {
-    return `ssc__core__fn__typeof(${lowerExpression(node.expression, context)})`;
+    const args = [new CppUnknownExpression(lowerExpression(node.expression, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__typeof', [], args).code();
   }
 
   return new CppStringLiteral(getJsTypeOf(typeName)).code();
@@ -1903,11 +1916,15 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
   if (source === 'union' && target === 'union' && targetType.isUnionType()) {
     const memberNames = getUnionMemberSscTypeNames(node.app, targetType);
 
-    return `ssc__core__fn__union_as_union<${memberNames.map((n) => CppNode.toCppTypeName(n)).join(', ')}>(${text}, "${targetName}")`;
+    const args = [new CppUnknownExpression(text), new CppCStringLiteral(targetName)];
+
+    return new CppCoreFunctionCall('ssc__core__fn__union_as_union', memberNames, args).code();
   }
 
   if (source === 'union') {
-    return `ssc__core__fn__union_as<${CppNode.toCppTypeName(target)}>(${text}, "${targetName}")`;
+    const args = [new CppUnknownExpression(text), new CppCStringLiteral(targetName)];
+
+    return new CppCoreFunctionCall('ssc__core__fn__union_as', [target], args).code();
   }
 
   if (targetType.isUnionType()) {
@@ -2169,7 +2186,11 @@ function lowerNumber(
   const text = lowerExpression(node, context);
 
   if (getSscTypeName(node.app, nodeType) === 'union') {
-    return `ssc__core__fn__union_to_number<${CppNode.toCppTypeName(type)}>(${text})`;
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__union_to_number',
+      [type],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   const source = getSscNumberType(node, nodeType);
@@ -2318,24 +2339,26 @@ function isUnionStorage(node: NodeIdentifier, context: LowerContext) {
 }
 
 function getUnionReadText(typeName: string, text: string) {
+  const args = [new CppUnknownExpression(text)];
+
   if (typeName === 'undefined') {
-    return `ssc__core__fn__union_to_undefined(${text})`;
+    return new CppCoreFunctionCall('ssc__core__fn__union_to_undefined', [], args).code();
   }
 
   if (typeName === 'null') {
-    return `ssc__core__fn__union_to_null(${text})`;
+    return new CppCoreFunctionCall('ssc__core__fn__union_to_null', [], args).code();
   }
 
   if (includes(sscNumberTypes, typeName)) {
-    return `ssc__core__fn__union_to_number<${CppNode.toCppTypeName(typeName)}>(${text})`;
+    return new CppCoreFunctionCall('ssc__core__fn__union_to_number', [typeName], args).code();
   }
 
   if (typeName === 'boolean') {
-    return `ssc__core__fn__union_to_boolean(${text})`;
+    return new CppCoreFunctionCall('ssc__core__fn__union_to_boolean', [], args).code();
   }
 
   if (typeName === 'ref') {
-    return `ssc__core__fn__union_to_ref(${text})`;
+    return new CppCoreFunctionCall('ssc__core__fn__union_to_ref', [], args).code();
   }
 
   throw new Error(`not implemented union member read: ${typeName}`);
