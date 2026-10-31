@@ -338,3 +338,20 @@ export class CppFunctionReference extends CppExpression {
     return CppNode.toCppNamespacedName(this.declaration.pathId, this.declaration.cppFunctionName);
   }
 }
+
+export class CppFunctionCall extends CppExpression {
+  readonly reference: CppFunctionReference;
+  readonly arguments: CppExpression[];
+
+  constructor(reference: CppFunctionReference, args: CppExpression[]) {
+    super();
+    this.reference = reference;
+    this.arguments = args;
+  }
+
+  code() {
+    const args = this.arguments.map((a) => a.code()).join(', ');
+
+    return `${this.reference.code()}(${args})`;
+  }
+}

@@ -8,6 +8,7 @@ import {
   CppNode,
   CppNullLiteral,
   CppExpression,
+  CppFunctionCall,
   CppFunctionDeclaration,
   CppFunctionStorage,
   CppNumericLiteral,
@@ -794,8 +795,8 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     if (ast.isFunctionDeclaration(declaration)) {
       const functionDeclaration = new NodeFunctionDeclaration(node.app, declaration);
       const storage = isSameFile ? getTopLevelFunctionStorage(functionDeclaration) : 'imported';
-      const functionName = declareFunction(functionDeclaration, context, storage).reference.code();
-      const args = node.arguments.map((a) => lowerValue(a, context)).join(', ');
+      const cppDeclaration = declareFunction(functionDeclaration, context, storage);
+      const args = node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context)));
 
       if (!isSameFile) {
         assert(
@@ -810,12 +811,12 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
         addImportedForward(
           context,
           realPath,
-          functionName,
-          `${declareFunction(functionDeclaration, context, storage).code()};`,
+          cppDeclaration.reference.code(),
+          `${cppDeclaration.code()};`,
         );
       }
 
-      return `${functionName}(${args})`;
+      return new CppFunctionCall(cppDeclaration.reference, args).code();
     }
 
     throw new Error(`${callee.location()}: not implemented callee: ${callee.text}`);
@@ -887,10 +888,13 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
     const typeName = getSscTypeName(node.app, p.bindingName.identifier.getType());
     const argument = `ssc__core__var__arguments[${index}]`;
 
-    return typeName === 'union' ? argument : getUnionReadText(typeName, argument);
+    return new CppUnknownExpression(
+      typeName === 'union' ? argument : getUnionReadText(typeName, argument),
+    );
   });
   const storage = getTopLevelFunctionStorage(declaration);
-  const call = `${declareFunction(declaration, context, storage).reference.code()}(${parameters.join(', ')})`;
+  const { reference } = declareFunction(declaration, context, storage);
+  const call = new CppFunctionCall(reference, parameters).code();
   const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
   const body =
     isVoid ?
