@@ -331,6 +331,17 @@ test('number-bitwise.ts', async () => {
   });
 });
 
+test('number-conversion.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'number-conversion.ts'))).toEqual({
+    status: 0,
+    stdout:
+      '2147483647 -2147483648 7 -5 9223372036854775807\n'
+      + '3 -2147483648 0 18446744073709549568\n'
+      + '9007199254740992 16777216 0.5 NaN Infinity\n',
+    stderr: '',
+  });
+});
+
 test('array-index.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'array-index.ts'))).toEqual({
     status: 0,
@@ -576,11 +587,28 @@ test.each([
 });
 
 test.each([
-  [
-    'a narrowing',
-    'function f(v: i64): i32 { return i32(v); }',
-    'i64 can not be converted to i32 without loss',
-  ],
+  ['i64 above i32', 'i64', 'i32', "i64('2147483648')", '2147483648'],
+  ['a negative i32 to u32', 'i32', 'u32', 'i32(-1)', '-1'],
+  ['the largest u64 to i64', 'u64', 'i64', "u64('18446744073709551615')", '18446744073709551615'],
+  ['a fractional f64 to i32', 'f64', 'i32', '3.7', '3.7'],
+  ['2^63 to i64', 'f64', 'i64', '9223372036854775808', '9223372036854775808'],
+  ['a negative f64 to u64', 'f64', 'u64', '-1', '-1'],
+  ['NaN to i32', 'f64', 'i32', '0 / 0', 'NaN'],
+  ['Infinity to u64', 'f64', 'u64', '1 / 0', 'Infinity'],
+  ['2^53 + 1 to f64', 'i64', 'f64', "i64('9007199254740993')", '9007199254740993'],
+  ['the largest u64 to f64', 'u64', 'f64', "u64('18446744073709551615')", '18446744073709551615'],
+  ['2^24 + 1 to f32', 'i32', 'f32', 'i32(16777217)', '16777217'],
+  ['0.1 to f32', 'f64', 'f32', '0.1', '0.1'],
+])('a constructor rejects %s at run time', async (_, source, target, argument, text) => {
+  const code = `function of(v: ${source}): ${target} { return ${target}(v); }\nof(${argument});`;
+
+  expect(await runSource(`${code}\nexit(i32(0));`)).toEqual({
+    status: 1,
+    stderr: `RangeError: ${text} can not be converted to ${target}\n`,
+  });
+});
+
+test.each([
   ['a literal out of range', 'const v: u8 = u8(300);', "'300' can not be converted to u8"],
   ['an invalid code point literal', 'const c = char(0xd800);', '0xd800 is an invalid code point'],
   ['a string literal of two code points', "const c = char('AB');", "'AB' is an invalid code point"],

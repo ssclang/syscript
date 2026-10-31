@@ -21,6 +21,7 @@ export const cppCoreFunctionNames = [
   'ssc__core__fn__decrement_prefix',
   'ssc__core__fn__decrement_postfix',
   'ssc__core__fn__char',
+  'ssc__core__fn__convert_number',
 
   // region string
   'ssc__core__fn__string_concat',

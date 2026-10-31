@@ -1459,6 +1459,46 @@ inline std::string ssc__core__fn__number_text(Type value) {
   return std::string(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
 }
 
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_number_conversion_error(const std::string& text, const char* type_name_pointer) {
+  throw "RangeError: " + text + " can not be converted to " + type_name_pointer;
+}
+
+template <typename Target, typename Source>
+  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 33)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 33)))
+inline constexpr ssc__core__type__boolean ssc__core__fn__is_exact_number(Source value) noexcept {
+  if constexpr (ssc__core__var__type_id<Target> <= 24 && ssc__core__var__type_id<Source> <= 24) {
+    return std::in_range<Target>(value);
+  } else if constexpr (ssc__core__var__type_id<Target> <= 24) {
+    const Source minimum = static_cast<Source>(std::numeric_limits<Target>::min());
+    const Source end = static_cast<Source>(std::numeric_limits<Target>::max() / 2 + 1) * 2;
+
+    return __builtin_trunc(value) == value && minimum <= value && value < end;
+  } else if constexpr (ssc__core__var__type_id<Source> <= 24) {
+    const Target converted = static_cast<Target>(value);
+    const Target end = static_cast<Target>(std::numeric_limits<Source>::max() / 2 + 1) * 2;
+
+    return converted < end && static_cast<Source>(converted) == value;
+  } else {
+    if (__builtin_isnan(value) || __builtin_isinf(value)) {
+      return true;
+    }
+
+    const Source maximum = std::numeric_limits<Target>::max();
+
+    return -maximum <= value && value <= maximum && static_cast<Source>(static_cast<Target>(value)) == value;
+  }
+}
+
+export template <typename Target, typename Source>
+  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 33)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 33)))
+inline Target ssc__core__fn__convert_number(Source value, const char* type_name_pointer) {
+  if (!ssc__core__fn__is_exact_number<Target>(value)) [[unlikely]] {
+    ssc__core__fn__throw_number_conversion_error(ssc__core__fn__number_text(value), type_name_pointer);
+  }
+
+  return static_cast<Target>(value);
+}
+
 template <typename Index>
   requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_index_error(Index index, ssc__core__type__u64 length) {

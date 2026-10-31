@@ -1216,6 +1216,20 @@ function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerCont
       `${argument.location()}: '${name}' takes a string literal only, not a string value`,
     );
 
+    const argumentType = argument.getType();
+
+    if (
+      !isTypeFlagMatch(argumentType, ts.TypeFlags.NumberLiteral)
+      && getSscTypeName(node.app, argumentType) !== 'union'
+      && !isLossless(getSscNumberType(argument, argumentType), name)
+    ) {
+      return new CppCoreFunctionCall(
+        'ssc__core__fn__convert_number',
+        [name],
+        [new CppUnknownExpression(lowerExpression(argument, context)), new CppCStringLiteral(name)],
+      ).code();
+    }
+
     return lowerNumber(argument, name, context);
   }
 
