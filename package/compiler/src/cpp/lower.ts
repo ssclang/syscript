@@ -4,19 +4,30 @@ import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
 import {
+  CppBlock,
   CppBooleanLiteral,
+  CppBreakStatement,
+  CppContinueStatement,
+  CppDeclarationStatement,
   CppNode,
   CppNullLiteral,
   CppExpression,
+  CppExpressionStatement,
+  CppForStatement,
   CppFunctionCall,
   CppFunctionDeclaration,
   CppFunctionStorage,
+  CppIfStatement,
   CppNumericLiteral,
+  CppReturnStatement,
+  CppStatement,
   CppUnknownExpression,
   CppStringLiteral,
   CppUndefinedLiteral,
+  CppUnknownDeclaration,
   CppVariableDeclaration,
   CppVariableStorage,
+  CppWhileStatement,
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
@@ -127,7 +138,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
       const symbolId = identifier.getSymbol().id;
       const storage = d.isExported ? 'exportedTopLevel' : 'topLevel';
       const declaration = declareVariable(identifier, topLevelContext, storage, false);
-      const definitions = [`${declaration.code()};`];
+      const definitions = [new CppDeclarationStatement(declaration).code()];
 
       if (tdzVariableSymbolIdSet.has(symbolId)) {
         definitions.push(`${declaration.tdzTagCode()};`);
@@ -137,8 +148,10 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     })
     .toArray();
   const functions = sourceFile.statements.filter((n) => n instanceof NodeFunctionDeclaration);
-  const functionForwards = functions.map(
-    (f) => `${declareFunction(f, topLevelContext, getTopLevelFunctionStorage(f)).code()};`,
+  const functionForwards = functions.map((f) =>
+    new CppDeclarationStatement(
+      declareFunction(f, topLevelContext, getTopLevelFunctionStorage(f)),
+    ).code(),
   );
   const definedFunctionLines = functions
     .filter((f) => !f.isDeclared)
@@ -342,7 +355,9 @@ function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelC
       ...boxes,
       ...node.block.statements
         .values()
-        .flatMap((s) => lowerStatement(s, context))
+        .flatMap((s) =>
+          lowerStatement(s, context).flatMap((statement) => statement.code().split('\n')),
+        )
         .toArray(),
     ];
   });
@@ -366,7 +381,7 @@ function lowerTopLevelStatements(sourceFile: AppSourceFile, context: TopLevelCon
           return lowerTopLevelVariableStatement(s, context);
         }
 
-        return lowerStatement(s, context);
+        return lowerStatement(s, context).flatMap((statement) => statement.code().split('\n'));
       })
       .toArray();
   });
@@ -399,17 +414,21 @@ function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: To
   });
 }
 
-function lowerStatement(node: AbstractStatement, context: LowerContext) {
+function lowerStatement(node: AbstractStatement, context: LowerContext): CppStatement[] {
   if (node instanceof NodeExpressionStatement) {
-    return [`${lowerExpression(node.expression, context)};`];
+    const expression = new CppUnknownExpression(lowerExpression(node.expression, context));
+
+    return [new CppExpressionStatement(expression)];
   }
 
   if (node instanceof NodeIfStatement) {
-    return lowerIfStatement(node, context);
+    return [lowerIfStatement(node, context)];
   }
 
   if (node instanceof NodeVariableStatement) {
-    return node.declarations.map((d) => `${lowerVariableDeclaration(d, context)};`);
+    return node.declarations.map(
+      (d) => new CppDeclarationStatement(lowerVariableDeclaration(d, context)),
+    );
   }
 
   if (node instanceof NodeReturnStatement) {
@@ -417,27 +436,26 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
       const value =
         node.expression ? lowerValue(node.expression, context) : new CppUndefinedLiteral().code();
 
-      return [`return ssc__core__type__union(${value});`];
+      return [new CppReturnStatement(new CppUnknownExpression(`ssc__core__type__union(${value})`))];
     }
 
-    const line = node.expression ? `return ${lowerValue(node.expression, context)};` : 'return;';
-    return [line];
+    if (!node.expression) {
+      return [new CppReturnStatement()];
+    }
+
+    return [new CppReturnStatement(new CppUnknownExpression(lowerValue(node.expression, context)))];
   }
 
   if (node instanceof NodeBlock) {
-    const w = new CppWriter();
-
-    w.block('', () => node.statements.flatMap((s) => lowerStatement(s, context)));
-
-    return w.lines();
+    return [new CppBlock(node.statements.flatMap((s) => lowerStatement(s, context)))];
   }
 
   if (node instanceof NodeForStatement) {
-    return lowerForStatement(node, context);
+    return [lowerForStatement(node, context)];
   }
 
   if (node instanceof NodeWhileStatement) {
-    return lowerWhileStatement(node, context);
+    return [lowerWhileStatement(node, context)];
   }
 
   if (node instanceof NodeTypeDeclaration) {
@@ -445,11 +463,11 @@ function lowerStatement(node: AbstractStatement, context: LowerContext) {
   }
 
   if (node instanceof NodeBreakStatement) {
-    return ['break;'];
+    return [new CppBreakStatement()];
   }
 
   if (node instanceof NodeContinueStatement) {
-    return ['continue;'];
+    return [new CppContinueStatement()];
   }
 
   throw new Error(`not implemented statement: ${node.getText()}`);
@@ -461,45 +479,39 @@ function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerC
   if (isBoxedVariable(identifier, context)) {
     const value = node.initializer ? lowerValue(node.initializer, context) : '';
 
-    return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(ssc__core__type__union(${value}))`;
+    return new CppUnknownDeclaration(
+      `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(ssc__core__type__union(${value}))`,
+    );
   }
 
   const isConst = node.keyword === 'const';
   const initializer =
     node.initializer ? new CppUnknownExpression(lowerValue(node.initializer, context)) : undefined;
 
-  return declareVariable(identifier, context, 'local', isConst, initializer).code();
+  return declareVariable(identifier, context, 'local', isConst, initializer);
 }
 
-function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
-  const w = new CppWriter();
+function lowerIfStatement(node: NodeIfStatement, context: LowerContext): CppIfStatement {
+  const condition = new CppUnknownExpression(lowerCondition(node.expression, context));
+  const statements = node.block.statements.flatMap((s) => lowerStatement(s, context));
+  const { elseStatement } = node;
 
-  const lowerBranch = (branch: NodeIfStatement, isElseIf: boolean) => {
-    const { elseStatement } = branch;
-    const keyword = isElseIf ? ' else if' : 'if';
+  if (elseStatement instanceof NodeIfStatement) {
+    return new CppIfStatement(condition, statements, lowerIfStatement(elseStatement, context));
+  }
 
-    w.block(`${keyword} (${lowerCondition(branch.expression, context)})`, () =>
-      branch.block.statements.flatMap((s) => lowerStatement(s, context)),
-    );
+  if (elseStatement instanceof NodeBlock) {
+    const elseStatements = elseStatement.statements.flatMap((s) => lowerStatement(s, context));
 
-    if (elseStatement instanceof NodeIfStatement) {
-      lowerBranch(elseStatement, true);
-      return;
-    }
+    return new CppIfStatement(condition, statements, new CppBlock(elseStatements));
+  }
 
-    if (elseStatement instanceof NodeBlock) {
-      w.block(' else', () => elseStatement.statements.flatMap((s) => lowerStatement(s, context)));
-    }
-  };
-
-  lowerBranch(node, false);
-
-  return w.lines();
+  return new CppIfStatement(condition, statements);
 }
 
 function lowerForStatement(node: NodeForStatement, context: LowerContext) {
   const declarations = node.declarations.map((d) => lowerVariableDeclaration(d, context));
-  const condition = lowerCondition(node.condition, context);
+  const condition = new CppUnknownExpression(lowerCondition(node.condition, context));
   const renewals = node.declarations
     .map((d) => d.bindingName.identifier)
     .filter((i) => isBoxedVariable(i, context))
@@ -508,35 +520,27 @@ function lowerForStatement(node: NodeForStatement, context: LowerContext) {
 
       return `${name} = ssc__core__fn__box(ssc__core__fn__box_value(${name}.ssc__core__member__get_object_header_pointer())), `;
     });
-  const incrementor = `${renewals.join('')}${lowerExpression(node.incrementor, context)}`;
-  const lowerBody = () => node.block.statements.flatMap((s) => lowerStatement(s, context));
-  const w = new CppWriter();
+  const incrementor = new CppUnknownExpression(
+    `${renewals.join('')}${lowerExpression(node.incrementor, context)}`,
+  );
+  const statements = node.block.statements.flatMap((s) => lowerStatement(s, context));
+  const [declaration] = declarations;
 
-  if (declarations.length === 1) {
-    w.block(`for (${declarations.join('')}; ${condition}; ${incrementor})`, lowerBody);
-
-    return w.lines();
+  if (declarations.length === 1 && declaration) {
+    return new CppForStatement(declaration, condition, incrementor, statements);
   }
 
-  w.block('', () => {
-    const forWriter = new CppWriter();
-
-    forWriter.block(`for (; ${condition}; ${incrementor})`, lowerBody);
-
-    return [...declarations.map((d) => `${d};`), ...forWriter.lines()];
-  });
-
-  return w.lines();
+  return new CppBlock([
+    ...declarations.map((d) => new CppDeclarationStatement(d)),
+    new CppForStatement(undefined, condition, incrementor, statements),
+  ]);
 }
 
 function lowerWhileStatement(node: NodeWhileStatement, context: LowerContext) {
-  const w = new CppWriter();
+  const condition = new CppUnknownExpression(lowerCondition(node.expression, context));
+  const statements = node.block.statements.flatMap((s) => lowerStatement(s, context));
 
-  w.block(`while (${lowerCondition(node.expression, context)})`, () =>
-    node.block.statements.flatMap((s) => lowerStatement(s, context)),
-  );
-
-  return w.lines();
+  return new CppWhileStatement(condition, statements);
 }
 
 function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContext) {
@@ -812,7 +816,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
           context,
           realPath,
           cppDeclaration.reference.code(),
-          `${cppDeclaration.code()};`,
+          new CppDeclarationStatement(cppDeclaration).code(),
         );
       }
 
@@ -855,11 +859,21 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
     const typeName = getSscTypeName(node.app, identifier.getType());
     const value = typeName === 'union' ? argument : getUnionReadText(typeName, argument);
 
-    return `${declareVariable(identifier, closureContext, 'local', true, new CppUnknownExpression(value)).code()};`;
+    const declaration = declareVariable(
+      identifier,
+      closureContext,
+      'local',
+      true,
+      new CppUnknownExpression(value),
+    );
+
+    return new CppDeclarationStatement(declaration).code();
   });
   const body =
     node.body instanceof NodeBlock ?
-      node.body.statements.flatMap((s) => lowerStatement(s, closureContext))
+      node.body.statements
+        .flatMap((s) => lowerStatement(s, closureContext))
+        .flatMap((statement) => statement.code().split('\n'))
     : [`return ssc__core__type__union(${lowerValue(node.body, closureContext)});`];
   const lines = [
     ...parameters,
@@ -2229,7 +2243,7 @@ function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
     context,
     realPath,
     variableDeclaration.reference.code(),
-    `${variableDeclaration.code()};`,
+    new CppDeclarationStatement(variableDeclaration).code(),
   );
 }
 

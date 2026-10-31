@@ -1,4 +1,5 @@
 import { assertNever } from '@syscript/share/util';
+import { CppWriter } from '~/cpp/writer.js';
 import { SscNumberType } from '~/ssc/type.js';
 
 let currentId = 0;
@@ -47,7 +48,22 @@ export abstract class CppNode {
 
 export abstract class CppExpression extends CppNode {}
 
+export abstract class CppStatement extends CppNode {}
+
 export class CppUnknownExpression extends CppExpression {
+  readonly text: string;
+
+  constructor(text: string) {
+    super();
+    this.text = text;
+  }
+
+  code() {
+    return this.text;
+  }
+}
+
+export class CppUnknownDeclaration extends CppNode {
   readonly text: string;
 
   constructor(text: string) {
@@ -353,5 +369,172 @@ export class CppFunctionCall extends CppExpression {
     const args = this.arguments.map((a) => a.code()).join(', ');
 
     return `${this.reference.code()}(${args})`;
+  }
+}
+
+// region statement
+
+export class CppExpressionStatement extends CppStatement {
+  readonly expression: CppExpression;
+
+  constructor(expression: CppExpression) {
+    super();
+    this.expression = expression;
+  }
+
+  code() {
+    return `${this.expression.code()};`;
+  }
+}
+
+export class CppDeclarationStatement extends CppStatement {
+  readonly declaration: CppVariableDeclaration | CppFunctionDeclaration | CppUnknownDeclaration;
+
+  constructor(
+    declaration: CppVariableDeclaration | CppFunctionDeclaration | CppUnknownDeclaration,
+  ) {
+    super();
+    this.declaration = declaration;
+  }
+
+  code() {
+    return `${this.declaration.code()};`;
+  }
+}
+
+export class CppReturnStatement extends CppStatement {
+  readonly expression?: CppExpression;
+
+  constructor(expression?: CppExpression) {
+    super();
+    this.expression = expression;
+  }
+
+  code() {
+    return this.expression ? `return ${this.expression.code()};` : 'return;';
+  }
+}
+
+// TODO: support label
+export class CppBreakStatement extends CppStatement {
+  code() {
+    return 'break;';
+  }
+}
+
+// TODO: support label
+export class CppContinueStatement extends CppStatement {
+  code() {
+    return 'continue;';
+  }
+}
+
+export class CppBlock extends CppStatement {
+  readonly statements: CppStatement[];
+
+  constructor(statements: CppStatement[]) {
+    super();
+    this.statements = statements;
+  }
+
+  code() {
+    const w = new CppWriter();
+
+    w.block('', () => this.statements.flatMap((s) => s.code().split('\n')));
+
+    return w.lines().join('\n');
+  }
+}
+
+export class CppIfStatement extends CppStatement {
+  readonly condition: CppExpression;
+  readonly statements: CppStatement[];
+  readonly elseBranch?: CppIfStatement | CppBlock;
+
+  constructor(
+    condition: CppExpression,
+    statements: CppStatement[],
+    elseBranch?: CppIfStatement | CppBlock,
+  ) {
+    super();
+    this.condition = condition;
+    this.statements = statements;
+    this.elseBranch = elseBranch;
+  }
+
+  code() {
+    const w = new CppWriter();
+
+    this.write(w, 'if');
+
+    return w.lines().join('\n');
+  }
+
+  private write(w: CppWriter, keyword: 'if' | ' else if') {
+    const { elseBranch } = this;
+
+    w.block(`${keyword} (${this.condition.code()})`, () =>
+      this.statements.flatMap((s) => s.code().split('\n')),
+    );
+
+    if (elseBranch instanceof CppIfStatement) {
+      elseBranch.write(w, ' else if');
+      return;
+    }
+
+    if (elseBranch instanceof CppBlock) {
+      w.block(' else', () => elseBranch.statements.flatMap((s) => s.code().split('\n')));
+    }
+  }
+}
+
+export class CppWhileStatement extends CppStatement {
+  readonly condition: CppExpression;
+  readonly statements: CppStatement[];
+
+  constructor(condition: CppExpression, statements: CppStatement[]) {
+    super();
+    this.condition = condition;
+    this.statements = statements;
+  }
+
+  code() {
+    const w = new CppWriter();
+
+    w.block(`while (${this.condition.code()})`, () =>
+      this.statements.flatMap((s) => s.code().split('\n')),
+    );
+
+    return w.lines().join('\n');
+  }
+}
+
+export class CppForStatement extends CppStatement {
+  readonly initializer?: CppVariableDeclaration | CppUnknownDeclaration;
+  readonly condition: CppExpression;
+  readonly incrementor: CppExpression;
+  readonly statements: CppStatement[];
+
+  constructor(
+    initializer: CppVariableDeclaration | CppUnknownDeclaration | undefined,
+    condition: CppExpression,
+    incrementor: CppExpression,
+    statements: CppStatement[],
+  ) {
+    super();
+    this.initializer = initializer;
+    this.condition = condition;
+    this.incrementor = incrementor;
+    this.statements = statements;
+  }
+
+  code() {
+    const initializer = this.initializer ? this.initializer.code() : '';
+    const header = `for (${initializer}; ${this.condition.code()}; ${this.incrementor.code()})`;
+    const w = new CppWriter();
+
+    w.block(header, () => this.statements.flatMap((s) => s.code().split('\n')));
+
+    return w.lines().join('\n');
   }
 }
