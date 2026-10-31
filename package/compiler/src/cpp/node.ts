@@ -1,5 +1,5 @@
 import { assertNever } from '@syscript/share/util';
-import { CppCoreFunctionName } from '~/cpp/core.js';
+import { CppBuiltinFunctionName, CppCoreFunctionName } from '~/cpp/core.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { SscNumberType } from '~/ssc/type.js';
 
@@ -397,12 +397,12 @@ export class CppFunctionCall extends CppExpression {
 // region core
 
 export class CppCoreFunctionCall extends CppExpression {
-  readonly cppFunctionName: CppCoreFunctionName;
+  readonly cppFunctionName: CppCoreFunctionName | CppBuiltinFunctionName;
   readonly templateTypeNames: string[];
   readonly arguments: CppExpression[];
 
   constructor(
-    cppFunctionName: CppCoreFunctionName,
+    cppFunctionName: CppCoreFunctionName | CppBuiltinFunctionName,
     templateTypeNames: string[],
     args: CppExpression[],
   ) {
@@ -420,6 +420,83 @@ export class CppCoreFunctionCall extends CppExpression {
     const args = this.arguments.map((a) => a.code()).join(', ');
 
     return `${this.cppFunctionName}${templateArguments}(${args})`;
+  }
+}
+
+// region operator
+
+export type CppBinaryOperator =
+  '+' | '-' | '*' | '/' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '&&' | '||' | '=' | ',';
+
+export type CppUnaryOperator = '!' | '-' | '++' | '--';
+
+export class CppBinaryExpression extends CppExpression {
+  readonly operator: CppBinaryOperator;
+  readonly left: CppExpression;
+  readonly right: CppExpression;
+
+  constructor(operator: CppBinaryOperator, left: CppExpression, right: CppExpression) {
+    super();
+    this.operator = operator;
+    this.left = left;
+    this.right = right;
+  }
+
+  code() {
+    return `(${this.left.code()} ${this.operator} ${this.right.code()})`;
+  }
+}
+
+export class CppUnaryExpression extends CppExpression {
+  readonly operator: CppUnaryOperator;
+  readonly operand: CppExpression;
+  readonly isPostfix: boolean;
+
+  constructor(operator: CppUnaryOperator, operand: CppExpression, isPostfix: boolean) {
+    super();
+    this.operator = operator;
+    this.operand = operand;
+    this.isPostfix = isPostfix;
+  }
+
+  code() {
+    const operand = this.operand.code();
+
+    return this.isPostfix ? `(${operand}${this.operator})` : `(${this.operator}${operand})`;
+  }
+}
+
+export class CppConditionalExpression extends CppExpression {
+  readonly condition: CppExpression;
+  readonly whenTrue: CppExpression;
+  readonly whenFalse: CppExpression;
+
+  constructor(condition: CppExpression, whenTrue: CppExpression, whenFalse: CppExpression) {
+    super();
+    this.condition = condition;
+    this.whenTrue = whenTrue;
+    this.whenFalse = whenFalse;
+  }
+
+  code() {
+    return `(${this.condition.code()} ? ${this.whenTrue.code()} : ${this.whenFalse.code()})`;
+  }
+}
+
+export class CppStaticCast extends CppExpression {
+  readonly tsTypeName: string;
+  readonly cppTypeName: string;
+  readonly expression: CppExpression;
+
+  constructor(tsTypeName: string, expression: CppExpression) {
+    super();
+    this.tsTypeName = tsTypeName;
+    this.cppTypeName = CppNode.toCppTypeName(this.tsTypeName);
+    this.expression = expression;
+  }
+
+  code() {
+    return `static_cast<${this.cppTypeName}>(${this.expression.code()})`;
   }
 }
 

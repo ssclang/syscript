@@ -5,9 +5,12 @@ import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
 import { CppCoreFunctionName } from '~/cpp/core.js';
 import {
+  CppBinaryExpression,
+  CppBinaryOperator,
   CppBlock,
   CppBooleanLiteral,
   CppBreakStatement,
+  CppConditionalExpression,
   CppContinueStatement,
   CppCoreFunctionCall,
   CppCStringLiteral,
@@ -23,9 +26,11 @@ import {
   CppIfStatement,
   CppNumericLiteral,
   CppReturnStatement,
+  CppStaticCast,
   CppStatement,
   CppUnknownExpression,
   CppStringLiteral,
+  CppUnaryExpression,
   CppUndefinedLiteral,
   CppUnknownDeclaration,
   CppVariableDeclaration,
@@ -606,7 +611,11 @@ function getTruthyCondition(typeName: string, text: string) {
     || typeName === 'u64'
     || typeName === 'char'
   ) {
-    return `${text} != 0`;
+    return new CppBinaryExpression(
+      '!=',
+      new CppUnknownExpression(text),
+      new CppUnknownExpression('0'),
+    ).code();
   }
 
   assertNever(typeName as never);
@@ -622,7 +631,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (node instanceof NodeParenthesizedExpression) {
-    return `(${lowerExpression(node.expression, context)})`;
+    return lowerExpression(node.expression, context);
   }
 
   if (isEffectiveNumericLiteral(node)) {
@@ -727,7 +736,13 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
     // =
     if (kind === ast.SyntaxKind.EqualsToken && node.left instanceof NodePropertyAccessExpression) {
-      return `(${lowerFieldReference(node.left, context)} = ${lowerValue(node.right, context)})`;
+      const target = new CppUnknownExpression(lowerFieldReference(node.left, context));
+
+      return new CppBinaryExpression(
+        '=',
+        target,
+        new CppUnknownExpression(lowerValue(node.right, context)),
+      ).code();
     }
 
     // =
@@ -737,7 +752,13 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
         `${node.location()}: not implemented assignment target: ${node.left.getText()}`,
       );
 
-      return `(${lowerVariableReference(node.left, context)} = ${lowerValue(node.right, context)})`;
+      const target = new CppUnknownExpression(lowerVariableReference(node.left, context));
+
+      return new CppBinaryExpression(
+        '=',
+        target,
+        new CppUnknownExpression(lowerValue(node.right, context)),
+      ).code();
     }
 
     if (
@@ -1227,7 +1248,11 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
 
   // !
   if (operator === ast.SyntaxKind.ExclamationToken) {
-    return `(!(${lowerCondition(operand, context)}))`;
+    return new CppUnaryExpression(
+      '!',
+      new CppUnknownExpression(lowerCondition(operand, context)),
+      false,
+    ).code();
   }
 
   // -
@@ -1236,7 +1261,7 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
     const text = lowerNumber(operand, type, context);
 
     if (includes(sscFloatTypes, type)) {
-      return `(-${text})`;
+      return new CppUnaryExpression('-', new CppUnknownExpression(text), false).code();
     }
 
     const args = [
@@ -1305,7 +1330,7 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
       ],
     );
 
-    return `(${target} = ${concat.code()})`;
+    return new CppBinaryExpression('=', new CppUnknownExpression(target), concat).code();
   }
 
   const type = getSscNumberType(node.left);
@@ -1318,7 +1343,9 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
   const right = lowerNumber(node.right, type, context);
   const operator = getCompoundAssignmentOperator(kind);
 
-  return `(${target} = ${getArithmeticText(operator, type, current, right)})`;
+  const value = new CppUnknownExpression(getArithmeticText(operator, type, current, right));
+
+  return new CppBinaryExpression('=', new CppUnknownExpression(target), value).code();
 }
 
 function getCompoundAssignmentOperator(kind: ast.BinaryOperator) {
@@ -1415,9 +1442,11 @@ function lowerUpdateExpression(
   }
 
   if (includes(sscFloatTypes, type)) {
-    const text = isIncrement ? '++' : '--';
-
-    return isPrefix ? `(${text}${target})` : `(${target}${text})`;
+    return new CppUnaryExpression(
+      isIncrement ? '++' : '--',
+      new CppUnknownExpression(target),
+      !isPrefix,
+    ).code();
   }
 
   const functionName = getUpdateFunctionName(isIncrement, isPrefix);
@@ -1472,16 +1501,28 @@ function getArithmeticText(
 ) {
   // %
   if (type === 'f32' && kind === ast.SyntaxKind.PercentToken) {
-    return `__builtin_fmodf(${left}, ${right})`;
+    return new CppCoreFunctionCall(
+      '__builtin_fmodf',
+      [],
+      [new CppUnknownExpression(left), new CppUnknownExpression(right)],
+    ).code();
   }
 
   // %
   if (type === 'f64' && kind === ast.SyntaxKind.PercentToken) {
-    return `__builtin_fmod(${left}, ${right})`;
+    return new CppCoreFunctionCall(
+      '__builtin_fmod',
+      [],
+      [new CppUnknownExpression(left), new CppUnknownExpression(right)],
+    ).code();
   }
 
   if (includes(sscFloatTypes, type)) {
-    return `(${left} ${getArithmeticOperator(kind)} ${right})`;
+    return new CppBinaryExpression(
+      getArithmeticOperator(kind),
+      new CppUnknownExpression(left),
+      new CppUnknownExpression(right),
+    ).code();
   }
 
   const functionName = getArithmeticFunctionName(kind);
@@ -1498,7 +1539,7 @@ function getArithmeticText(
   return new CppCoreFunctionCall(functionName, [], [...args, new CppCStringLiteral(type)]).code();
 }
 
-function getArithmeticOperator(kind: ast.BinaryOperator) {
+function getArithmeticOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   // +
   if (kind === ast.SyntaxKind.PlusToken) {
     return '+';
@@ -1589,7 +1630,11 @@ function lowerLogicalExpression(node: NodeBinaryExpression, context: LowerContex
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
-    return `(${left} ${getLogicalOperator(kind)} ${right})`;
+    return new CppBinaryExpression(
+      getLogicalOperator(kind),
+      new CppUnknownExpression(left),
+      new CppUnknownExpression(right),
+    ).code();
   }
 
   assert(
@@ -1641,7 +1686,7 @@ function lowerNullishExpression(node: NodeBinaryExpression, context: LowerContex
   return `[&] { const ssc__core__type__union left = ${left}; return ${isUndefined} || ${isNull} ? ${right} : ${value}; }()`;
 }
 
-function getLogicalOperator(kind: ast.BinaryOperator) {
+function getLogicalOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   // &&
   if (kind === ast.SyntaxKind.AmpersandAmpersandToken) {
     return '&&';
@@ -1983,7 +2028,11 @@ function lowerConditionalExpression(node: NodeConditionalExpression, context: Lo
   const whenTrue = lowerValueAs(node.whenTrue, typeName, context);
   const whenFalse = lowerValueAs(node.whenFalse, typeName, context);
 
-  return `(${condition} ? ${whenTrue} : ${whenFalse})`;
+  return new CppConditionalExpression(
+    new CppUnknownExpression(condition),
+    new CppUnknownExpression(whenTrue),
+    new CppUnknownExpression(whenFalse),
+  ).code();
 }
 
 function lowerValueAs(node: AbstractNode<ast.Expression>, typeName: string, context: LowerContext) {
@@ -2101,7 +2150,11 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
   ) {
     const equality = lowerEqualityExpression(node, context);
 
-    return kind === ast.SyntaxKind.ExclamationEqualsEqualsToken ? `(!${equality})` : equality;
+    if (kind === ast.SyntaxKind.ExclamationEqualsEqualsToken) {
+      return new CppUnaryExpression('!', new CppUnknownExpression(equality), false).code();
+    }
+
+    return equality;
   }
 
   if (isStringType(node.left.getType()) && isStringType(node.right.getType())) {
@@ -2114,14 +2167,22 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
       [new CppUnknownExpression(left), new CppUnknownExpression(right)],
     );
 
-    return `(${compare.code()} ${getComparisonOperator(kind)} 0)`;
+    return new CppBinaryExpression(
+      getComparisonOperator(kind),
+      compare,
+      new CppUnknownExpression('0'),
+    ).code();
   }
 
   const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
 
-  return `(${left} ${getComparisonOperator(kind)} ${right})`;
+  return new CppBinaryExpression(
+    getComparisonOperator(kind),
+    new CppUnknownExpression(left),
+    new CppUnknownExpression(right),
+  ).code();
 }
 
 function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerContext) {
@@ -2140,7 +2201,13 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     isTypeFlagMatch(left.getType(), ts.TypeFlags.BooleanLike)
     && isTypeFlagMatch(right.getType(), ts.TypeFlags.BooleanLike)
   ) {
-    return `(${lowerExpression(left, context)} == ${lowerExpression(right, context)})`;
+    const leftText = new CppUnknownExpression(lowerExpression(left, context));
+
+    return new CppBinaryExpression(
+      '==',
+      leftText,
+      new CppUnknownExpression(lowerExpression(right, context)),
+    ).code();
   }
 
   if (
@@ -2157,7 +2224,13 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
 
   const type = commonType([...getOperands(left), ...getOperands(right)]);
 
-  return `(${lowerNumber(left, type, context)} == ${lowerNumber(right, type, context)})`;
+  const leftText = new CppUnknownExpression(lowerNumber(left, type, context));
+
+  return new CppBinaryExpression(
+    '==',
+    leftText,
+    new CppUnknownExpression(lowerNumber(right, type, context)),
+  ).code();
 }
 
 function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
@@ -2185,7 +2258,7 @@ function hasCharMember(app: AppSourceFile['app'], type: ts.Type) {
   return type.isUnionType() && type.getTypes().some((t) => getSscTypeName(app, t) === 'char');
 }
 
-function getComparisonOperator(kind: ast.BinaryOperator) {
+function getComparisonOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   // <
   if (kind === ast.SyntaxKind.LessThanToken) {
     return '<';
@@ -2264,7 +2337,7 @@ function lowerNumber(
   context: LowerContext,
 ): string {
   if (node instanceof NodeParenthesizedExpression) {
-    return `(${lowerNumber(node.expression, type, context)})`;
+    return lowerNumber(node.expression, type, context);
   }
 
   if (node instanceof NodeAsExpression && node.isConst) {
@@ -2276,7 +2349,11 @@ function lowerNumber(
     const whenTrue = lowerNumber(node.whenTrue, type, context);
     const whenFalse = lowerNumber(node.whenFalse, type, context);
 
-    return `(${condition} ? ${whenTrue} : ${whenFalse})`;
+    return new CppConditionalExpression(
+      new CppUnknownExpression(condition),
+      new CppUnknownExpression(whenTrue),
+      new CppUnknownExpression(whenFalse),
+    ).code();
   }
 
   const nodeType = node.getType();
@@ -2306,7 +2383,7 @@ function lowerNumber(
       return new CppNumericLiteral(type, value.toFixed()).code();
     }
 
-    return `static_cast<${CppNode.toCppTypeName(type)}>(${lowerExpression(node, context)})`;
+    return new CppStaticCast(type, new CppUnknownExpression(lowerExpression(node, context))).code();
   }
 
   const text = lowerExpression(node, context);
@@ -2330,7 +2407,7 @@ function lowerNumber(
     `${node.location()}: ${source} can not be converted to ${type} without loss`,
   );
 
-  return `static_cast<${CppNode.toCppTypeName(type)}>(${text})`;
+  return new CppStaticCast(type, new CppUnknownExpression(text)).code();
 }
 
 function getNumberLiteralValue(app: AppSourceFile['app'], type: ts.Type) {
@@ -2424,7 +2501,7 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
     [new CppUnknownExpression(tdzTagName), new CppCStringLiteral(node.text)],
   );
 
-  return `(${check.code()}, ${variableName})`;
+  return new CppBinaryExpression(',', check, new CppUnknownExpression(variableName)).code();
 }
 
 function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {

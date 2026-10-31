@@ -85,3 +85,6 @@ export const cppCoreFunctionNames = [
   'ssc__core__fn__console_log',
   'ssc__core__fn__console_error',
 ] as const;
+
+export type CppBuiltinFunctionName = (typeof cppBuiltinFunctionNames)[number];
+export const cppBuiltinFunctionNames = ['__builtin_fmodf', '__builtin_fmod'] as const;
