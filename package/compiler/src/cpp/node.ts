@@ -27,6 +27,19 @@ export abstract class CppNode {
 
 export abstract class CppExpression extends CppNode {}
 
+export class CppUnknownExpression extends CppExpression {
+  readonly text: string;
+
+  constructor(text: string) {
+    super();
+    this.text = text;
+  }
+
+  code() {
+    return this.text;
+  }
+}
+
 // region variable
 
 export class CppVariableDeclaration extends CppNode {
