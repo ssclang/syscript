@@ -1562,7 +1562,7 @@ test('reserved.ts', async () => {
 });
 
 test('shadow-name.ts', async () => {
-  await expect(lowerFixture('shadow-name.ts')).rejects.toThrow('not implemented type');
+  await expect(lowerFixture('shadow-name.ts')).rejects.toThrow('is not the prelude type');
 });
 
 test('shadow-brand.ts', async () => {

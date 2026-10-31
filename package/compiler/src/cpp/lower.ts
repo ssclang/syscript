@@ -2707,7 +2707,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
         ?.getSymbol()
         ?.declarations[0]?.resolve()
     : undefined;
-  const symbol = brand ? checker.getSymbolOfNode(brand.parent.parent) : undefined;
+  const symbol =
+    brand ? checker.getSymbolOfNode(brand.parent.parent)
+    : type.isIntersectionType() ? type.getAliasSymbol()
+    : undefined;
 
   assert(symbol, `not implemented type: ${checker.typeToString(type)}`);
 

@@ -35,7 +35,7 @@ declare global {
   /** `-9007199254740992` ~ `9007199254740992` (exact integers)\
    * fractions may lose precision
    */
-  type f64 = number;
+  type f64 = number & {};
 
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
