@@ -8,12 +8,14 @@ import {
   CppNode,
   CppNullLiteral,
   CppExpression,
+  CppFunctionDeclaration,
+  CppFunctionStorage,
   CppNumericLiteral,
   CppUnknownExpression,
   CppStringLiteral,
   CppUndefinedLiteral,
   CppVariableDeclaration,
-  CppVariableReference,
+  CppVariableStorage,
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
@@ -77,6 +79,7 @@ type GlobalContext = {
   functionValueDefinitionMap: Map<string, string>;
   shapeDefinitionMap: Map<string, string>;
   variableDeclarationMap: Map<number, CppVariableDeclaration>;
+  functionDeclarationMap: Map<number, CppFunctionDeclaration>;
 };
 
 type TopLevelContext = {
@@ -109,6 +112,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     functionValueDefinitionMap: new Map<string, string>(),
     shapeDefinitionMap: new Map<string, string>(),
     variableDeclarationMap: new Map<number, CppVariableDeclaration>(),
+    functionDeclarationMap: new Map<number, CppFunctionDeclaration>(),
   } as const satisfies GlobalContext;
   const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
@@ -120,21 +124,21 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     .flatMap((d) => {
       const { identifier } = d.bindingName;
       const symbolId = identifier.getSymbol().id;
-      const linkage = getVariableLinkage(d);
-      const definitions = [
-        `${linkage}${declareVariable(identifier, topLevelContext, false).code()};`,
-      ];
+      const storage = d.isExported ? 'exportedTopLevel' : 'topLevel';
+      const declaration = declareVariable(identifier, topLevelContext, storage, false);
+      const definitions = [`${declaration.code()};`];
 
       if (tdzVariableSymbolIdSet.has(symbolId)) {
-        const tdzDefinition = `${linkage}ssc__core__type__boolean ${getSscTdzTagName(identifier.text)};`;
-        definitions.push(tdzDefinition);
+        definitions.push(`${declaration.tdzTagCode()};`);
       }
 
       return definitions;
     })
     .toArray();
   const functions = sourceFile.statements.filter((n) => n instanceof NodeFunctionDeclaration);
-  const functionForwards = functions.map((f) => `${getFunctionSignature(f, topLevelContext)};`);
+  const functionForwards = functions.map(
+    (f) => `${declareFunction(f, topLevelContext, getTopLevelFunctionStorage(f)).code()};`,
+  );
   const definedFunctionLines = functions
     .filter((f) => !f.isDeclared)
     .flatMap((f) => lowerFunction(f, topLevelContext));
@@ -224,29 +228,14 @@ function getSscTopLevelStatementsInitFunctionName(pathId: string) {
   return `ssc__core__fn__${pathId}`;
 }
 
-function getSscFunctionName(node: NodeFunctionDeclaration) {
-  const name = node.identifier.text;
-
-  if (node.isDeclared) {
-    assert(!name.startsWith('ssc__'), `${node.location()}: '${name}' is reserved`);
-
-    return name;
-  }
-
-  return `ssc__ts__fn__${name}`;
-}
-
 function getSscBoxName(name: string) {
   return `ssc__ts__box__${name}`;
-}
-
-function getSscTdzTagName(name: string) {
-  return `ssc__ts__tdz__${name}`;
 }
 
 function declareVariable(
   identifier: NodeIdentifier,
   context: LowerContext,
+  storage: CppVariableStorage,
   isConst: boolean,
   initializer?: CppExpression,
 ) {
@@ -259,8 +248,13 @@ function declareVariable(
   }
 
   const type = identifier.app.checker.getTypeOfSymbol(symbol);
-  const ref = new CppVariableReference(getSscTypeName(identifier.app, type), identifier.text);
-  const newDeclaration = new CppVariableDeclaration(isConst, ref, initializer);
+  const newDeclaration = new CppVariableDeclaration(
+    storage,
+    isConst,
+    getSscTypeName(identifier.app, type),
+    identifier.text,
+    initializer,
+  );
 
   variableDeclarationMap.set(symbol.id, newDeclaration);
 
@@ -275,37 +269,47 @@ function getVariableReference(identifier: NodeIdentifier, context: LowerContext)
     `${identifier.location()}: variable declaration not found: ${identifier.text}`,
   );
 
-  return declaration.ref;
+  return declaration.reference;
 }
 
-function getFunctionSignature(node: NodeFunctionDeclaration, context: LowerContext) {
-  const linkage = getFunctionLinkage(node);
-  const returnType = CppNode.toCppTypeName(getSscTypeName(node.app, node.getReturnType()));
-  const parameters = node.parameters
-    .map((p) => declareVariable(p.bindingName.identifier, context, false).code())
-    .join(', ');
-
-  return `${linkage}${returnType} ${getSscFunctionName(node)}(${parameters})`;
+function getTopLevelFunctionStorage(node: NodeFunctionDeclaration) {
+  return node.isExported ? 'exportedTopLevel' : 'topLevel';
 }
 
-function getVariableLinkage(node: NodeVariableDeclaration) {
-  if (node.isExported) {
-    return '';
+function declareFunction(
+  node: NodeFunctionDeclaration,
+  context: LowerContext,
+  storage: CppFunctionStorage,
+) {
+  const { functionDeclarationMap } = context.globalContext;
+  const { identifier } = node;
+  const symbolId = identifier.getSymbol().id;
+  const declaration = functionDeclarationMap.get(symbolId);
+
+  if (declaration) {
+    return declaration;
   }
 
-  return 'static ';
-}
+  assert(
+    !node.isDeclared || !identifier.text.startsWith('ssc__'),
+    `${node.location()}: '${identifier.text}' is reserved`,
+  );
 
-function getFunctionLinkage(node: NodeFunctionDeclaration) {
-  if (node.isDeclared) {
-    return 'extern "C" ';
-  }
+  const returnTypeName = getSscTypeName(node.app, node.getReturnType());
+  const parameters = node.parameters.map((p) =>
+    declareVariable(p.bindingName.identifier, context, 'local', false),
+  );
+  const newDeclaration = new CppFunctionDeclaration(
+    storage,
+    node.isDeclared,
+    returnTypeName,
+    identifier.text,
+    parameters,
+  );
 
-  if (node.isExported) {
-    return '';
-  }
+  functionDeclarationMap.set(symbolId, newDeclaration);
 
-  return 'static ';
+  return newDeclaration;
 }
 
 function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelContext) {
@@ -317,7 +321,7 @@ function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelC
   } as const satisfies FunctionContext;
   const w = new CppWriter();
 
-  w.block(getFunctionSignature(node, context), () => {
+  w.block(declareFunction(node, context, getTopLevelFunctionStorage(node)).code(), () => {
     assert(node.block); // TODO: remove
     const boxes = node.parameters
       .map((p) => p.bindingName.identifier)
@@ -383,7 +387,7 @@ function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: To
     }
 
     if (tdzVariableSymbolIdSet.has(identifier.getSymbol().id)) {
-      addAssignment(getSscTdzTagName(identifier.text), 'true');
+      addAssignment(getVariableReference(identifier, context).tdzTagCode(), 'true');
     }
 
     return lines;
@@ -459,7 +463,7 @@ function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerC
   const initializer =
     node.initializer ? new CppUnknownExpression(lowerValue(node.initializer, context)) : undefined;
 
-  return declareVariable(identifier, context, isConst, initializer).code();
+  return declareVariable(identifier, context, 'local', isConst, initializer).code();
 }
 
 function lowerIfStatement(node: NodeIfStatement, context: LowerContext) {
@@ -788,7 +792,8 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     if (ast.isFunctionDeclaration(declaration)) {
       const functionDeclaration = new NodeFunctionDeclaration(node.app, declaration);
       const namespaceName = getSscNamespaceName(pathToId(realPath));
-      const functionName = getSscFunctionName(functionDeclaration);
+      const storage = isSameFile ? getTopLevelFunctionStorage(functionDeclaration) : 'imported';
+      const functionName = declareFunction(functionDeclaration, context, storage).reference.code();
       const args = node.arguments.map((a) => lowerValue(a, context)).join(', ');
 
       if (!isSameFile) {
@@ -805,7 +810,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
           context,
           realPath,
           functionName,
-          `${getFunctionSignature(functionDeclaration, context)};`,
+          `${declareFunction(functionDeclaration, context, storage).code()};`,
         );
       }
 
@@ -848,7 +853,7 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
     const typeName = getSscTypeName(node.app, identifier.getType());
     const value = typeName === 'union' ? argument : getUnionReadText(typeName, argument);
 
-    return `${declareVariable(identifier, closureContext, true, new CppUnknownExpression(value)).code()};`;
+    return `${declareVariable(identifier, closureContext, 'local', true, new CppUnknownExpression(value)).code()};`;
   });
   const body =
     node.body instanceof NodeBlock ?
@@ -883,7 +888,8 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
 
     return typeName === 'union' ? argument : getUnionReadText(typeName, argument);
   });
-  const call = `${getSscFunctionName(declaration)}(${parameters.join(', ')})`;
+  const storage = getTopLevelFunctionStorage(declaration);
+  const call = `${declareFunction(declaration, context, storage).reference.code()}(${parameters.join(', ')})`;
   const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
   const body =
     isVoid ?
@@ -2181,24 +2187,19 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
   );
 
   const { identifier } = new NodeVariableDeclaration(node.app, declaration).bindingName;
-  const { text } = identifier;
   const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
   const namespaceName = getSscNamespaceName(pathToId(realPath));
-  const variableName = `${namespaceName}::${getVariableReference(identifier, context).code()}`;
+  const reference = getVariableReference(identifier, context);
+  const variableName = `${namespaceName}::${reference.code()}`;
 
   if (!tdzReferenceNodeSet.has(node.tsNode)) {
     return variableName;
   }
 
-  const tdzTagName = getSscTdzTagName(text);
+  const tdzTagName = reference.tdzTagCode();
 
   if (!isSameFile) {
-    addImportedForward(
-      context,
-      realPath,
-      tdzTagName,
-      `extern ssc__core__type__boolean ${tdzTagName};`,
-    );
+    addImportedForward(context, realPath, tdzTagName, `${reference.declaration.tdzTagCode()};`);
   }
 
   return `(ssc__core__fn__throw_if_tdz(${namespaceName}::${tdzTagName}, "${node.text}"), ${variableName})`;
@@ -2219,13 +2220,13 @@ function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
   const { identifier } = new NodeVariableDeclaration(node.app, declaration).bindingName;
   const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
 
-  const variableDeclaration = declareVariable(identifier, context, false);
+  const variableDeclaration = declareVariable(identifier, context, 'imported', false);
 
   addImportedForward(
     context,
     realPath,
-    variableDeclaration.ref.code(),
-    `extern ${variableDeclaration.code()};`,
+    variableDeclaration.reference.code(),
+    `${variableDeclaration.code()};`,
   );
 }
 

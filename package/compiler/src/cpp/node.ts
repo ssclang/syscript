@@ -20,6 +20,14 @@ export abstract class CppNode {
     return `ssc__ts__var__${tsVariableName}`;
   }
 
+  static toCppTdzTagName(tsVariableName: string) {
+    return `ssc__ts__tdz__${tsVariableName}`;
+  }
+
+  static toCppFunctionName(tsFunctionName: string) {
+    return `ssc__ts__fn__${tsFunctionName}`;
+  }
+
   static toCppTypeName(tsTypeName: string) {
     return `ssc__core__type__${tsTypeName}`;
   }
@@ -42,16 +50,55 @@ export class CppUnknownExpression extends CppExpression {
 
 // region variable
 
-export class CppVariableDeclaration extends CppNode {
-  readonly isConst: boolean;
-  readonly ref: CppVariableReference;
-  readonly initializer?: CppExpression;
+export type CppVariableStorage = 'imported' | 'topLevel' | 'exportedTopLevel' | 'local';
 
-  constructor(isConst: boolean, ref: CppVariableReference, initializer?: CppExpression) {
+export class CppVariableDeclaration extends CppNode {
+  readonly storage: CppVariableStorage;
+  readonly isConst: boolean;
+  readonly tsTypeName: string;
+  readonly cppTypeName: string;
+  readonly tsVariableName: string;
+  readonly cppVariableName: string;
+  readonly initializer?: CppExpression;
+  readonly reference: CppVariableReference;
+
+  constructor(
+    storage: CppVariableStorage,
+    isConst: boolean,
+    tsTypeName: string,
+    tsVariableName: string,
+    initializer?: CppExpression,
+  ) {
     super();
+    this.storage = storage;
     this.isConst = isConst;
-    this.ref = ref;
+    this.tsTypeName = tsTypeName;
+    this.cppTypeName = CppNode.toCppTypeName(this.tsTypeName);
+    this.tsVariableName = tsVariableName;
+    this.cppVariableName = CppNode.toCppVariableName(this.tsVariableName);
     this.initializer = initializer;
+    this.reference = new CppVariableReference(this);
+  }
+
+  private getLinkage() {
+    if (this.storage === 'imported') {
+      return 'extern ';
+    }
+
+    if (this.storage === 'topLevel') {
+      return 'static ';
+    }
+
+    if (this.storage === 'exportedTopLevel') {
+      return '';
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this.storage === 'local') {
+      return '';
+    }
+
+    assertNever(this.storage);
   }
 
   code() {
@@ -61,35 +108,39 @@ export class CppVariableDeclaration extends CppNode {
       tokens.push('const');
     }
 
-    tokens.push(this.ref.cppTypeName);
-    tokens.push(this.ref.cppVariableName);
+    tokens.push(this.cppTypeName);
+    tokens.push(this.cppVariableName);
 
     if (this.initializer) {
       tokens.push('=');
       tokens.push(this.initializer.code());
     }
 
-    return tokens.join(' ');
+    return `${this.getLinkage()}${tokens.join(' ')}`;
+  }
+
+  tdzTagCode() {
+    const linkage = this.getLinkage();
+    const typeName = CppNode.toCppTypeName('boolean');
+
+    return `${linkage}${typeName} ${CppNode.toCppTdzTagName(this.tsVariableName)}`;
   }
 }
 
 export class CppVariableReference extends CppExpression {
-  readonly tsTypeName: string;
-  readonly tsVariableName: string;
+  readonly declaration: CppVariableDeclaration;
 
-  readonly cppTypeName: string;
-  readonly cppVariableName: string;
-
-  constructor(tsTypeName: string, tsVariableName: string) {
+  constructor(declaration: CppVariableDeclaration) {
     super();
-    this.tsTypeName = tsTypeName;
-    this.tsVariableName = tsVariableName;
-    this.cppTypeName = CppNode.toCppTypeName(this.tsTypeName);
-    this.cppVariableName = CppNode.toCppVariableName(this.tsVariableName);
+    this.declaration = declaration;
   }
 
   code() {
-    return this.cppVariableName;
+    return this.declaration.cppVariableName;
+  }
+
+  tdzTagCode() {
+    return CppNode.toCppTdzTagName(this.declaration.tsVariableName);
   }
 }
 
@@ -190,5 +241,80 @@ export class CppStringLiteral extends CppExpression {
     }).join('');
 
     return `ssc__core__fn__string_literal<u8"${text}">()`;
+  }
+}
+
+// region function
+
+export type CppFunctionStorage = 'imported' | 'topLevel' | 'exportedTopLevel';
+
+export class CppFunctionDeclaration extends CppNode {
+  readonly storage: CppFunctionStorage;
+  readonly isExternC: boolean;
+  readonly tsReturnTypeName: string;
+  readonly cppReturnTypeName: string;
+  readonly tsFunctionName: string;
+  readonly cppFunctionName: string;
+  readonly parameters: CppVariableDeclaration[];
+  readonly reference: CppFunctionReference;
+
+  constructor(
+    storage: CppFunctionStorage,
+    isExternC: boolean,
+    tsReturnTypeName: string,
+    tsFunctionName: string,
+    parameters: CppVariableDeclaration[],
+  ) {
+    super();
+    this.storage = storage;
+    this.isExternC = isExternC;
+    this.tsReturnTypeName = tsReturnTypeName;
+    this.cppReturnTypeName = CppNode.toCppTypeName(this.tsReturnTypeName);
+    this.tsFunctionName = tsFunctionName;
+    this.cppFunctionName =
+      this.isExternC ? this.tsFunctionName : CppNode.toCppFunctionName(this.tsFunctionName);
+    this.parameters = parameters;
+    this.reference = new CppFunctionReference(this);
+  }
+
+  private getLinkage() {
+    if (this.isExternC) {
+      return 'extern "C" ';
+    }
+
+    if (this.storage === 'imported') {
+      return '';
+    }
+
+    if (this.storage === 'topLevel') {
+      return 'static ';
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this.storage === 'exportedTopLevel') {
+      return '';
+    }
+
+    assertNever(this.storage);
+  }
+
+  code() {
+    const linkage = this.getLinkage();
+    const parameters = this.parameters.map((p) => p.code()).join(', ');
+
+    return `${linkage}${this.cppReturnTypeName} ${this.cppFunctionName}(${parameters})`;
+  }
+}
+
+export class CppFunctionReference extends CppExpression {
+  readonly declaration: CppFunctionDeclaration;
+
+  constructor(declaration: CppFunctionDeclaration) {
+    super();
+    this.declaration = declaration;
+  }
+
+  code() {
+    return this.declaration.cppFunctionName;
   }
 }
