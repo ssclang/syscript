@@ -555,11 +555,19 @@ function lowerCondition(node: AbstractNode<ast.Expression>, context: LowerContex
 
 function getTruthyCondition(typeName: string, text: string) {
   if (typeName === 'union') {
-    return `ssc__core__fn__truthy_union(${text})`;
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__truthy_union',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   if (typeName === 'ref') {
-    return `ssc__core__fn__truthy_ref(${text})`;
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__truthy_ref',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   if (typeName === 'boolean') {
@@ -567,11 +575,19 @@ function getTruthyCondition(typeName: string, text: string) {
   }
 
   if (typeName === 'f32') {
-    return `ssc__core__fn__truthy_f32(${text})`;
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__truthy_f32',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   if (typeName === 'f64') {
-    return `ssc__core__fn__truthy_f64(${text})`;
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__truthy_f64',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   if (
@@ -1229,7 +1245,16 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
   if (isStringType(node.left.getType())) {
     const target = lowerVariableReference(node.left, context);
 
-    return `(${target} = ssc__core__fn__string_concat(${lowerExpression(node.left, context)}, ${lowerString(node.right, context)}))`;
+    const concat = new CppCoreFunctionCall(
+      'ssc__core__fn__string_concat',
+      [],
+      [
+        new CppUnknownExpression(lowerExpression(node.left, context)),
+        new CppUnknownExpression(lowerString(node.right, context)),
+      ],
+    );
+
+    return `(${target} = ${concat.code()})`;
   }
 
   const type = getSscNumberType(node.left);
@@ -1370,7 +1395,12 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
   const { kind } = node.binaryOperatorToken;
 
   if (isStringType(node.getType())) {
-    return `ssc__core__fn__string_concat(${lowerString(node.left, context)}, ${lowerString(node.right, context)})`;
+    const args = [
+      new CppUnknownExpression(lowerString(node.left, context)),
+      new CppUnknownExpression(lowerString(node.right, context)),
+    ];
+
+    return new CppCoreFunctionCall('ssc__core__fn__string_concat', [], args).code();
   }
   const type = getSscNumberType(node);
   const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
@@ -1579,26 +1609,34 @@ function lowerString(node: AbstractNode<ast.Expression>, context: LowerContext) 
     return lowerExpression(node, context);
   }
 
-  return `ssc__core__fn__to_string(${lowerExpression(node, context)})`;
+  const args = [new CppUnknownExpression(lowerExpression(node, context))];
+
+  return new CppCoreFunctionCall('ssc__core__fn__to_string', [], args).code();
 }
 
 function lowerTemplateExpression(node: NodeTemplateExpression, context: LowerContext) {
-  const parts = node.head ? [new CppStringLiteral(node.head).code()] : [];
+  const parts: CppExpression[] = node.head ? [new CppStringLiteral(node.head)] : [];
 
   for (const { expression, literal } of node.spans) {
-    parts.push(lowerString(expression, context));
+    parts.push(new CppUnknownExpression(lowerString(expression, context)));
 
     if (literal) {
-      parts.push(new CppStringLiteral(literal).code());
+      parts.push(new CppStringLiteral(literal));
     }
   }
 
-  return parts.reduce((left, right) => `ssc__core__fn__string_concat(${left}, ${right})`);
+  return parts
+    .reduce(
+      (left, right) => new CppCoreFunctionCall('ssc__core__fn__string_concat', [], [left, right]),
+    )
+    .code();
 }
 
 function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, context: LowerContext) {
   if (isStringType(node.expression.getType()) && node.name === 'length') {
-    return `ssc__core__fn__string_length(${lowerExpression(node.expression, context)})`;
+    const args = [new CppUnknownExpression(lowerExpression(node.expression, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__string_length', [], args).code();
   }
 
   if (node.app.checker.isArrayType(node.expression.getType()) && node.name === 'length') {
@@ -1995,7 +2033,13 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
-    return `(ssc__core__fn__string_compare(${left}, ${right}) ${getComparisonOperator(kind)} 0)`;
+    const compare = new CppCoreFunctionCall(
+      'ssc__core__fn__string_compare',
+      [],
+      [new CppUnknownExpression(left), new CppUnknownExpression(right)],
+    );
+
+    return `(${compare.code()} ${getComparisonOperator(kind)} 0)`;
   }
 
   const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
@@ -2012,7 +2056,9 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     const leftText = lowerEqualityOperand(left, right, context);
     const rightText = lowerEqualityOperand(right, left, context);
 
-    return `ssc__core__fn__strict_equals(${leftText}, ${rightText})`;
+    const args = [new CppUnknownExpression(leftText), new CppUnknownExpression(rightText)];
+
+    return new CppCoreFunctionCall('ssc__core__fn__strict_equals', [], args).code();
   }
 
   if (
@@ -2026,7 +2072,12 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     getSscTypeName(left.app, left.getType()) === 'ref'
     && getSscTypeName(right.app, right.getType()) === 'ref'
   ) {
-    return `ssc__core__fn__strict_equals(${lowerExpression(left, context)}, ${lowerExpression(right, context)})`;
+    const args = [
+      new CppUnknownExpression(lowerExpression(left, context)),
+      new CppUnknownExpression(lowerExpression(right, context)),
+    ];
+
+    return new CppCoreFunctionCall('ssc__core__fn__strict_equals', [], args).code();
   }
 
   const type = commonType([...getOperands(left), ...getOperands(right)]);
