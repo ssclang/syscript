@@ -1,4 +1,4 @@
-function truthy(a: boolean, b: i32, c: u8, d: f64, e: f32): i32 {
+function truthy(a: boolean, b: i32, c: u8, d: number, e: f32): i32 {
   if (a) {
     return i32(1);
   } else if (b) {

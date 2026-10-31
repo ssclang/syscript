@@ -2,7 +2,7 @@ declare function exit(code: i32): void;
 
 const numbers: i32[] = [i32(1), i32(2), i32(3)];
 const words: string[] = ['a', 'b'];
-const empty: f64[] = [];
+const empty: number[] = [];
 const mixed: (i32 | string)[] = [i32(1), 'x'];
 const nested: i32[][] = [[i32(1), i32(2)], [i32(3)]];
 

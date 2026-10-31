@@ -20,7 +20,7 @@ function isA(c: char | undefined): boolean {
   return c === char('A');
 }
 
-function isTwo(x: f64 | i32): boolean {
+function isTwo(x: number | i32): boolean {
   return x === 2;
 }
 

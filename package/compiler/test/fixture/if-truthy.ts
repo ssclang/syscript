@@ -1,7 +1,7 @@
 declare function exit(code: i32): void;
 declare function acos(x: f64): f64;
 
-function check(a: boolean, b: i32, c: f64): i32 {
+function check(a: boolean, b: i32, c: number): i32 {
   if (a) {
     return i32(1);
   }
@@ -17,4 +17,4 @@ function check(a: boolean, b: i32, c: f64): i32 {
   return i32(7);
 }
 
-exit(check(false, i32(0), acos(2)));
+exit(check(false, i32(0), number(acos(f64(2)))));

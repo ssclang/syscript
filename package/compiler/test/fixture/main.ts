@@ -30,8 +30,8 @@ export function countdown(n: i32): i32 {
 
 /** C의 `x != 0`은 NaN을 참으로 보지만 JS는 거짓으로 본다. 여기서는 JS를 따른다. */
 export function nanIsFalsy(): i32 {
-  const zero: f64 = 0;
-  const nan: f64 = zero / zero;
+  const zero: number = 0;
+  const nan: number = zero / zero;
 
   if (nan) {
     return i32(1);
@@ -75,9 +75,9 @@ export function logic(n: i32, seen: boolean): i32 {
     total = total + i32(4);
   }
 
-  const nan: f64 = 0 / 0;
+  const nan: number = 0 / 0;
 
-  if (nan || f64(n)) {
+  if (nan || number(n)) {
     total = total + i32(8);
   }
 
@@ -178,13 +178,13 @@ export function main(): i32 {
   // return total + elapsed;
 }
 
-export function probe(a: f64) {
+export function probe(a: number) {
   const x = a;
   return x;
 }
 
 // for test
-function noExport(a: f64) {
+function noExport(a: number) {
   const x = a;
   return x;
 }
@@ -196,7 +196,7 @@ function noExport(a: f64) {
 //   return long;
 // }
 
-/** TS 기본 number. JS와 같은 f64로 내려간다. */
+/** TS 기본 number. JS와 같은 number로 내려간다. */
 export function plainNumber(a: number): number {
   const num1: number = a * 2;
   const num2 = a * 4;

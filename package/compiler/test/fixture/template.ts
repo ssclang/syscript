@@ -2,7 +2,7 @@ declare function exit(code: i32): void;
 
 const name: string = 'syscript';
 const count: i32 = i32(3);
-const ratio: f64 = 0.5;
+const ratio: number = 0.5;
 const emoji: char = char(0x1f44d);
 const flag: boolean = true;
 const value: i32 | undefined = undefined;

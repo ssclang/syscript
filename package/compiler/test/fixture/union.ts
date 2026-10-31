@@ -103,7 +103,7 @@ function kind(x: i32 | null | undefined): i32 {
   return i32(2);
 }
 
-function mixed(x: f64): f64 {
+function mixed(x: number): number {
   return x + 0.5;
 }
 
@@ -168,7 +168,7 @@ if (orNegative(null) === i32(-1) && orNegative(i32(4)) === i32(4) && kind(undefi
 const smallValue: u8 = u8(2);
 const negative: i8 = i8(-3);
 
-if (mixed(f64(smallValue)) === 2.5 && mixed(f64(negative)) === -2.5 && mixed(1.5) === 2) {
+if (mixed(number(smallValue)) === 2.5 && mixed(number(negative)) === -2.5 && mixed(1.5) === 2) {
   result += i32(64);
 }
 

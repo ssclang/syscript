@@ -26,7 +26,7 @@ function noop7(): f32 {
 
 function noop8(a: i32): void {}
 
-function noop9(a: i32, b: f64): i32 {
+function noop9(a: i32, b: number): i32 {
   return i32(1);
 }
 

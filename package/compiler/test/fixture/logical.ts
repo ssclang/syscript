@@ -16,17 +16,17 @@ function or(a: i32, b: u8): i32 {
   return a || i32(b);
 }
 
-function orFloat(a: f64, b: i32): f64 {
-  return a || f64(b);
+function orFloat(a: number, b: i32): number {
+  return a || number(b);
 }
 
 function both(a: boolean, b: boolean): boolean {
   return a && b;
 }
 
-const zero: f64 = 0;
+const zero: number = 0;
 const n: i32 = i32(0);
-const x: f64 = 0.5;
+const x: number = 0.5;
 let result: i32 = i32(0);
 
 if (and(i32(0), i32(5)) === i32(0)) {
@@ -57,7 +57,7 @@ if (calls === i32(2)) {
   result = result + i32(64);
 }
 
-if (f64(n) || x) {
+if (number(n) || x) {
   result = result + i32(128);
 }
 

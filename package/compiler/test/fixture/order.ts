@@ -13,7 +13,7 @@ function markIndex(name: string, result: u64): u64 {
   return result;
 }
 
-function markFloat(name: string, result: f64): f64 {
+function markFloat(name: string, result: number): number {
   trace += name;
   return result;
 }

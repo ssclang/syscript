@@ -22,8 +22,8 @@ function decrement(a: u8): u8 {
   return v;
 }
 
-function float(a: f64): f64 {
-  let v: f64 = a;
+function float(a: number): number {
+  let v: number = a;
   v++;
 
   return v;
@@ -45,8 +45,8 @@ function compound(a: i32): i32 {
   return v;
 }
 
-function compoundFloat(a: f64): f64 {
-  let v: f64 = a;
+function compoundFloat(a: number): number {
+  let v: number = a;
   v += 0.5;
   v %= 2;
 

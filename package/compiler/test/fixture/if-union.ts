@@ -1,4 +1,4 @@
-function truthy(a: i32 | undefined, b: f64 | null, c: boolean | undefined): i32 {
+function truthy(a: i32 | undefined, b: number | null, c: boolean | undefined): i32 {
   if (a) {
     return i32(1);
   }

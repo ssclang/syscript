@@ -1,33 +1,24 @@
 import BigNumber from 'bignumber.js';
-import {
-  includes,
-  integerRanges,
-  sscFloatTypes,
-  SscNumberType,
-  sscSignedIntegerTypes,
-  sscUnsignedIntegerTypes,
-} from '~/ssc/type.js';
+import { includes, integerRanges, sscFloatTypes, SscNumberType } from '~/ssc/type.js';
 
 /*
- * 패치한 TypeScript checker(ssc.go)의 공통 타입 규칙을 그대로 옮긴다. checker를 통과한
- * 프로그램만 내려오지만, 규칙이 어긋나면 잘못된 C가 나오므로 여기서도 판정하고 에러를 낸다.
+ * 숫자 변환 규칙. 생성자가 손실 없이 바꿀 수 있는지와 리터럴이 타입 범위에 드는지를 판정한다.
  */
 
 const losslessTargets = {
-  i8: ['i8', 'i16', 'i32', 'i64', 'f32', 'f64'],
-  i16: ['i16', 'i32', 'i64', 'f32', 'f64'],
-  i32: ['i32', 'i64', 'f64'],
+  i8: ['i8', 'i16', 'i32', 'i64', 'f32', 'f64', 'number'],
+  i16: ['i16', 'i32', 'i64', 'f32', 'f64', 'number'],
+  i32: ['i32', 'i64', 'f64', 'number'],
   i64: ['i64'],
-  u8: ['u8', 'u16', 'u32', 'u64', 'i16', 'i32', 'i64', 'f32', 'f64'],
-  u16: ['u16', 'u32', 'u64', 'i32', 'i64', 'f32', 'f64'],
-  u32: ['u32', 'u64', 'i64', 'f64'],
+  u8: ['u8', 'u16', 'u32', 'u64', 'i16', 'i32', 'i64', 'f32', 'f64', 'number'],
+  u16: ['u16', 'u32', 'u64', 'i32', 'i64', 'f32', 'f64', 'number'],
+  u32: ['u32', 'u64', 'i64', 'f64', 'number'],
   u64: ['u64'],
-  char: ['char', 'u32', 'u64', 'i64', 'f64'],
-  f32: ['f32', 'f64'],
-  f64: ['f64'],
+  char: ['char', 'u32', 'u64', 'i64', 'f64', 'number'],
+  f32: ['f32', 'f64', 'number'],
+  f64: ['f64', 'number'],
+  number: ['number', 'f64'],
 } as const satisfies Record<SscNumberType, readonly SscNumberType[]>;
-
-export type CommonTypeOperand = { type: SscNumberType } | { literal: BigNumber };
 
 /** 10진 문자열을 IEEE 754 f64로 반올림한다. 셀프 호스팅에서는 C의 `strtod`로 바꾼다. */
 export function toFloat64(text: string) {
@@ -70,50 +61,4 @@ export function isLiteralInRange(literal: BigNumber, type: SscNumberType) {
 
 export function isLossless(from: SscNumberType, to: SscNumberType) {
   return includes(losslessTargets[from], to);
-}
-
-/**
- * 피연산자를 모두 손실 없이 담는 가장 작은 타입. 리터럴은 음수가 아니면 ssc 타입의 부호를
- * 따르고, 소수가 있으면 실수만 남는다. 리터럴뿐이면 f64다.
- */
-export function commonType(operands: readonly CommonTypeOperand[]): SscNumberType {
-  const types = operands.flatMap((o) => ('type' in o ? [o.type] : []));
-  const literals = operands.flatMap((o) => ('literal' in o ? [o.literal] : []));
-
-  if (!types.length) {
-    return 'f64';
-  }
-
-  const isFloat =
-    types.some((t) => includes(sscFloatTypes, t)) || literals.some((l) => !literalInteger(l));
-  const isSigned =
-    types.some((t) => includes(sscSignedIntegerTypes, t))
-    || literals.some((l) => {
-      const integer = literalInteger(l);
-      return !!integer && integer.isNegative() && !integer.isZero();
-    });
-  let candidates: readonly SscNumberType[];
-
-  if (isFloat) {
-    candidates = sscFloatTypes;
-  } else if (isSigned) {
-    candidates = [...sscSignedIntegerTypes, ...sscFloatTypes];
-  } else {
-    candidates = [...sscUnsignedIntegerTypes, ...sscFloatTypes];
-  }
-
-  const common = candidates.find(
-    (name) =>
-      types.every((t) => isLossless(t, name)) && literals.every((l) => isLiteralInRange(l, name)),
-  );
-
-  if (!common) {
-    throw new Error(`no common type: ${operands.map(operandText).join(', ')}`);
-  }
-
-  return common;
-}
-
-function operandText(operand: CommonTypeOperand) {
-  return 'type' in operand ? operand.type : operand.literal.toFixed();
 }

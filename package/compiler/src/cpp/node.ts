@@ -256,7 +256,7 @@ export class CppNumericLiteral extends CppExpression {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (type === 'f32' || type === 'f64') {
+    if (type === 'f32' || type === 'f64' || type === 'number') {
       const suffix = type === 'f32' ? 'f' : '';
       const number = type === 'f32' ? Math.fround(Number(this.value)) : Number(this.value);
 
@@ -426,7 +426,7 @@ export class CppCoreFunctionCall extends CppExpression {
 // region operator
 
 export type CppBinaryOperator =
-  '+' | '-' | '*' | '/' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '&&' | '||' | '=' | ',';
+  '+' | '-' | '*' | '/' | '%' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '&&' | '||' | '=' | ',';
 
 export type CppUnaryOperator = '!' | '-' | '++' | '--';
 

@@ -37,8 +37,8 @@ function compound(): i32 {
   return i32(0);
 }
 
-function float(): f64 {
-  let x: f64 | undefined = 1.5;
+function float(): number {
+  let x: number | undefined = 1.5;
 
   if (x !== undefined) {
     x++;

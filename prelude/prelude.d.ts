@@ -35,12 +35,12 @@ declare global {
   /** `-9007199254740992` ~ `9007199254740992` (exact integers)\
    * fractions may lose precision
    */
-  type f64 = number & {};
+  type f64 = number & { readonly [ssc]: 'f64' };
 
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64 | char;
   type SscIntegerType = SscSignedIntegerType | SscUnsignedIntegerType;
-  type SscFloatType = f32 | f64;
+  type SscFloatType = f32 | f64 | number;
   type SscNumberType = SscIntegerType | SscFloatType;
 
   function i8(value: number | string): i8;
@@ -54,6 +54,7 @@ declare global {
   function char(value: number | string): char;
   function f32(value: number | string): f32;
   function f64(value: number | string): f64;
+  function number(value: number | string): number;
 
   function addWrap<T extends SscIntegerType>(left: T, right: T): T;
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;

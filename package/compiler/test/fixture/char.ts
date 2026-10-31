@@ -30,7 +30,7 @@ function widen(c: char): boolean {
   const d: i64 = i64(c);
   const e: f64 = f64(c);
 
-  return a === u32(65) && b === u64(65) && d === i64(65) && e === 65;
+  return a === u32(65) && b === u64(65) && d === i64(65) && e === f64(65);
 }
 
 function code(v: u32): u32 {
@@ -77,7 +77,7 @@ if (next(char('A')) === u32(66) && digit(char('7')) === u32(7)) {
   result += i32(8);
 }
 
-if (widen(char('A')) && literalU32 === u32(65) && literalU64 === u64(65) && literalI64 === i64(54620) && literalF64 === 128077 && code(u32(char('A'))) === u32(65)) {
+if (widen(char('A')) && literalU32 === u32(65) && literalU64 === u64(65) && literalI64 === i64(54620) && literalF64 === f64(128077) && code(u32(char('A'))) === u32(65)) {
   result += i32(16);
 }
 

@@ -39,6 +39,97 @@ export using ssc__core__type__char = __UINT32_TYPE__;
 export using ssc__core__type__f32 = float;
 export using ssc__core__type__f64 = double;
 
+export struct ssc__core__type__number {
+  ssc__core__type__f64 ssc__core__member__value;
+
+  ssc__core__type__number() = default;
+
+  inline explicit constexpr ssc__core__type__number(ssc__core__type__f64 value) noexcept : ssc__core__member__value(value) {}
+
+  inline explicit constexpr operator ssc__core__type__f64() const noexcept {
+    return ssc__core__member__value;
+  }
+
+  inline constexpr ssc__core__type__number operator+(ssc__core__type__number right) const noexcept {
+    return ssc__core__type__number(ssc__core__member__value + right.ssc__core__member__value);
+  }
+
+  inline constexpr ssc__core__type__number operator-(ssc__core__type__number right) const noexcept {
+    return ssc__core__type__number(ssc__core__member__value - right.ssc__core__member__value);
+  }
+
+  inline constexpr ssc__core__type__number operator*(ssc__core__type__number right) const noexcept {
+    return ssc__core__type__number(ssc__core__member__value * right.ssc__core__member__value);
+  }
+
+  inline constexpr ssc__core__type__number operator/(ssc__core__type__number right) const noexcept {
+    return ssc__core__type__number(ssc__core__member__value / right.ssc__core__member__value);
+  }
+
+  inline ssc__core__type__number operator%(ssc__core__type__number right) const noexcept {
+    return ssc__core__type__number(__builtin_fmod(ssc__core__member__value, right.ssc__core__member__value));
+  }
+
+  inline constexpr ssc__core__type__number operator-() const noexcept {
+    return ssc__core__type__number(-ssc__core__member__value);
+  }
+
+  inline constexpr ssc__core__type__number operator+() const noexcept {
+    return *this;
+  }
+
+  inline constexpr ssc__core__type__boolean operator==(const ssc__core__type__number& right) const noexcept = default;
+
+  inline constexpr auto operator<=>(const ssc__core__type__number& right) const noexcept = default;
+
+  inline ssc__core__type__number& operator+=(ssc__core__type__number right) noexcept {
+    *this = *this + right;
+    return *this;
+  }
+
+  inline ssc__core__type__number& operator-=(ssc__core__type__number right) noexcept {
+    *this = *this - right;
+    return *this;
+  }
+
+  inline ssc__core__type__number& operator*=(ssc__core__type__number right) noexcept {
+    *this = *this * right;
+    return *this;
+  }
+
+  inline ssc__core__type__number& operator/=(ssc__core__type__number right) noexcept {
+    *this = *this / right;
+    return *this;
+  }
+
+  inline ssc__core__type__number& operator%=(ssc__core__type__number right) noexcept {
+    *this = *this % right;
+    return *this;
+  }
+
+  inline ssc__core__type__number& operator++() noexcept {
+    *this = *this + ssc__core__type__number(1.0);
+    return *this;
+  }
+
+  inline ssc__core__type__number operator++(int) noexcept {
+    const ssc__core__type__number previous = *this;
+    *this = previous + ssc__core__type__number(1.0);
+    return previous;
+  }
+
+  inline ssc__core__type__number& operator--() noexcept {
+    *this = *this - ssc__core__type__number(1.0);
+    return *this;
+  }
+
+  inline ssc__core__type__number operator--(int) noexcept {
+    const ssc__core__type__number previous = *this;
+    *this = previous - ssc__core__type__number(1.0);
+    return previous;
+  }
+};
+
 export template <typename Type> struct ssc__core__struct__span {
   ssc__core__type__u64 ssc__core__member__length;
   const Type* ssc__core__member__elements_pointer;
@@ -158,6 +249,7 @@ export template <> constexpr ssc__core__type__u64 ssc__core__var__type_id<ssc__c
 // 32 ~ 47: float
 export template <> constexpr ssc__core__type__u64 ssc__core__var__type_id<ssc__core__type__f32> = 32;
 export template <> constexpr ssc__core__type__u64 ssc__core__var__type_id<ssc__core__type__f64> = 33;
+export template <> constexpr ssc__core__type__u64 ssc__core__var__type_id<ssc__core__type__number> = 34;
 // 48: ref
 export template <> constexpr ssc__core__type__u64 ssc__core__var__type_id<ssc__core__type__ref> = 48;
 // 49 ~ 255: reserved
@@ -198,6 +290,7 @@ public:
     ssc__core__type__u64 ssc__core__member__u64;
     ssc__core__type__f32 ssc__core__member__f32;
     ssc__core__type__f64 ssc__core__member__f64;
+    ssc__core__type__number ssc__core__member__number;
     ssc__core__struct__object_header* ssc__core__member__object_header_pointer;
   } ssc__core__member__value;
 
@@ -290,6 +383,7 @@ static_assert(sizeof(ssc__core__type__u32) == 4);
 static_assert(sizeof(ssc__core__type__u64) == 8);
 static_assert(sizeof(ssc__core__type__f32) == 4);
 static_assert(sizeof(ssc__core__type__f64) == 8);
+static_assert(sizeof(ssc__core__type__number) == 8);
 static_assert(sizeof(ssc__core__struct__string) == 24);
 static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
@@ -515,6 +609,64 @@ inline ssc__core__type__ref ssc__core__fn__to_string(Type value) {
   return ssc__core__fn__string_from_bytes(buffer, result.ptr - buffer);
 }
 
+export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__number number) {
+  const ssc__core__type__f64 value = static_cast<ssc__core__type__f64>(number);
+
+  if (__builtin_isnan(value)) {
+    return ssc__core__fn__string_literal<u8"NaN">();
+  }
+
+  if (__builtin_isinf(value)) {
+    return value < 0 ? ssc__core__fn__string_literal<u8"-Infinity">() : ssc__core__fn__string_literal<u8"Infinity">();
+  }
+
+  if (value == 0) {
+    return ssc__core__fn__string_literal<u8"0">();
+  }
+
+  char scientific[32];
+  const std::to_chars_result result = std::to_chars(scientific, scientific + sizeof(scientific), value < 0 ? -value : value, std::chars_format::scientific);
+  const std::string_view text(scientific, result.ptr - scientific);
+  const ssc__core__type__u64 exponent_index = text.find('e');
+  std::string digits(text.substr(0, exponent_index));
+
+  if (digits.size() > 1) {
+    digits.erase(1, 1);
+  }
+
+  ssc__core__type__i64 exponent = 0;
+  std::from_chars(text.data() + exponent_index + (text[exponent_index + 1] == '+' ? 2 : 1), text.data() + text.size(), exponent);
+
+  const ssc__core__type__i64 length = static_cast<ssc__core__type__i64>(digits.size());
+  const ssc__core__type__i64 point = exponent + 1;
+  std::string buffer = value < 0 ? "-" : "";
+
+  if (length <= point && point <= 21) {
+    buffer += digits;
+    buffer.append(point - length, '0');
+  } else if (0 < point && point <= 21) {
+    buffer += digits.substr(0, point);
+    buffer += '.';
+    buffer += digits.substr(point);
+  } else if (-6 < point && point <= 0) {
+    buffer += "0.";
+    buffer.append(-point, '0');
+    buffer += digits;
+  } else {
+    buffer += digits[0];
+
+    if (length > 1) {
+      buffer += '.';
+      buffer += digits.substr(1);
+    }
+
+    buffer += point - 1 < 0 ? "e-" : "e+";
+    buffer += std::to_string(point - 1 < 0 ? 1 - point : point - 1);
+  }
+
+  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+}
+
 inline ssc__core__type__boolean ssc__core__fn__is_string(const ssc__core__type__ref& value) noexcept {
   return value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor);
 }
@@ -589,6 +741,10 @@ export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__typ
     return ssc__core__fn__to_string(member.ssc__core__member__f64);
   }
 
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__to_string(member.ssc__core__member__number);
+  }
+
   if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
     ssc__core__fn__clone_rc(member.ssc__core__member__object_header_pointer);
 
@@ -604,6 +760,10 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_f32(ssc__core__type
 
 export inline ssc__core__type__boolean ssc__core__fn__truthy_f64(ssc__core__type__f64 value) noexcept {
   return !__builtin_isnan(value) && value != 0;
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__truthy_number(ssc__core__type__number value) noexcept {
+  return ssc__core__fn__truthy_f64(static_cast<ssc__core__type__f64>(value));
 }
 
 inline ssc__core__type__boolean ssc__core__fn__truthy_object(const ssc__core__struct__object_header* object_header_pointer) noexcept {
@@ -674,6 +834,10 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_union(const ssc__co
     return ssc__core__fn__truthy_f64(member.ssc__core__member__f64);
   }
 
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__truthy_number(member.ssc__core__member__number);
+  }
+
   if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
     return ssc__core__fn__truthy_object(member.ssc__core__member__object_header_pointer);
   }
@@ -695,7 +859,7 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_boolean(const ssc
 
 export inline ssc__core__type__boolean ssc__core__fn__union_is_number(const ssc__core__type__union& value) noexcept {
   const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
-  return (ssc__core__var__type_id<ssc__core__type__i8> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__u64>) || (ssc__core__var__type_id<ssc__core__type__f32> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__f64>);
+  return (ssc__core__var__type_id<ssc__core__type__i8> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__u64>) || (ssc__core__var__type_id<ssc__core__type__f32> <= type_id && type_id <= ssc__core__var__type_id<ssc__core__type__number>);
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__union_is_string(const ssc__core__type__union& value) noexcept {
@@ -760,7 +924,7 @@ template <typename Left, typename Right> inline constexpr ssc__core__type__boole
 }
 
 export template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__core__type__union& left, Type right) noexcept {
   const ssc__core__type__u64 type_id = left.ssc__core__member__type_id;
   const auto& member = left.ssc__core__member__value;
@@ -805,11 +969,15 @@ inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__core__ty
     return ssc__core__fn__number_equals(member.ssc__core__member__f64, right);
   }
 
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__number_equals(member.ssc__core__member__number, right);
+  }
+
   return false;
 }
 
 export template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline ssc__core__type__boolean ssc__core__fn__strict_equals(Type left, const ssc__core__type__union& right) noexcept {
   return ssc__core__fn__strict_equals(right, left);
 }
@@ -894,6 +1062,10 @@ export inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__c
 
   if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
     return ssc__core__fn__strict_equals(right, member.ssc__core__member__f64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__strict_equals(right, member.ssc__core__member__number);
   }
 
   if (type_id == ssc__core__var__type_id<ssc__core__type__boolean>) {
@@ -993,6 +1165,9 @@ inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 typ
   if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
     return "f64";
   }
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return "number";
+  }
   if (type_id == ssc__core__var__type_id<ssc__core__type__ref>) {
     return "object";
   }
@@ -1035,7 +1210,7 @@ export inline ssc__core__type__ref ssc__core__fn__union_to_ref(const ssc__core__
 }
 
 export template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline Type ssc__core__fn__union_to_number(const ssc__core__type__union& value) {
   const ssc__core__type__u64 type_id = value.ssc__core__member__type_id;
   const auto& member = value.ssc__core__member__value;
@@ -1078,6 +1253,10 @@ inline Type ssc__core__fn__union_to_number(const ssc__core__type__union& value) 
 
   if (type_id == ssc__core__var__type_id<ssc__core__type__f64>) {
     return static_cast<Type>(member.ssc__core__member__f64);
+  }
+
+  if (type_id == ssc__core__var__type_id<ssc__core__type__number>) {
+    return static_cast<Type>(static_cast<ssc__core__type__f64>(member.ssc__core__member__number));
   }
 
   ssc__core__fn__throw_union_type_error(value, "number");
@@ -1268,6 +1447,10 @@ inline ssc__core__type__ref ssc__core__fn__inspect_field(const char* pointer, ss
     return ssc__core__fn__inspect_at<ssc__core__type__f64>(pointer);
   }
 
+  if (kind == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__inspect_at<ssc__core__type__number>(pointer);
+  }
+
   if (kind == ssc__core__var__type_id<ssc__core__type__ref>) {
     return ssc__core__fn__inspect_at<ssc__core__type__ref>(pointer);
   }
@@ -1423,7 +1606,9 @@ inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__u6
   return index;
 }
 
-inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__f64 index) noexcept {
+inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__number number) noexcept {
+  const ssc__core__type__f64 index = static_cast<ssc__core__type__f64>(number);
+
   if (index < 0 || 18446744073709551616.0 <= index || __builtin_trunc(index) != index) {
     return static_cast<ssc__core__type__u64>(-1);
   }
@@ -1432,7 +1617,7 @@ inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__f6
 }
 
 export template <typename Element, typename Index>
-  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 34)
 inline ssc__core__type__union ssc__core__fn__array_get(const ssc__core__type__ref& array, Index index) {
   const ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
   const ssc__core__type__u64 position = ssc__core__fn__to_array_position(index);
@@ -1451,7 +1636,7 @@ inline ssc__core__type__union ssc__core__fn__array_get(const ssc__core__type__re
 }
 
 template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline std::string ssc__core__fn__number_text(Type value) {
   const ssc__core__type__ref text = ssc__core__fn__to_string(value);
   const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(text);
@@ -1464,9 +1649,13 @@ inline std::string ssc__core__fn__number_text(Type value) {
 }
 
 template <typename Target, typename Source>
-  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 33)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 33)))
+  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 34)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 34)))
 inline constexpr ssc__core__type__boolean ssc__core__fn__is_exact_number(Source value) noexcept {
-  if constexpr (ssc__core__var__type_id<Target> <= 24 && ssc__core__var__type_id<Source> <= 24) {
+  if constexpr (ssc__core__var__type_id<Source> == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__is_exact_number<Target>(static_cast<ssc__core__type__f64>(value));
+  } else if constexpr (ssc__core__var__type_id<Target> == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__is_exact_number<ssc__core__type__f64>(value);
+  } else if constexpr (ssc__core__var__type_id<Target> <= 24 && ssc__core__var__type_id<Source> <= 24) {
     return std::in_range<Target>(value);
   } else if constexpr (ssc__core__var__type_id<Target> <= 24) {
     const Source minimum = static_cast<Source>(std::numeric_limits<Target>::min());
@@ -1490,23 +1679,27 @@ inline constexpr ssc__core__type__boolean ssc__core__fn__is_exact_number(Source 
 }
 
 export template <typename Target, typename Source>
-  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 33)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 33)))
+  requires(((17 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 24) || (32 <= ssc__core__var__type_id<Target> && ssc__core__var__type_id<Target> <= 34)) && ((17 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 24) || (32 <= ssc__core__var__type_id<Source> && ssc__core__var__type_id<Source> <= 34)))
 inline Target ssc__core__fn__convert_number(Source value, const char* type_name_pointer) {
   if (!ssc__core__fn__is_exact_number<Target>(value)) [[unlikely]] {
     ssc__core__fn__throw_number_conversion_error(ssc__core__fn__number_text(value), type_name_pointer);
   }
 
-  return static_cast<Target>(value);
+  if constexpr (ssc__core__var__type_id<Source> == ssc__core__var__type_id<ssc__core__type__number>) {
+    return static_cast<Target>(static_cast<ssc__core__type__f64>(value));
+  } else {
+    return static_cast<Target>(value);
+  }
 }
 
 template <typename Index>
-  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 34)
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_index_error(Index index, ssc__core__type__u64 length) {
   throw "RangeError: Index " + ssc__core__fn__number_text(index) + " is out of bounds for length " + std::to_string(length);
 }
 
 export template <typename Element, typename Index>
-  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 34)
 inline Element ssc__core__fn__array_set(const ssc__core__type__ref& array, Index index, Element value) {
   ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
   const ssc__core__type__u64 position = ssc__core__fn__to_array_position(index);
@@ -1916,7 +2109,9 @@ inline Type ssc__core__fn__unsigned_shift_right(Type left, Type right, const cha
   return static_cast<Type>(static_cast<__make_unsigned(Type)>(left) >> right);
 }
 
-inline ssc__core__type__u32 ssc__core__fn__f64_to_u32(ssc__core__type__f64 value) noexcept {
+inline ssc__core__type__u32 ssc__core__fn__number_to_u32(ssc__core__type__number number) noexcept {
+  const ssc__core__type__f64 value = static_cast<ssc__core__type__f64>(number);
+
   if (!__builtin_isfinite(value)) {
     return 0;
   }
@@ -1926,36 +2121,36 @@ inline ssc__core__type__u32 ssc__core__fn__f64_to_u32(ssc__core__type__f64 value
   return static_cast<ssc__core__type__u32>(modulo < 0 ? modulo + 4294967296.0 : modulo);
 }
 
-inline ssc__core__type__i32 ssc__core__fn__f64_to_i32(ssc__core__type__f64 value) noexcept {
-  return static_cast<ssc__core__type__i32>(ssc__core__fn__f64_to_u32(value));
+inline ssc__core__type__i32 ssc__core__fn__number_to_i32(ssc__core__type__number number) noexcept {
+  return static_cast<ssc__core__type__i32>(ssc__core__fn__number_to_u32(number));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__bitwise_and(ssc__core__type__f64 left, ssc__core__type__f64 right) noexcept {
-  return ssc__core__fn__f64_to_i32(left) & ssc__core__fn__f64_to_i32(right);
+export inline ssc__core__type__number ssc__core__fn__bitwise_and(ssc__core__type__number left, ssc__core__type__number right) noexcept {
+  return ssc__core__type__number(ssc__core__fn__number_to_i32(left) & ssc__core__fn__number_to_i32(right));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__bitwise_or(ssc__core__type__f64 left, ssc__core__type__f64 right) noexcept {
-  return ssc__core__fn__f64_to_i32(left) | ssc__core__fn__f64_to_i32(right);
+export inline ssc__core__type__number ssc__core__fn__bitwise_or(ssc__core__type__number left, ssc__core__type__number right) noexcept {
+  return ssc__core__type__number(ssc__core__fn__number_to_i32(left) | ssc__core__fn__number_to_i32(right));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__bitwise_xor(ssc__core__type__f64 left, ssc__core__type__f64 right) noexcept {
-  return ssc__core__fn__f64_to_i32(left) ^ ssc__core__fn__f64_to_i32(right);
+export inline ssc__core__type__number ssc__core__fn__bitwise_xor(ssc__core__type__number left, ssc__core__type__number right) noexcept {
+  return ssc__core__type__number(ssc__core__fn__number_to_i32(left) ^ ssc__core__fn__number_to_i32(right));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__bitwise_not(ssc__core__type__f64 value) noexcept {
-  return ~ssc__core__fn__f64_to_i32(value);
+export inline ssc__core__type__number ssc__core__fn__bitwise_not(ssc__core__type__number value) noexcept {
+  return ssc__core__type__number(~ssc__core__fn__number_to_i32(value));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__shift_left(ssc__core__type__f64 left, ssc__core__type__f64 right, const char*) noexcept {
-  return static_cast<ssc__core__type__i32>(ssc__core__fn__f64_to_u32(left) << (ssc__core__fn__f64_to_u32(right) & 31));
+export inline ssc__core__type__number ssc__core__fn__shift_left(ssc__core__type__number left, ssc__core__type__number right, const char*) noexcept {
+  return ssc__core__type__number(static_cast<ssc__core__type__i32>(ssc__core__fn__number_to_u32(left) << (ssc__core__fn__number_to_u32(right) & 31)));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__shift_right(ssc__core__type__f64 left, ssc__core__type__f64 right, const char*) noexcept {
-  return ssc__core__fn__f64_to_i32(left) >> (ssc__core__fn__f64_to_u32(right) & 31);
+export inline ssc__core__type__number ssc__core__fn__shift_right(ssc__core__type__number left, ssc__core__type__number right, const char*) noexcept {
+  return ssc__core__type__number(ssc__core__fn__number_to_i32(left) >> (ssc__core__fn__number_to_u32(right) & 31));
 }
 
-export inline ssc__core__type__f64 ssc__core__fn__unsigned_shift_right(ssc__core__type__f64 left, ssc__core__type__f64 right, const char*) noexcept {
-  return ssc__core__fn__f64_to_u32(left) >> (ssc__core__fn__f64_to_u32(right) & 31);
+export inline ssc__core__type__number ssc__core__fn__unsigned_shift_right(ssc__core__type__number left, ssc__core__type__number right, const char*) noexcept {
+  return ssc__core__type__number(ssc__core__fn__number_to_u32(left) >> (ssc__core__fn__number_to_u32(right) & 31));
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_code_point_error(const std::string& text) {
@@ -1963,29 +2158,37 @@ export inline ssc__core__type__f64 ssc__core__fn__unsigned_shift_right(ssc__core
 }
 
 template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline constexpr ssc__core__type__boolean ssc__core__fn__is_code_point(Type value) noexcept {
-  if (!(0 <= value && value <= 0x10FFFF)) {
-    return false;
-  }
-
-  if constexpr (32 <= ssc__core__var__type_id<Type>) {
-    if (__builtin_trunc(value) != value) {
+  if constexpr (ssc__core__var__type_id<Type> == ssc__core__var__type_id<ssc__core__type__number>) {
+    return ssc__core__fn__is_code_point(static_cast<ssc__core__type__f64>(value));
+  } else {
+    if (!(0 <= value && value <= 0x10FFFF)) {
       return false;
     }
-  }
 
-  return !(0xD800 <= value && value <= 0xDFFF);
+    if constexpr (32 <= ssc__core__var__type_id<Type>) {
+      if (__builtin_trunc(value) != value) {
+        return false;
+      }
+    }
+
+    return !(0xD800 <= value && value <= 0xDFFF);
+  }
 }
 
 export template <typename Type>
-  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 33))
+  requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline ssc__core__type__char ssc__core__fn__char(Type value) {
   if (!ssc__core__fn__is_code_point(value)) [[unlikely]] {
     ssc__core__fn__throw_code_point_error(ssc__core__fn__number_text(value));
   }
 
-  return static_cast<ssc__core__type__char>(value);
+  if constexpr (ssc__core__var__type_id<Type> == ssc__core__var__type_id<ssc__core__type__number>) {
+    return static_cast<ssc__core__type__char>(static_cast<ssc__core__type__f64>(value));
+  } else {
+    return static_cast<ssc__core__type__char>(value);
+  }
 }
 
 export inline ssc__core__type__char ssc__core__fn__char(const ssc__core__type__ref& string) {

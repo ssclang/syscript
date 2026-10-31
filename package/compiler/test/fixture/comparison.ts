@@ -16,8 +16,8 @@ function greaterEqual(a: i16, b: i16): boolean {
   return a >= b;
 }
 
-function equal(a: f64, b: f32): boolean {
-  return a === f64(b);
+function equal(a: number, b: f32): boolean {
+  return a === number(b);
 }
 
 function notEqual(a: i32, b: i64): boolean {

@@ -10,7 +10,7 @@ export type SscIntegerType = (typeof sscIntegerTypes)[number];
 export const sscIntegerTypes = [...sscSignedIntegerTypes, ...sscUnsignedIntegerTypes] as const;
 
 export type SscFloatType = (typeof sscFloatTypes)[number];
-export const sscFloatTypes = ['f32', 'f64'] as const;
+export const sscFloatTypes = ['f32', 'f64', 'number'] as const;
 
 export type SscNumberType = (typeof sscNumberTypes)[number];
 export const sscNumberTypes = [...sscIntegerTypes, ...sscFloatTypes] as const;

@@ -160,11 +160,11 @@ test('function.ts', async () => {
       static ssc__core__type__void ssc__ts__fn__noop2();
       static ssc__core__type__i32 ssc__ts__fn__noop3();
       static ssc__core__type__i32 ssc__ts__fn__noop4();
-      static ssc__core__type__f64 ssc__ts__fn__noop5();
-      static ssc__core__type__f64 ssc__ts__fn__noop6();
+      static ssc__core__type__number ssc__ts__fn__noop5();
+      static ssc__core__type__number ssc__ts__fn__noop6();
       static ssc__core__type__f32 ssc__ts__fn__noop7();
       static ssc__core__type__void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a);
-      static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__f64 ssc__ts__var__b);
+      static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__number ssc__ts__var__b);
       static ssc__core__type__void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c);
       static ssc__core__type__i64 ssc__ts__fn__noop11(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b);
       static ssc__core__type__i64 ssc__ts__fn__noop12();
@@ -184,18 +184,18 @@ test('function.ts', async () => {
       static ssc__core__type__i32 ssc__ts__fn__noop4() {
         return ssc__core__type__i32{1};
       }
-      static ssc__core__type__f64 ssc__ts__fn__noop5() {
-        return ssc__core__type__f64{2.0};
+      static ssc__core__type__number ssc__ts__fn__noop5() {
+        return ssc__core__type__number{2.0};
       }
-      static ssc__core__type__f64 ssc__ts__fn__noop6() {
-        return ssc__core__type__f64{2.1};
+      static ssc__core__type__number ssc__ts__fn__noop6() {
+        return ssc__core__type__number{2.1};
       }
       static ssc__core__type__f32 ssc__ts__fn__noop7() {
         return ssc__core__type__f32{2.2f};
       }
       static ssc__core__type__void ssc__ts__fn__noop8(ssc__core__type__i32 ssc__ts__var__a) {
       }
-      static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__f64 ssc__ts__var__b) {
+      static ssc__core__type__i32 ssc__ts__fn__noop9(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__number ssc__ts__var__b) {
         return ssc__core__type__i32{1};
       }
       static ssc__core__type__void ssc__ts__fn__noop10(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b, ssc__core__type__f32 ssc__ts__var__c) {
@@ -232,18 +232,18 @@ test('if.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__9870639fb15b4978ad74e93d5714944c {
-      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__f64 ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e);
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__number ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e);
       static ssc__core__type__i32 ssc__ts__fn__literal();
       static ssc__core__type__i32 ssc__ts__fn__parenthesized(ssc__core__type__i32 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__character(ssc__core__type__char ssc__ts__var__a);
-      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__f64 ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e) {
+      static ssc__core__type__i32 ssc__ts__fn__truthy(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b, ssc__core__type__u8 ssc__ts__var__c, ssc__core__type__number ssc__ts__var__d, ssc__core__type__f32 ssc__ts__var__e) {
         if (ssc__ts__var__a) {
           return ssc__core__type__i32{1};
         } else if ((ssc__ts__var__b != 0)) {
           return ssc__core__type__i32{2};
         } else if ((ssc__ts__var__c != 0)) {
           return ssc__core__type__i32{3};
-        } else if (ssc__core__fn__truthy_f64(ssc__ts__var__d)) {
+        } else if (ssc__core__fn__truthy_number(ssc__ts__var__d)) {
           return ssc__core__type__i32{4};
         } else if (ssc__core__fn__truthy_f32(ssc__ts__var__e)) {
           return ssc__core__type__i32{5};
@@ -305,7 +305,7 @@ test('if-union.ts', async () => {
         return ssc__core__type__i32{0};
       }
       static ssc__core__type__i32 ssc__ts__fn__literal() {
-        return ssc__core__fn__add(ssc__core__fn__add(ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__truthy(ssc__core__type__i32{3}, ssc__core__type__f64{2.5}, ssc__core__var__undefined), ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__sized(ssc__core__type__i32{3}), "i32"), ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__sized(ssc__core__type__i32{300}), "i32");
+        return ssc__core__fn__add(ssc__core__fn__add(ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__truthy(ssc__core__type__i32{3}, ssc__core__type__number{2.5}, ssc__core__var__undefined), ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__sized(ssc__core__type__i32{3}), "i32"), ssc__ts__namespace__e4644744181443f4923e66bfa897d061::ssc__ts__fn__sized(ssc__core__type__i32{300}), "i32");
       }
       void ssc__core__fn__e4644744181443f4923e66bfa897d061() {
       }
@@ -527,15 +527,15 @@ test('arithmetic.ts', async () => {
     namespace ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9 {
       extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__integer(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
-      static ssc__core__type__f64 ssc__ts__fn__float(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b);
+      static ssc__core__type__number ssc__ts__fn__float(ssc__core__type__number ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__integer(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b) {
         return ssc__core__fn__rem(ssc__core__fn__div(ssc__core__fn__sub(ssc__core__fn__mul(ssc__ts__var__a, ssc__core__type__i32{3}, "i32"), static_cast<ssc__core__type__i32>(ssc__ts__var__b), "i32"), ssc__core__type__i32{2}, "i32"), ssc__core__type__i32{100}, "i32");
       }
-      static ssc__core__type__f64 ssc__ts__fn__float(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b) {
-        return __builtin_fmod((((ssc__ts__var__a * ssc__core__type__f64{3.0}) - static_cast<ssc__core__type__f64>(ssc__ts__var__b)) / ssc__core__type__f64{2.0}), ssc__core__type__f64{100.0});
+      static ssc__core__type__number ssc__ts__fn__float(ssc__core__type__number ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b) {
+        return ((((ssc__ts__var__a * ssc__core__type__number{3.0}) - static_cast<ssc__core__type__number>(ssc__ts__var__b)) / ssc__core__type__number{2.0}) % ssc__core__type__number{100.0});
       }
       void ssc__core__fn__db7cc51ce18345c3b2b1849f5e8d68a9() {
-        ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9::ssc__ts__fn__float(ssc__core__type__f64{1.0}, ssc__core__type__f32{2.0f});
+        ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9::ssc__ts__fn__float(ssc__core__type__number{1.0}, ssc__core__type__f32{2.0f});
         ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9::exit(ssc__ts__namespace__db7cc51ce18345c3b2b1849f5e8d68a9::ssc__ts__fn__integer(ssc__core__type__i32{20}, ssc__core__type__u8{4u}));
       }
     }"
@@ -556,7 +556,7 @@ test('comparison.ts', async () => {
       static ssc__core__type__boolean ssc__ts__fn__lessEqual(ssc__core__type__u8 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__greater(ssc__core__type__u64 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__greaterEqual(ssc__core__type__i16 ssc__ts__var__a, ssc__core__type__i16 ssc__ts__var__b);
-      static ssc__core__type__boolean ssc__ts__fn__equal(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b);
+      static ssc__core__type__boolean ssc__ts__fn__equal(ssc__core__type__number ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__notEqual(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__sameBoolean(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__boolean ssc__ts__var__b, ssc__core__type__boolean ssc__ts__var__c);
       static ssc__core__type__boolean ssc__ts__fn__less(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u32 ssc__ts__var__b) {
@@ -571,8 +571,8 @@ test('comparison.ts', async () => {
       static ssc__core__type__boolean ssc__ts__fn__greaterEqual(ssc__core__type__i16 ssc__ts__var__a, ssc__core__type__i16 ssc__ts__var__b) {
         return (ssc__ts__var__a >= ssc__ts__var__b);
       }
-      static ssc__core__type__boolean ssc__ts__fn__equal(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b) {
-        return (ssc__ts__var__a == static_cast<ssc__core__type__f64>(ssc__ts__var__b));
+      static ssc__core__type__boolean ssc__ts__fn__equal(ssc__core__type__number ssc__ts__var__a, ssc__core__type__f32 ssc__ts__var__b) {
+        return (ssc__ts__var__a == static_cast<ssc__core__type__number>(ssc__ts__var__b));
       }
       static ssc__core__type__boolean ssc__ts__fn__notEqual(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i64 ssc__ts__var__b) {
         return (!(static_cast<ssc__core__type__i64>(ssc__ts__var__a) == ssc__ts__var__b));
@@ -595,7 +595,7 @@ test('comparison.ts', async () => {
         if (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__fn__greaterEqual(ssc__core__type__i16{3}, ssc__core__type__i16{4})) {
           (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__fn__equal(ssc__core__type__f64{0.5}, ssc__core__type__f32{0.5f})) {
+        if (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__fn__equal(ssc__core__type__number{0.5}, ssc__core__type__f32{0.5f})) {
           (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
         if (ssc__ts__namespace__625589c09a9949f3b411e8444bd154ab::ssc__ts__fn__notEqual(ssc__core__type__i32{1}, ssc__core__type__i64{2})) {
@@ -719,15 +719,15 @@ test('logical.ts', async () => {
 
     namespace ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98 {
       static ssc__core__type__i32 ssc__ts__var__calls;
-      static ssc__core__type__f64 ssc__ts__var__zero;
+      static ssc__core__type__number ssc__ts__var__zero;
       static ssc__core__type__i32 ssc__ts__var__n;
-      static ssc__core__type__f64 ssc__ts__var__x;
+      static ssc__core__type__number ssc__ts__var__x;
       static ssc__core__type__i32 ssc__ts__var__result;
       extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i32 ssc__ts__fn__count(ssc__core__type__i32 ssc__ts__var__value);
       static ssc__core__type__i32 ssc__ts__fn__and(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__or(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b);
-      static ssc__core__type__f64 ssc__ts__fn__orFloat(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
+      static ssc__core__type__number ssc__ts__fn__orFloat(ssc__core__type__number ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b);
       static ssc__core__type__boolean ssc__ts__fn__both(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__boolean ssc__ts__var__b);
       static ssc__core__type__i32 ssc__ts__fn__count(ssc__core__type__i32 ssc__ts__var__value) {
         (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__calls = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__calls, ssc__core__type__i32{1}, "i32"));
@@ -739,17 +739,17 @@ test('logical.ts', async () => {
       static ssc__core__type__i32 ssc__ts__fn__or(ssc__core__type__i32 ssc__ts__var__a, ssc__core__type__u8 ssc__ts__var__b) {
         return [&] { const ssc__core__type__i32 left = ssc__ts__var__a; return (left != 0) ? left : static_cast<ssc__core__type__i32>(ssc__ts__var__b); }();
       }
-      static ssc__core__type__f64 ssc__ts__fn__orFloat(ssc__core__type__f64 ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b) {
-        return [&] { const ssc__core__type__f64 left = ssc__ts__var__a; return ssc__core__fn__truthy_f64(left) ? left : static_cast<ssc__core__type__f64>(ssc__ts__var__b); }();
+      static ssc__core__type__number ssc__ts__fn__orFloat(ssc__core__type__number ssc__ts__var__a, ssc__core__type__i32 ssc__ts__var__b) {
+        return [&] { const ssc__core__type__number left = ssc__ts__var__a; return ssc__core__fn__truthy_number(left) ? left : static_cast<ssc__core__type__number>(ssc__ts__var__b); }();
       }
       static ssc__core__type__boolean ssc__ts__fn__both(ssc__core__type__boolean ssc__ts__var__a, ssc__core__type__boolean ssc__ts__var__b) {
         return (ssc__ts__var__a && ssc__ts__var__b);
       }
       void ssc__core__fn__5442d83d123042ddb5fc7f0665201f98() {
         ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__calls = ssc__core__type__i32{0};
-        ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero = ssc__core__type__f64{0.0};
+        ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero = ssc__core__type__number{0.0};
         ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__n = ssc__core__type__i32{0};
-        ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__x = ssc__core__type__f64{0.5};
+        ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__x = ssc__core__type__number{0.5};
         ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__type__i32{0};
         if ((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__fn__and(ssc__core__type__i32{0}, ssc__core__type__i32{5}) == ssc__core__type__i32{0})) {
           (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result, ssc__core__type__i32{1}, "i32"));
@@ -763,7 +763,7 @@ test('logical.ts', async () => {
         if ((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__fn__or(ssc__core__type__i32{4}, ssc__core__type__u8{7u}) == ssc__core__type__i32{4})) {
           (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if ((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__fn__orFloat((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero / ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero), ssc__core__type__i32{9}) == ssc__core__type__f64{9.0})) {
+        if ((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__fn__orFloat((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero / ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__zero), ssc__core__type__i32{9}) == ssc__core__type__number{9.0})) {
           (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
         if (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__fn__both(true, true)) {
@@ -772,7 +772,7 @@ test('logical.ts', async () => {
         if ((ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__calls == ssc__core__type__i32{2})) {
           (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result, ssc__core__type__i32{64}, "i32"));
         }
-        if (ssc__core__fn__truthy_f64([&] { const ssc__core__type__f64 left = static_cast<ssc__core__type__f64>(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__n); return ssc__core__fn__truthy_f64(left) ? left : ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__x; }())) {
+        if (ssc__core__fn__truthy_number([&] { const ssc__core__type__number left = static_cast<ssc__core__type__number>(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__n); return ssc__core__fn__truthy_number(left) ? left : ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__x; }())) {
           (ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result, ssc__core__type__i32{128}, "i32"));
         }
         ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::exit(ssc__ts__namespace__5442d83d123042ddb5fc7f0665201f98::ssc__ts__var__result);
@@ -792,7 +792,7 @@ test('unary.ts', async () => {
       extern "C" ssc__core__type__void exit(ssc__core__type__i32 ssc__ts__var__code);
       static ssc__core__type__i16 ssc__ts__fn__negate(ssc__core__type__u8 ssc__ts__var__a);
       static ssc__core__type__f32 ssc__ts__fn__negateFloat(ssc__core__type__f32 ssc__ts__var__a);
-      static ssc__core__type__f64 ssc__ts__fn__plus(ssc__core__type__i32 ssc__ts__var__a);
+      static ssc__core__type__number ssc__ts__fn__plus(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__boolean ssc__ts__fn__not(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__u8 ssc__ts__fn__complement(ssc__core__type__u8 ssc__ts__var__a);
       static ssc__core__type__i64 ssc__ts__fn__minimum();
@@ -803,8 +803,8 @@ test('unary.ts', async () => {
       static ssc__core__type__f32 ssc__ts__fn__negateFloat(ssc__core__type__f32 ssc__ts__var__a) {
         return (-ssc__ts__var__a);
       }
-      static ssc__core__type__f64 ssc__ts__fn__plus(ssc__core__type__i32 ssc__ts__var__a) {
-        return static_cast<ssc__core__type__f64>(ssc__ts__var__a);
+      static ssc__core__type__number ssc__ts__fn__plus(ssc__core__type__i32 ssc__ts__var__a) {
+        return static_cast<ssc__core__type__number>(ssc__ts__var__a);
       }
       static ssc__core__type__boolean ssc__ts__fn__not(ssc__core__type__i32 ssc__ts__var__a) {
         return (!(ssc__ts__var__a != 0));
@@ -826,7 +826,7 @@ test('unary.ts', async () => {
         if ((ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__fn__negateFloat(ssc__core__type__f32{1.5f}) == ssc__core__type__f32{-1.5f})) {
           (ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__var__result, ssc__core__type__i32{2}, "i32"));
         }
-        if ((ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__fn__plus(ssc__core__type__i32{7}) == ssc__core__type__f64{7.0})) {
+        if ((ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__fn__plus(ssc__core__type__i32{7}) == ssc__core__type__number{7.0})) {
           (ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
         }
         if (ssc__ts__namespace__67368d8d3b0b4dce99427a21ed2cccec::ssc__ts__fn__not(ssc__core__type__i32{0})) {
@@ -859,9 +859,9 @@ test('update.ts', async () => {
       static ssc__core__type__i32 ssc__ts__fn__postfix(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__prefix(ssc__core__type__i32 ssc__ts__var__a);
       static ssc__core__type__u8 ssc__ts__fn__decrement(ssc__core__type__u8 ssc__ts__var__a);
-      static ssc__core__type__f64 ssc__ts__fn__float(ssc__core__type__f64 ssc__ts__var__a);
+      static ssc__core__type__number ssc__ts__fn__float(ssc__core__type__number ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__compound(ssc__core__type__i32 ssc__ts__var__a);
-      static ssc__core__type__f64 ssc__ts__fn__compoundFloat(ssc__core__type__f64 ssc__ts__var__a);
+      static ssc__core__type__number ssc__ts__fn__compoundFloat(ssc__core__type__number ssc__ts__var__a);
       static ssc__core__type__i32 ssc__ts__fn__postfix(ssc__core__type__i32 ssc__ts__var__a) {
         ssc__core__type__i32 ssc__ts__var__v = ssc__ts__var__a;
         const ssc__core__type__i32 ssc__ts__var__previous = ssc__core__fn__increment_postfix(ssc__ts__var__v, "i32");
@@ -878,8 +878,8 @@ test('update.ts', async () => {
         ssc__core__fn__decrement_prefix(ssc__ts__var__v, "u8");
         return ssc__ts__var__v;
       }
-      static ssc__core__type__f64 ssc__ts__fn__float(ssc__core__type__f64 ssc__ts__var__a) {
-        ssc__core__type__f64 ssc__ts__var__v = ssc__ts__var__a;
+      static ssc__core__type__number ssc__ts__fn__float(ssc__core__type__number ssc__ts__var__a) {
+        ssc__core__type__number ssc__ts__var__v = ssc__ts__var__a;
         (ssc__ts__var__v++);
         return ssc__ts__var__v;
       }
@@ -897,10 +897,10 @@ test('update.ts', async () => {
         (ssc__ts__var__v = ssc__core__fn__bitwise_xor(ssc__ts__var__v, ssc__core__type__i32{2}));
         return ssc__ts__var__v;
       }
-      static ssc__core__type__f64 ssc__ts__fn__compoundFloat(ssc__core__type__f64 ssc__ts__var__a) {
-        ssc__core__type__f64 ssc__ts__var__v = ssc__ts__var__a;
-        (ssc__ts__var__v = (ssc__ts__var__v + ssc__core__type__f64{0.5}));
-        (ssc__ts__var__v = __builtin_fmod(ssc__ts__var__v, ssc__core__type__f64{2.0}));
+      static ssc__core__type__number ssc__ts__fn__compoundFloat(ssc__core__type__number ssc__ts__var__a) {
+        ssc__core__type__number ssc__ts__var__v = ssc__ts__var__a;
+        (ssc__ts__var__v = (ssc__ts__var__v + ssc__core__type__number{0.5}));
+        (ssc__ts__var__v = (ssc__ts__var__v % ssc__core__type__number{2.0}));
         return ssc__ts__var__v;
       }
       void ssc__core__fn__f5a8dbcb19c049b3afad7a6dd63ce8ab() {
@@ -914,13 +914,13 @@ test('update.ts', async () => {
         if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__decrement(ssc__core__type__u8{5u}) == ssc__core__type__u8{3u})) {
           (ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
         }
-        if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__float(ssc__core__type__f64{1.5}) == ssc__core__type__f64{2.5})) {
+        if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__float(ssc__core__type__number{1.5}) == ssc__core__type__number{2.5})) {
           (ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
         if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__compound(ssc__core__type__i32{4}) == ssc__core__type__i32{3})) {
           (ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__compoundFloat(ssc__core__type__f64{3.0}) == ssc__core__type__f64{1.5})) {
+        if ((ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__fn__compoundFloat(ssc__core__type__number{3.0}) == ssc__core__type__number{1.5})) {
           (ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::exit(ssc__ts__namespace__f5a8dbcb19c049b3afad7a6dd63ce8ab::ssc__ts__var__result);
@@ -1040,7 +1040,7 @@ test('constructor.ts', async () => {
         if ((ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__fn__of(ssc__core__type__u32{65u}) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()))) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if ((ssc__core__fn__char(ssc__core__type__f64{128077.0}) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"👍">()))) {
+        if ((ssc__core__fn__char(ssc__core__type__number{128077.0}) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"👍">()))) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
         if ((ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()))) {
@@ -1186,7 +1186,7 @@ test('union.ts', async () => {
       static ssc__core__type__union ssc__ts__fn__widen(ssc__core__type__union ssc__ts__var__v);
       static ssc__core__type__i32 ssc__ts__fn__orNegative(ssc__core__type__union ssc__ts__var__x);
       static ssc__core__type__i32 ssc__ts__fn__kind(ssc__core__type__union ssc__ts__var__x);
-      static ssc__core__type__f64 ssc__ts__fn__mixed(ssc__core__type__f64 ssc__ts__var__x);
+      static ssc__core__type__number ssc__ts__fn__mixed(ssc__core__type__number ssc__ts__var__x);
       static ssc__core__type__undefined ssc__ts__fn__none();
       static ssc__core__type__i32 ssc__ts__fn__nullCount(ssc__core__type__null ssc__ts__var__x);
       static ssc__core__type__union ssc__ts__fn__wrap();
@@ -1266,8 +1266,8 @@ test('union.ts', async () => {
         }
         return ssc__core__type__i32{2};
       }
-      static ssc__core__type__f64 ssc__ts__fn__mixed(ssc__core__type__f64 ssc__ts__var__x) {
-        return (ssc__ts__var__x + ssc__core__type__f64{0.5});
+      static ssc__core__type__number ssc__ts__fn__mixed(ssc__core__type__number ssc__ts__var__x) {
+        return (ssc__ts__var__x + ssc__core__type__number{0.5});
       }
       static ssc__core__type__undefined ssc__ts__fn__none() {
         return ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__nothing;
@@ -1314,7 +1314,7 @@ test('union.ts', async () => {
         }
         ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__smallValue = ssc__core__type__u8{2u};
         ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__negative = ssc__core__type__i8{-3};
-        if ((((ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(static_cast<ssc__core__type__f64>(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__smallValue)) == ssc__core__type__f64{2.5}) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(static_cast<ssc__core__type__f64>(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__negative)) == ssc__core__type__f64{-2.5})) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(ssc__core__type__f64{1.5}) == ssc__core__type__f64{2.0}))) {
+        if ((((ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(static_cast<ssc__core__type__number>(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__smallValue)) == ssc__core__type__number{2.5}) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(static_cast<ssc__core__type__number>(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__negative)) == ssc__core__type__number{-2.5})) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__mixed(ssc__core__type__number{1.5}) == ssc__core__type__number{2.0}))) {
           (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__var__result, ssc__core__type__i32{64}, "i32"));
         }
         if ((((ssc__core__fn__strict_equals(ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__wrap(), ssc__core__var__undefined) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__nullCount(ssc__core__var__null) == ssc__core__type__i32{1})) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__unwrap(ssc__core__type__i32{-1}) == ssc__core__type__i32{1})) && (ssc__ts__namespace__1a33f166e3b949ea8f8b80e29f11b2c0::ssc__ts__fn__unwrap(ssc__core__type__i32{1}) == ssc__core__type__i32{0}))) {
@@ -1419,7 +1419,7 @@ test('string.ts', async () => {
         if ((((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__orEmpty(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__orEmpty(ssc__core__var__undefined), ssc__core__fn__string_literal<u8"">())) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__kind(ssc__core__fn__string_literal<u8"ab">()) == ssc__core__type__i32{1})) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__kind(ssc__core__type__i32{7}) == ssc__core__type__i32{2}))) {
           (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if (((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__f64{128077.0})), ssc__core__fn__string_literal<u8"a128077">())) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
+        if (((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__number{128077.0})), ssc__core__fn__string_literal<u8"a128077">())) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
           (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         if (((ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"x">()) == ssc__core__type__i32{1}) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"">()) == ssc__core__type__i32{0}))) {
@@ -1464,7 +1464,7 @@ test('equality.ts', async () => {
         return ssc__core__fn__strict_equals(ssc__ts__var__c, ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()));
       }
       static ssc__core__type__boolean ssc__ts__fn__isTwo(ssc__core__type__union ssc__ts__var__x) {
-        return ssc__core__fn__strict_equals(ssc__ts__var__x, ssc__core__type__f64{2.0});
+        return ssc__core__fn__strict_equals(ssc__ts__var__x, ssc__core__type__number{2.0});
       }
       void ssc__core__fn__e14924753f344a18a1ac49899afdb0e4() {
         ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__big = ssc__core__type__u64{18446744073709551615u};
@@ -1482,10 +1482,10 @@ test('equality.ts', async () => {
         if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(true) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(false))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(ssc__core__var__undefined)))) {
           (ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__f64{65.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__f64{66.0})))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__var__undefined)))) {
+        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__number{65.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__number{66.0})))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__var__undefined)))) {
           (ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.0}) && ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.5})))) {
+        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__number{2.0}) && ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__number{2.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__number{2.5})))) {
           (ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::exit(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result);
@@ -1501,11 +1501,11 @@ test('numeric.ts', async () => {
     import ssc;
 
     namespace ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d {
-      static ssc__core__type__f64 ssc__ts__var__half;
-      static ssc__core__type__f64 ssc__ts__var__big;
+      static ssc__core__type__number ssc__ts__var__half;
+      static ssc__core__type__number ssc__ts__var__big;
       static ssc__core__type__f32 ssc__ts__var__small;
-      static ssc__core__type__f64 ssc__ts__var__overflow;
-      static ssc__core__type__f64 ssc__ts__var__underflow;
+      static ssc__core__type__number ssc__ts__var__overflow;
+      static ssc__core__type__number ssc__ts__var__underflow;
       static ssc__core__type__f32 ssc__ts__var__overflow32;
       static ssc__core__type__i32 ssc__ts__var__exponent;
       static ssc__core__type__f32 ssc__ts__var__negative;
@@ -1529,17 +1529,17 @@ test('numeric.ts', async () => {
         return ssc__core__fn__rem(ssc__ts__var__a, ssc__ts__var__b, "i32");
       }
       void ssc__core__fn__03948a93c8b149a9a0447310d2d5b52d() {
-        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__half = (ssc__core__type__f64{1.0} / ssc__core__type__f64{2.0});
-        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__big = ssc__core__type__f64{100000000000000000000.0};
+        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__half = (ssc__core__type__number{1.0} / ssc__core__type__number{2.0});
+        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__big = ssc__core__type__number{100000000000000000000.0};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__small = ssc__core__type__f32{0.1f};
-        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow = (ssc__core__type__f64{100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0} * ssc__core__type__f64{10.0});
-        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__underflow = ssc__core__type__f64{0.0};
+        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow = (ssc__core__type__number{100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0} * ssc__core__type__number{10.0});
+        ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__underflow = ssc__core__type__number{0.0};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow32 = ssc__core__type__f32{__builtin_inff()};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__exponent = ssc__core__type__i32{1000};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__negative = ssc__core__type__f32{-1.5f};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__fromUnderflow = ssc__core__type__i32{0};
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result = ssc__core__type__i32{0};
-        if ((ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__half == ssc__core__type__f64{0.5})) {
+        if ((ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__half == ssc__core__type__number{0.5})) {
           (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result, ssc__core__type__i32{1}, "i32"));
         }
         if ((ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__fn__twice(ssc__core__type__i32{21}) == ssc__core__type__i32{42})) {
@@ -1548,7 +1548,7 @@ test('numeric.ts', async () => {
         if (((ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__fn__u8s(ssc__core__type__u8{200u}, ssc__core__type__u8{55u}) && ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__fn__i32s(ssc__core__type__i32{-5}, ssc__core__type__i32{2})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__fn__minimumRemainder(ssc__core__type__i32{-2147483648}, ssc__core__type__i32{-1}) == ssc__core__type__i32{0}))) {
           (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
         }
-        if (((((((((static_cast<ssc__core__type__f64>(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__big) == ssc__core__type__f64{100000000000000000000.0}) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__small == ssc__core__type__f32{0.1f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow > ssc__core__type__f64{100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0})) && (static_cast<ssc__core__type__f64>(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__underflow) == ssc__core__type__f64{0.0})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow32 > ssc__core__type__f32{100000000000000000000000000000000000000.0f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__exponent == ssc__core__type__i32{1000})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__negative == ssc__core__type__f32{-1.5f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__fromUnderflow == ssc__core__type__i32{0}))) {
+        if (((((((((static_cast<ssc__core__type__number>(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__big) == ssc__core__type__number{100000000000000000000.0}) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__small == ssc__core__type__f32{0.1f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow > ssc__core__type__number{100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0})) && (static_cast<ssc__core__type__number>(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__underflow) == ssc__core__type__number{0.0})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__overflow32 > ssc__core__type__f32{100000000000000000000000000000000000000.0f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__exponent == ssc__core__type__i32{1000})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__negative == ssc__core__type__f32{-1.5f})) && (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__fromUnderflow == ssc__core__type__i32{0}))) {
           (ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
         ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::exit(ssc__ts__namespace__03948a93c8b149a9a0447310d2d5b52d::ssc__ts__var__result);
@@ -1562,7 +1562,7 @@ test('reserved.ts', async () => {
 });
 
 test('shadow-name.ts', async () => {
-  await expect(lowerFixture('shadow-name.ts')).rejects.toThrow('is not the prelude type');
+  await expect(lowerFixture('shadow-name.ts')).rejects.toThrow('not implemented type');
 });
 
 test('shadow-brand.ts', async () => {
@@ -1583,7 +1583,7 @@ test('output.ts', async () => {
       }
       void ssc__core__fn__3cbe4d4831ec4c1fb5685af9d5b1824c() {
         ssc__core__fn__write_stdout(ssc__ts__namespace__3cbe4d4831ec4c1fb5685af9d5b1824c::ssc__ts__fn__greet(ssc__core__fn__string_literal<u8"syscript">()));
-        ssc__core__fn__write_stdout(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"한글 ">(), ssc__core__fn__to_string(ssc__core__fn__char(ssc__core__type__f64{128077.0}))), ssc__core__fn__string_literal<u8"\\012">()));
+        ssc__core__fn__write_stdout(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"한글 ">(), ssc__core__fn__to_string(ssc__core__fn__char(ssc__core__type__number{128077.0}))), ssc__core__fn__string_literal<u8"\\012">()));
         ssc__core__fn__write_stderr(ssc__core__fn__string_literal<u8"warning\\012">());
         ssc__ts__namespace__3cbe4d4831ec4c1fb5685af9d5b1824c::exit(ssc__core__type__i32{0});
       }
@@ -1600,7 +1600,7 @@ test('template.ts', async () => {
     namespace ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad {
       static ssc__core__type__ref ssc__ts__var__name;
       static ssc__core__type__i32 ssc__ts__var__count;
-      static ssc__core__type__f64 ssc__ts__var__ratio;
+      static ssc__core__type__number ssc__ts__var__ratio;
       static ssc__core__type__char ssc__ts__var__emoji;
       static ssc__core__type__boolean ssc__ts__var__flag;
       static ssc__core__type__union ssc__ts__var__value;
@@ -1608,8 +1608,8 @@ test('template.ts', async () => {
       void ssc__core__fn__3bc3403a854e470cb5adeee04d3d7fad() {
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__name = ssc__core__fn__string_literal<u8"syscript">();
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__count = ssc__core__type__i32{3};
-        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__ratio = ssc__core__type__f64{0.5};
-        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__emoji = ssc__core__fn__char(ssc__core__type__f64{128077.0});
+        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__ratio = ssc__core__type__number{0.5};
+        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__emoji = ssc__core__fn__char(ssc__core__type__number{128077.0});
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__flag = true;
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__value = ssc__core__var__undefined;
         ssc__core__fn__console_log(ssc__core__fn__string_literal<u8"plain">());
@@ -1690,7 +1690,7 @@ test('array.ts', async () => {
       void ssc__core__fn__d3944d1aef8e41bdb6300fec9e713af7() {
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers = ssc__core__fn__array_of<ssc__core__type__i32>(ssc__core__type__i32{1}, ssc__core__type__i32{2}, ssc__core__type__i32{3});
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__words = ssc__core__fn__array_of<ssc__core__type__ref>(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__string_literal<u8"b">());
-        ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__empty = ssc__core__fn__array_of<ssc__core__type__f64>();
+        ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__empty = ssc__core__fn__array_of<ssc__core__type__number>();
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__mixed = ssc__core__fn__array_of<ssc__core__type__union>(ssc__core__type__i32{1}, ssc__core__fn__string_literal<u8"x">());
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__nested = ssc__core__fn__array_of<ssc__core__type__ref>(ssc__core__fn__array_of<ssc__core__type__i32>(ssc__core__type__i32{1}, ssc__core__type__i32{2}), ssc__core__fn__array_of<ssc__core__type__i32>(ssc__core__type__i32{3}));
         ssc__core__fn__console_log(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers, ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__words, ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__empty, ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__mixed, ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__nested);
@@ -1700,7 +1700,7 @@ test('array.ts', async () => {
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__length = ssc__core__fn__array_push<ssc__core__type__i32>(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers, ssc__core__type__i32{4}, ssc__core__type__i32{5});
         ssc__core__fn__console_log(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__length, ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers);
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__popped = ssc__core__fn__array_pop<ssc__core__type__i32>(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers);
-        ssc__core__fn__console_log(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__popped, ssc__core__fn__array_length(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers), ssc__core__fn__array_pop<ssc__core__type__f64>(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__empty));
+        ssc__core__fn__console_log(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__popped, ssc__core__fn__array_length(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers), ssc__core__fn__array_pop<ssc__core__type__number>(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__empty));
         ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__shared = ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers;
         ssc__core__fn__array_push<ssc__core__type__i32>(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__shared, ssc__core__type__i32{6});
         ssc__core__fn__console_log(ssc__core__fn__array_length(ssc__ts__namespace__d3944d1aef8e41bdb6300fec9e713af7::ssc__ts__var__numbers));
@@ -1750,7 +1750,7 @@ test('conditional.ts', async () => {
         ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__var__flag = true;
         ssc__core__fn__console_log(ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__pick(true, ssc__core__type__i32{1}, ssc__core__type__i64{2}), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__pick(false, ssc__core__type__i32{1}, ssc__core__type__i64{2}), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__choose(true, ssc__core__type__i32{3}), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__choose(false, ssc__core__type__i32{3}));
         ssc__core__fn__console_log(ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orZero(ssc__core__type__i32{5}), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orZero(ssc__core__var__undefined), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orText(ssc__core__type__i32{6}), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orText(ssc__core__var__undefined), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orDefault(ssc__core__var__null), ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__fn__orDefault(ssc__core__fn__string_literal<u8"x">()));
-        ssc__core__fn__console_log((ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__var__flag ? ssc__core__fn__string_literal<u8"yes">() : ssc__core__fn__string_literal<u8"no">()), ((!ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__var__flag) ? ssc__core__type__union(ssc__core__type__f64{1.0}) : ssc__core__type__union(ssc__core__type__f64{2.0})));
+        ssc__core__fn__console_log((ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__var__flag ? ssc__core__fn__string_literal<u8"yes">() : ssc__core__fn__string_literal<u8"no">()), ((!ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::ssc__ts__var__flag) ? ssc__core__type__union(ssc__core__type__number{1.0}) : ssc__core__type__union(ssc__core__type__number{2.0})));
         ssc__ts__namespace__6daa5c5e6b7b499090b8b43c458a0e13::exit(ssc__core__type__i32{0});
       }
     }"
@@ -1924,12 +1924,12 @@ test('array-index.ts', async () => {
     namespace ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034 {
       static ssc__core__type__ref ssc__ts__var__a;
       static ssc__core__type__u64 ssc__ts__var__unsigned;
-      static ssc__core__type__f64 ssc__ts__var__float;
+      static ssc__core__type__number ssc__ts__var__float;
       void ssc__core__fn__8940fc38cce543d5b7b7ec4b5348b034() {
         ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a = ssc__core__fn__array_of<ssc__core__type__i32>(ssc__core__type__i32{10}, ssc__core__type__i32{20});
         ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__unsigned = ssc__core__type__u64{0u};
-        ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__float = ssc__core__type__f64{1.0};
-        ssc__core__fn__console_log(ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__u64{1u}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__f64{1.5}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__f64{-1.0}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__u64{2u}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, (ssc__core__type__f64{0.0} / ssc__core__type__f64{0.0})));
+        ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__float = ssc__core__type__number{1.0};
+        ssc__core__fn__console_log(ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__u64{1u}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__number{1.5}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__number{-1.0}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__core__type__u64{2u}), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, (ssc__core__type__number{0.0} / ssc__core__type__number{0.0})));
         ssc__core__fn__console_log(ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__unsigned), ssc__core__fn__array_get<ssc__core__type__i32>(ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__a, ssc__ts__namespace__8940fc38cce543d5b7b7ec4b5348b034::ssc__ts__var__float));
       }
     }"

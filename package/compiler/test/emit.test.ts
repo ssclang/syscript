@@ -248,10 +248,10 @@ test.each([
     'function f(v: i32 | string | undefined): string | undefined { return v as string | undefined; }\nf(i32(1));',
   ],
   [
-    'an f64 literal storage as i32',
+    'a number literal storage as i32',
     'i32',
-    'f64',
-    'function f(v: i32 | f64 | string): i32 { return v as i32; }\nf(1);',
+    'number',
+    'function f(v: i32 | number | string): i32 { return v as i32; }\nf(1);',
   ],
 ])('as rejects %s', async (_, target, actual, source) => {
   expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
@@ -308,7 +308,7 @@ test('array write at the length', async () => {
 });
 
 test.each([
-  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'i32 and f64 can not be compared'],
+  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'i32 and number can not be compared'],
   [
     'another integer type',
     'const a: i32 = i32(1);\nconst b: i64 = i64(1);\nconst r = a !== b;',
@@ -317,10 +317,20 @@ test.each([
   [
     'a union member',
     'function f(v: i32 | undefined): boolean { return v === 1; }',
-    'i32 and f64 can not be compared',
+    'i32 and number can not be compared',
   ],
 ])('equality rejects %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
+});
+
+test('number-output.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'number-output.ts'))).toEqual({
+    status: 0,
+    stdout:
+      '9223372036854776000 100000000000000000000 1e-7 0.30000000000000004 1e+21\n'
+      + '9223372036854775808 1e+20 1e-07\n',
+    stderr: '',
+  });
 });
 
 test('number-bitwise.ts', async () => {
@@ -564,7 +574,7 @@ test.each([
 
 test.each([
   ['a negative i32', 'function of(v: i32): char { return char(v); }\nof(i32(-1));', '-1'],
-  ['a fractional f64', 'function of(v: f64): char { return char(v); }\nof(65.5);', '65.5'],
+  ['a fractional f64', 'function of(v: f64): char { return char(v); }\nof(f64(65.5));', '65.5'],
   [
     'a string of two code points',
     "function of(s: string): char { return char(s); }\nof('AB');",
@@ -590,15 +600,15 @@ test.each([
   ['i64 above i32', 'i64', 'i32', "i64('2147483648')", '2147483648'],
   ['a negative i32 to u32', 'i32', 'u32', 'i32(-1)', '-1'],
   ['the largest u64 to i64', 'u64', 'i64', "u64('18446744073709551615')", '18446744073709551615'],
-  ['a fractional f64 to i32', 'f64', 'i32', '3.7', '3.7'],
-  ['2^63 to i64', 'f64', 'i64', '9223372036854775808', '9223372036854775808'],
-  ['a negative f64 to u64', 'f64', 'u64', '-1', '-1'],
-  ['NaN to i32', 'f64', 'i32', '0 / 0', 'NaN'],
-  ['Infinity to u64', 'f64', 'u64', '1 / 0', 'Infinity'],
+  ['a fractional f64 to i32', 'f64', 'i32', 'f64(3.7)', '3.7'],
+  ['2^63 to i64', 'f64', 'i64', 'f64(9223372036854775808)', '9223372036854775808'],
+  ['a negative f64 to u64', 'f64', 'u64', 'f64(-1)', '-1'],
+  ['NaN to i32', 'f64', 'i32', 'f64(0 / 0)', 'NaN'],
+  ['Infinity to u64', 'f64', 'u64', 'f64(1 / 0)', 'Infinity'],
   ['2^53 + 1 to f64', 'i64', 'f64', "i64('9007199254740993')", '9007199254740993'],
   ['the largest u64 to f64', 'u64', 'f64', "u64('18446744073709551615')", '18446744073709551615'],
   ['2^24 + 1 to f32', 'i32', 'f32', 'i32(16777217)', '16777217'],
-  ['0.1 to f32', 'f64', 'f32', '0.1', '0.1'],
+  ['0.1 to f32', 'f64', 'f32', 'f64(0.1)', '0.1'],
 ])('a constructor rejects %s at run time', async (_, source, target, argument, text) => {
   const code = `function of(v: ${source}): ${target} { return ${target}(v); }\nof(${argument});`;
 

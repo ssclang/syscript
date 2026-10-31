@@ -2,13 +2,13 @@ declare function exit(code: i32): void;
 
 const integer: i32 = i32(-42);
 const big: u64 = u64('18446744073709551615');
-const sum: f64 = 0.1 + 0.2;
+const sum: number = 0.1 + 0.2;
 const single: f32 = f32(0.1);
-const large: f64 = 1e21;
-const zero: f64 = 0;
-const nan: f64 = zero / zero;
-const infinity: f64 = 1 / zero;
-const negativeZero: f64 = -zero;
+const large: number = 1e21;
+const zero: number = 0;
+const nan: number = zero / zero;
+const infinity: number = 1 / zero;
+const negativeZero: number = -zero;
 const emoji: char = char(0x1f44d);
 let value: i32 | string | undefined = i32(7);
 

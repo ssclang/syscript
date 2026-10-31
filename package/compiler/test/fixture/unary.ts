@@ -8,7 +8,7 @@ function negateFloat(a: f32): f32 {
   return -a;
 }
 
-function plus(a: i32): f64 {
+function plus(a: i32): number {
   return +a;
 }
 

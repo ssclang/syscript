@@ -35,6 +35,7 @@ export const cppCoreFunctionNames = [
   'ssc__core__fn__truthy_ref',
   'ssc__core__fn__truthy_f32',
   'ssc__core__fn__truthy_f64',
+  'ssc__core__fn__truthy_number',
 
   // region union
   'ssc__core__fn__typeof',

@@ -45,13 +45,7 @@ import {
   SscNumberType,
   sscNumberTypes,
 } from '~/ssc/type.js';
-import {
-  commonType,
-  CommonTypeOperand,
-  isLiteralInRange,
-  isLossless,
-  literalInteger,
-} from '~/ts/common-type.js';
+import { isLiteralInRange, isLossless, literalInteger } from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
@@ -612,6 +606,14 @@ function getTruthyCondition(typeName: string, text: string) {
     ).code();
   }
 
+  if (typeName === 'number') {
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__truthy_number',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
+  }
+
   if (
     typeName === 'i8'
     || typeName === 'i16'
@@ -649,9 +651,9 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   if (isEffectiveNumericLiteral(node)) {
     const value = getEffectiveNumericLiteralValue(node);
 
-    assertExactNumericLiteral(node, value, 'f64');
+    assertExactNumericLiteral(node, value, 'number');
 
-    return new CppNumericLiteral('f64', new BigNumber(value.toNumber()).toFixed()).code();
+    return new CppNumericLiteral('number', new BigNumber(value.toNumber()).toFixed()).code();
   }
 
   if (node instanceof NodeStringLiteral) {
@@ -1144,7 +1146,7 @@ function lowerArrayIndex(node: AbstractNode<ast.Expression>, context: LowerConte
   const type = getSscNumberType(node);
 
   assert(
-    type === 'u64' || type === 'f64',
+    type === 'u64' || type === 'number',
     `${node.location()}: ${type} can not be an array index, use u64(${node.getText()})`,
   );
 
@@ -1206,6 +1208,7 @@ function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerCont
     || name === 'u64'
     || name === 'f32'
     || name === 'f64'
+    || name === 'number'
   ) {
     if (argument instanceof NodeStringLiteral) {
       return lowerNumberText(argument, name);
@@ -1424,9 +1427,12 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
   }
 
   const type = getSscNumberType(node.left);
-  const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+  const operandType = getOperandNumberType(node);
 
-  assert(common === type, `${node.location()}: common type ${common} does not match ${type}`);
+  assert(
+    operandType === type,
+    `${node.location()}: operand type ${operandType} does not match ${type}`,
+  );
 
   const target = lowerVariableReference(node.left, context);
   const current = lowerExpression(node.left, context);
@@ -1573,9 +1579,12 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
     return new CppCoreFunctionCall('ssc__core__fn__string_concat', [], args).code();
   }
   const type = getSscNumberType(node);
-  const common = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+  const operandType = getOperandNumberType(node);
 
-  assert(common === type, `${node.location()}: common type ${common} does not match ${type}`);
+  assert(
+    operandType === type,
+    `${node.location()}: operand type ${operandType} does not match ${type}`,
+  );
 
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
@@ -1656,6 +1665,11 @@ function getArithmeticOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   // /
   if (kind === ast.SyntaxKind.SlashToken) {
     return '/';
+  }
+
+  // %
+  if (kind === ast.SyntaxKind.PercentToken) {
+    return '%';
   }
 
   assertNever(kind as never);
@@ -2259,7 +2273,7 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
     ).code();
   }
 
-  const type = commonType([...getOperands(node.left), ...getOperands(node.right)]);
+  const type = getOperandNumberType(node);
   const left = lowerNumber(node.left, type, context);
   const right = lowerNumber(node.right, type, context);
 
@@ -2379,17 +2393,21 @@ function getComparisonOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   assertNever(kind as never);
 }
 
-function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
-  const type = node.getType();
-  const memberTypes = type.isUnionType() ? type.getTypes() : [type];
+function getOperandNumberType(node: NodeBinaryExpression) {
+  const types = [node.left, node.right].flatMap((operand) => {
+    const type = operand.getType();
+    const memberTypes = type.isUnionType() ? type.getTypes() : [type];
 
-  return memberTypes.flatMap((t): CommonTypeOperand[] => {
-    if (isTypeFlagMatch(t, ts.TypeFlags.NumberLiteral)) {
-      return [{ literal: getNumberLiteralValue(node.app, t) }];
-    }
-
-    return [{ type: getSscNumberType(node, t) }];
+    return memberTypes.map((t) => getSscNumberType(operand, t));
   });
+  const [type] = types;
+
+  assert(
+    type && types.every((t) => t === type),
+    `${node.location()}: ${types.join(', ')} are different number types`,
+  );
+
+  return type;
 }
 
 function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
@@ -2677,7 +2695,7 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
-    return 'f64';
+    return 'number';
   }
 
   if (isStringType(type)) {
@@ -2710,10 +2728,7 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
         ?.getSymbol()
         ?.declarations[0]?.resolve()
     : undefined;
-  const symbol =
-    brand ? checker.getSymbolOfNode(brand.parent.parent)
-    : type.isIntersectionType() ? type.getAliasSymbol()
-    : undefined;
+  const symbol = brand ? checker.getSymbolOfNode(brand.parent.parent) : undefined;
 
   assert(symbol, `not implemented type: ${checker.typeToString(type)}`);
 
