@@ -1,9 +1,9 @@
 declare function exit(code: i32): void;
 
-let calls: i32 = 0;
+let calls: i32 = i32(0);
 
 function count(value: i32): i32 {
-  calls = calls + 1;
+  calls = calls + i32(1);
 
   return value;
 }
@@ -13,11 +13,11 @@ function and(a: i32, b: i32): i32 {
 }
 
 function or(a: i32, b: u8): i32 {
-  return a || b;
+  return a || i32(b);
 }
 
 function orFloat(a: f64, b: i32): f64 {
-  return a || b;
+  return a || f64(b);
 }
 
 function both(a: boolean, b: boolean): boolean {
@@ -25,40 +25,40 @@ function both(a: boolean, b: boolean): boolean {
 }
 
 const zero: f64 = 0;
-const n: i32 = 0;
+const n: i32 = i32(0);
 const x: f64 = 0.5;
-let result: i32 = 0;
+let result: i32 = i32(0);
 
-if (and(0, 5) === 0) {
-  result = result + 1;
+if (and(i32(0), i32(5)) === i32(0)) {
+  result = result + i32(1);
 }
 
-if (and(3, 5) === 5) {
-  result = result + 2;
+if (and(i32(3), i32(5)) === i32(5)) {
+  result = result + i32(2);
 }
 
-if (or(0, 7) === 7) {
-  result = result + 4;
+if (or(i32(0), u8(7)) === i32(7)) {
+  result = result + i32(4);
 }
 
-if (or(4, 7) === 4) {
-  result = result + 8;
+if (or(i32(4), u8(7)) === i32(4)) {
+  result = result + i32(8);
 }
 
-if (orFloat(zero / zero, 9) === 9) {
-  result = result + 16;
+if (orFloat(zero / zero, i32(9)) === 9) {
+  result = result + i32(16);
 }
 
 if (both(true, true)) {
-  result = result + 32;
+  result = result + i32(32);
 }
 
-if (calls === 2) {
-  result = result + 64;
+if (calls === i32(2)) {
+  result = result + i32(64);
 }
 
-if (n || x) {
-  result = result + 128;
+if (f64(n) || x) {
+  result = result + i32(128);
 }
 
 exit(result);

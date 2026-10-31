@@ -1,3 +1,3 @@
 /// <reference path="./ambient-global-lib.d.ts" />
 
-ambient4(1);
+ambient4(i32(1));

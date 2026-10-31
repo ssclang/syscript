@@ -4,14 +4,14 @@ function postfix(a: i32): i32 {
   let v: i32 = a;
   const previous: i32 = v++;
 
-  return previous * 10 + v;
+  return previous * i32(10) + v;
 }
 
 function prefix(a: i32): i32 {
   let v: i32 = a;
   const next: i32 = ++v;
 
-  return next * 10 + v;
+  return next * i32(10) + v;
 }
 
 function decrement(a: u8): u8 {
@@ -31,16 +31,16 @@ function float(a: f64): f64 {
 
 function compound(a: i32): i32 {
   let v: i32 = a;
-  v += 10;
-  v -= 2;
-  v *= 3;
-  v /= 2;
-  v %= 7;
-  v <<= 2;
-  v >>= 1;
-  v |= 1;
-  v &= 7;
-  v ^= 2;
+  v += i32(10);
+  v -= i32(2);
+  v *= i32(3);
+  v /= i32(2);
+  v %= i32(7);
+  v <<= i32(2);
+  v >>= i32(1);
+  v |= i32(1);
+  v &= i32(7);
+  v ^= i32(2);
 
   return v;
 }
@@ -53,30 +53,30 @@ function compoundFloat(a: f64): f64 {
   return v;
 }
 
-let result: i32 = 0;
+let result: i32 = i32(0);
 
-if (postfix(3) === 34) {
-  result += 1;
+if (postfix(i32(3)) === i32(34)) {
+  result += i32(1);
 }
 
-if (prefix(3) === 44) {
-  result += 2;
+if (prefix(i32(3)) === i32(44)) {
+  result += i32(2);
 }
 
-if (decrement(5) === 3) {
-  result += 4;
+if (decrement(u8(5)) === u8(3)) {
+  result += i32(4);
 }
 
 if (float(1.5) === 2.5) {
-  result += 8;
+  result += i32(8);
 }
 
-if (compound(4) === 3) {
-  result += 16;
+if (compound(i32(4)) === i32(3)) {
+  result += i32(16);
 }
 
 if (compoundFloat(3) === 1.5) {
-  result += 32;
+  result += i32(32);
 }
 
 exit(result);

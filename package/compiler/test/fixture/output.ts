@@ -7,4 +7,4 @@ function greet(name: string): string {
 process.stdout.write(greet('syscript'));
 process.stdout.write('한글 ' + char(0x1f44d) + '\n');
 process.stderr.write('warning\n');
-exit(0);
+exit(i32(0));

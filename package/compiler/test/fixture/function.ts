@@ -5,11 +5,11 @@ function noop2() {
 }
 
 function noop3(): i32 {
-  return 1;
+  return i32(1);
 }
 
 function noop4(): i32 {
-  return 1.0;
+  return i32(1.0);
 }
 
 function noop5() {
@@ -21,13 +21,13 @@ function noop6() {
 }
 
 function noop7(): f32 {
-  return 2.2;
+  return f32(2.2);
 }
 
 function noop8(a: i32): void {}
 
 function noop9(a: i32, b: f64): i32 {
-  return 1;
+  return i32(1);
 }
 
 function noop10(a: u8, b: i64, c: f32) {
@@ -35,17 +35,17 @@ function noop10(a: u8, b: i64, c: f32) {
 }
 
 function noop11(a: i32, b: i64) {
-  return a + b;
+  return i64(a) + b;
 }
 
 function noop12() {
-  return noop11(3, 4);
+  return noop11(i32(3), i64(4));
 }
 
 declare function abs(x: i32): i32;
 
 function noop13(): i32 {
-  return abs(5);
+  return abs(i32(5));
 }
 
 noop13();
@@ -57,5 +57,5 @@ function noop15(): i32 {
 }
 
 function noop16(): i32 {
-  return 1;
+  return i32(1);
 }

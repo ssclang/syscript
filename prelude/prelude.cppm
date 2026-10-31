@@ -1478,14 +1478,29 @@ export inline ssc__core__type__u64 ssc__core__fn__array_length(const ssc__core__
   return ssc__core__fn__get_array_pointer<ssc__core__type__u8>(array)->ssc__core__member__length;
 }
 
-export template <typename Element> inline ssc__core__type__union ssc__core__fn__array_get(const ssc__core__type__ref& array, ssc__core__type__u64 index) {
-  const ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
+inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__u64 index) noexcept {
+  return index;
+}
 
-  if (index >= array_pointer->ssc__core__member__length) {
+inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__f64 index) noexcept {
+  if (index < 0 || 18446744073709551616.0 <= index || __builtin_trunc(index) != index) {
+    return static_cast<ssc__core__type__u64>(-1);
+  }
+
+  return static_cast<ssc__core__type__u64>(index);
+}
+
+export template <typename Element, typename Index>
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+inline ssc__core__type__union ssc__core__fn__array_get(const ssc__core__type__ref& array, Index index) {
+  const ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
+  const ssc__core__type__u64 position = ssc__core__fn__to_array_position(index);
+
+  if (position >= array_pointer->ssc__core__member__length) {
     return ssc__core__type__union(ssc__core__var__undefined);
   }
 
-  const Element& element = array_pointer->ssc__core__member__elements_pointer[index];
+  const Element& element = array_pointer->ssc__core__member__elements_pointer[position];
 
   if constexpr (__is_same(Element, ssc__core__type__union)) {
     return element;
@@ -1494,18 +1509,32 @@ export template <typename Element> inline ssc__core__type__union ssc__core__fn__
   }
 }
 
-[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_index_error(ssc__core__type__u64 index, ssc__core__type__u64 length) {
-  throw "RangeError: Index " + std::to_string(index) + " is out of bounds for length " + std::to_string(length);
+template <typename Index>
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+inline std::string ssc__core__fn__index_text(Index index) {
+  const ssc__core__type__ref text = ssc__core__fn__to_string(index);
+  const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(text);
+
+  return std::string(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
 }
 
-export template <typename Element> inline Element ssc__core__fn__array_set(const ssc__core__type__ref& array, ssc__core__type__u64 index, Element value) {
-  ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
+template <typename Index>
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_index_error(Index index, ssc__core__type__u64 length) {
+  throw "RangeError: Index " + ssc__core__fn__index_text(index) + " is out of bounds for length " + std::to_string(length);
+}
 
-  if (index >= array_pointer->ssc__core__member__length) [[unlikely]] {
+export template <typename Element, typename Index>
+  requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 33)
+inline Element ssc__core__fn__array_set(const ssc__core__type__ref& array, Index index, Element value) {
+  ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
+  const ssc__core__type__u64 position = ssc__core__fn__to_array_position(index);
+
+  if (position >= array_pointer->ssc__core__member__length) [[unlikely]] {
     ssc__core__fn__throw_index_error(index, array_pointer->ssc__core__member__length);
   }
 
-  array_pointer->ssc__core__member__elements_pointer[index] = value;
+  array_pointer->ssc__core__member__elements_pointer[position] = value;
 
   return value;
 }

@@ -61,9 +61,9 @@ export function toFloat64(text: string) {
   return Number(text);
 }
 
-/** 원본 텍스트 그대로의 값. 구분자만 지우고 진법과 지수는 BigNumber가 읽는다. */
+/** 원본 텍스트 그대로의 값. 구분자, 진법, 지수는 BigNumber가 읽는다. */
 export function parseNumericLiteral(text: string, negative: boolean) {
-  const value = new BigNumber(text.replaceAll('_', ''));
+  const value = new BigNumber(text);
 
   return negative ? value.negated() : value;
 }

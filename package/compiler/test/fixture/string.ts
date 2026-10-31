@@ -37,11 +37,11 @@ function orEmpty(s: string | undefined): string {
 }
 
 function kind(v: string | i32): i32 {
-  if (typeof v === 'string' && v.length === 2) {
-    return 1;
+  if (typeof v === 'string' && v.length === u64(2)) {
+    return i32(1);
   }
 
-  return 2;
+  return i32(2);
 }
 
 function join(a: string, b: string): string {
@@ -61,42 +61,42 @@ function append(a: string): string {
 
 function truthy(s: string): i32 {
   if (s) {
-    return 1;
+    return i32(1);
   }
 
-  return 0;
+  return i32(0);
 }
 
 const top: string = 'abc';
 const topLength: u64 = top.length;
-let result: i32 = 0;
+let result: i32 = i32(0);
 
-if (length('hello') === 5 && length('한글') === 6 && length('👍') === 4 && length('') === 0) {
-  result += 1;
+if (length('hello') === u64(5) && length('한글') === u64(6) && length('👍') === u64(4) && length('') === u64(0)) {
+  result += i32(1);
 }
 
-if (topLength === 3) {
-  result += 2;
+if (topLength === u64(3)) {
+  result += i32(2);
 }
 
 if (equals('abc', 'abc') && equals('', '') && !equals('abc', 'abd') && !equals('ab', 'abc') && !equals('a\0b', 'a\0c') && differs('한', '글') && !differs('👍', '👍')) {
-  result += 4;
+  result += i32(4);
 }
 
 if (less('a', 'b') && less('ab', 'abc') && less('', 'a') && less('B', 'a') && !less('a', 'a') && lessOrEqual('a', 'a') && greater('한', 'z') && greaterOrEqual('b', 'a') && !greaterOrEqual('a', 'b') && less('￿', '😀')) {
-  result += 8;
+  result += i32(8);
 }
 
-if (orEmpty('hi') === 'hi' && orEmpty(undefined) === '' && kind('ab') === 1 && kind(7) === 2) {
-  result += 16;
+if (orEmpty('hi') === 'hi' && orEmpty(undefined) === '' && kind('ab') === i32(1) && kind(i32(7)) === i32(2)) {
+  result += i32(16);
 }
 
 if (join('ab', 'cd') === 'abcd' && withChar('a', char(0x1f44d)) === 'a👍' && append('hi') === 'hi!') {
-  result += 32;
+  result += i32(32);
 }
 
-if (truthy('x') === 1 && truthy('') === 0) {
-  result += 64;
+if (truthy('x') === i32(1) && truthy('') === i32(0)) {
+  result += i32(64);
 }
 
 exit(result);

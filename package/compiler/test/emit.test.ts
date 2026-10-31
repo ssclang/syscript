@@ -239,22 +239,22 @@ test.each([
     'an i32 as string',
     'string',
     'i32',
-    'function f(v: i32 | string): string { return v as string; }\nf(1);',
+    'function f(v: i32 | string): string { return v as string; }\nf(i32(1));',
   ],
   [
     'an i32 as a smaller union',
     'string | undefined',
     'i32',
-    'function f(v: i32 | string | undefined): string | undefined { return v as string | undefined; }\nf(1);',
+    'function f(v: i32 | string | undefined): string | undefined { return v as string | undefined; }\nf(i32(1));',
   ],
   [
     'an f64 literal storage as i32',
     'i32',
-    'i64',
+    'f64',
     'function f(v: i32 | f64 | string): i32 { return v as i32; }\nf(1);',
   ],
 ])('as rejects %s', async (_, target, actual, source) => {
-  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
     status: 1,
     stderr: `TypeError: Type '${actual}' is not assignable to type '${target}'\n`,
   });
@@ -264,7 +264,7 @@ test.each([
   [
     'a number to another number type',
     'export function f(x: i32): u8 {\n  return x as u8;\n}\n',
-    "'as' can not convert 'i32' to 'u8'",
+    'typescript errors',
   ],
   [
     'a string to unknown',
@@ -299,7 +299,7 @@ test('array.ts', async () => {
 });
 
 test('array write at the length', async () => {
-  const source = 'const a: i32[] = [1];\na[1] = 2;\nexit(0);';
+  const source = 'const a: i32[] = [i32(1)];\na[u64(1)] = i32(2);\nexit(i32(0));';
 
   expect(await runSource(source)).toEqual({
     status: 1,
@@ -308,14 +308,40 @@ test('array write at the length', async () => {
 });
 
 test.each([
-  ['a fractional literal', 'a[1.5]'],
-  ['a negative literal', 'a[-1]'],
-  ['an i32 variable', 'a[signed]'],
-  ['an f64 variable', 'a[float]'],
-])('array index with %s', async (_, access) => {
-  const source = `const a: i32[] = [1];\nconst signed: i32 = 0;\nconst float: f64 = 0;\nconst x = ${access};`;
+  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'i32 and f64 can not be compared'],
+  [
+    'another integer type',
+    'const a: i32 = i32(1);\nconst b: i64 = i64(1);\nconst r = a !== b;',
+    'typescript errors',
+  ],
+  [
+    'a union member',
+    'function f(v: i32 | undefined): boolean { return v === 1; }',
+    'i32 and f64 can not be compared',
+  ],
+])('equality rejects %s', async (_, source, message) => {
+  await expect(runSource(source)).rejects.toThrow(message);
+});
 
-  await expect(runSource(source)).rejects.toThrow('typescript errors');
+test('array-index.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'array-index.ts'))).toEqual({
+    status: 0,
+    stdout: '20 undefined undefined undefined undefined\n10 20\n',
+    stderr: '',
+  });
+});
+
+test.each([
+  [
+    'a fractional index',
+    'a[1.5] = i32(1);',
+    'RangeError: Index 1.5 is out of bounds for length 1\n',
+  ],
+  ['a negative index', 'a[-1] = i32(1);', 'RangeError: Index -1 is out of bounds for length 1\n'],
+])('array write at %s', async (_, write, stderr) => {
+  const source = `const a: i32[] = [i32(1)];\n${write}\nexit(i32(0));`;
+
+  expect(await runSource(source)).toEqual({ status: 1, stderr });
 });
 
 test('object.ts', async () => {
@@ -409,9 +435,9 @@ test('object-literal.ts', async () => {
 test.each([
   [
     'a property to an optional property',
-    'const p: { x: i32 } = { x: 1 };\nconst q: { x?: i32 } = p;',
+    'const p: { x: i32 } = { x: i32(1) };\nconst q: { x?: i32 } = p;',
   ],
-  ['an element to a union element', 'const a: i32[] = [1];\nconst b: (i32 | string)[] = a;'],
+  ['an element to a union element', 'const a: i32[] = [i32(1)];\nconst b: (i32 | string)[] = a;'],
 ])('representation change of %s', async (_, source) => {
   await expect(runSource(source)).rejects.toThrow('representations differ');
 });
@@ -440,50 +466,78 @@ test('comparison.ts', async () => {
 });
 
 test.each([
-  ['u8 add', 'u8', 'function f(a: u8, b: u8): u8 { return a + b; }\nf(200, 100);'],
-  ['i32 add', 'i32', 'function f(a: i32): i32 { return a + 1; }\nf(2147483647);'],
-  ['u32 sub', 'u32', 'function f(a: u32): u32 { return a - 1; }\nf(0);'],
-  ['u16 mul', 'u16', 'function f(a: u16, b: u16): u16 { return a * b; }\nf(65535, 65535);'],
-  ['i64 mul', 'i64', 'function f(a: i64): i64 { return a * 2; }\nf(9223372036854775807);'],
-  ['i32 MIN / -1', 'i32', 'function f(a: i32, b: i32): i32 { return a / b; }\nf(-2147483648, -1);'],
-  ['unary minus', 'i32', 'function f(a: i32): i32 { return -a; }\nf(-2147483648);'],
-  ['compound', 'i8', 'function f(a: i8): i8 { let r: i8 = a; r += 1; return r; }\nf(127);'],
-  ['postfix increment', 'u8', 'function f(a: u8): u8 { let r: u8 = a; r++; return r; }\nf(255);'],
-  ['prefix increment', 'i8', 'function f(a: i8): i8 { let r: i8 = a; return ++r; }\nf(127);'],
-  ['postfix decrement', 'u32', 'function f(a: u32): u32 { let r: u32 = a; return r--; }\nf(0);'],
+  ['u8 add', 'u8', 'function f(a: u8, b: u8): u8 { return a + b; }\nf(u8(200), u8(100));'],
+  ['i32 add', 'i32', 'function f(a: i32): i32 { return a + i32(1); }\nf(i32(2147483647));'],
+  ['u32 sub', 'u32', 'function f(a: u32): u32 { return a - u32(1); }\nf(u32(0));'],
+  [
+    'u16 mul',
+    'u16',
+    'function f(a: u16, b: u16): u16 { return a * b; }\nf(u16(65535), u16(65535));',
+  ],
+  [
+    'i64 mul',
+    'i64',
+    "function f(a: i64): i64 { return a * i64(2); }\nf(i64('9223372036854775807'));",
+  ],
+  [
+    'i32 MIN / -1',
+    'i32',
+    'function f(a: i32, b: i32): i32 { return a / b; }\nf(i32(-2147483648), i32(-1));',
+  ],
+  ['unary minus', 'i32', 'function f(a: i32): i32 { return -a; }\nf(i32(-2147483648));'],
+  ['compound', 'i8', 'function f(a: i8): i8 { let r: i8 = a; r += i8(1); return r; }\nf(i8(127));'],
+  [
+    'postfix increment',
+    'u8',
+    'function f(a: u8): u8 { let r: u8 = a; r++; return r; }\nf(u8(255));',
+  ],
+  ['prefix increment', 'i8', 'function f(a: i8): i8 { let r: i8 = a; return ++r; }\nf(i8(127));'],
+  [
+    'postfix decrement',
+    'u32',
+    'function f(a: u32): u32 { let r: u32 = a; return r--; }\nf(u32(0));',
+  ],
   [
     'prefix decrement',
     'i64',
-    'function f(a: i64): i64 { let r: i64 = a; --r; return r; }\nf(-9223372036854775808);',
+    "function f(a: i64): i64 { let r: i64 = a; --r; return r; }\nf(i64('-9223372036854775808'));",
   ],
 ])('%s overflow', async (_, type, source) => {
-  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
     status: 1,
     stderr: `RangeError: Overflow: ${type}\n`,
   });
 });
 
 test.each([
-  ['div', 'i32', 'function f(a: i32, b: i32): i32 { return a / b; }\nf(1, 0);'],
-  ['rem', 'u8', 'function f(a: u8, b: u8): u8 { return a % b; }\nf(1, 0);'],
-  ['compound div', 'i32', 'function f(a: i32): i32 { let x: i32 = 1; x /= a; return x; }\nf(0);'],
+  ['div', 'i32', 'function f(a: i32, b: i32): i32 { return a / b; }\nf(i32(1), i32(0));'],
+  ['rem', 'u8', 'function f(a: u8, b: u8): u8 { return a % b; }\nf(u8(1), u8(0));'],
+  [
+    'compound div',
+    'i32',
+    'function f(a: i32): i32 { let x: i32 = i32(1); x /= a; return x; }\nf(i32(0));',
+  ],
 ])('%s by zero', async (_, type, source) => {
-  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
     status: 1,
     stderr: `RangeError: Division by zero: ${type}\n`,
   });
 });
 
 test.each([
-  ['i32 too large', 'i32', 'function f(a: i32, b: i32): i32 { return a << b; }\nf(1, 32);'],
+  [
+    'i32 too large',
+    'i32',
+    'function f(a: i32, b: i32): i32 { return a << b; }\nf(i32(1), i32(32));',
+  ],
   [
     'i32 negative',
     'i32',
-    'function f(a: i32, b: i32): i32 { return a >> b; }\nconst zero: i32 = 0;\nf(1, zero - 1);',
+    'function f(a: i32, b: i32): i32 { return a >> b; }\nconst zero: i32 = i32(0);\nf(i32(1), zero - i32(1));',
   ],
-  ['u8 too large', 'u8', 'function f(a: u8, b: u8): u8 { return a >>> b; }\nf(1, 8);'],
+  ['u8 too large', 'u8', 'function f(a: u8, b: u8): u8 { return a >>> b; }\nf(u8(1), u8(8));'],
 ])('shift count %s', async (_, type, source) => {
-  expect(await runSource(`${source}\nexit(0);`)).toEqual({
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
     status: 1,
     stderr: `RangeError: Shift count out of range: ${type}\n`,
   });
@@ -493,17 +547,25 @@ test.each([
   ['beyond the last code point', '0x110000', 'RangeError: Invalid code point 1114112\n'],
   ['a surrogate', '0xd800', 'RangeError: Invalid code point 55296\n'],
 ])('char constructor rejects %s', async (_, codePoint, stderr) => {
-  const source = `function of(codePoint: u32): char { return char(codePoint); }\nof(${codePoint});`;
+  const source = `function of(codePoint: u32): char { return char(codePoint); }\nof(u32(${codePoint}));`;
 
-  expect(await runSource(`${source}\nexit(0);`)).toEqual({ status: 1, stderr });
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({ status: 1, stderr });
 });
 
 test.each([
-  ['a narrowing', 'function f(v: i64): i32 { return i32(v); }'],
-  ['a literal out of range', 'const v: u8 = u8(300);'],
-  ['a number to char', 'function f(v: i32): char { return char(v); }'],
-])('a constructor rejects %s', async (_, source) => {
-  await expect(runSource(source)).rejects.toThrow('typescript errors');
+  [
+    'a narrowing',
+    'function f(v: i64): i32 { return i32(v); }',
+    'i64 can not be converted to i32 without loss',
+  ],
+  ['a literal out of range', 'const v: u8 = u8(300);', "'300' can not be converted to u8"],
+  [
+    'a number to char',
+    'function f(v: i32): char { return char(v); }',
+    'i32 can not be converted to u32 without loss',
+  ],
+])('a constructor rejects %s', async (_, source, message) => {
+  await expect(runSource(source)).rejects.toThrow(message);
 });
 
 const cppKeywords = [
@@ -606,10 +668,10 @@ test('C and C++ keywords can be names', async () => {
     (name) =>
       `function ${name}(${name}: i32): i32 {\n  const value: i32 = ${name};\n  return value;\n}`,
   );
-  const calls = names.map((name) => `  total = total + ${name}(1);`);
+  const calls = names.map((name) => `  total = total + ${name}(i32(1));`);
   const source = [
     ...functions,
-    `function run(): i32 {\n  let total: i32 = 0;\n${calls.join('\n')}\n  return total;\n}`,
+    `function run(): i32 {\n  let total: i32 = i32(0);\n${calls.join('\n')}\n  return total;\n}`,
     'exit(run());',
   ].join('\n\n');
 

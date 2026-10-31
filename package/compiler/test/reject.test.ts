@@ -28,7 +28,7 @@ async function compile(source: string, files: Record<string, string> = {}) {
 test('var', async () => {
   const source = `
 export function f(): i32 {
-  var x: i32 = 1;
+  var x: i32 = i32(1);
   return x;
 }
 `;
@@ -40,7 +40,7 @@ test('moduleDetection이 force가 아닌 tsconfig', async () => {
   const preludeDtsPath = path.join(import.meta.dirname, '../../../prelude/prelude.d.ts');
   const tsconfig = (options: object) =>
     JSON.stringify({ compilerOptions: { types: [preludeDtsPath], ...options } });
-  const source = 'export const a: i32 = 1;\n';
+  const source = 'export const a: i32 = i32(1);\n';
 
   await expect(
     compile(source, { 'tsconfig.json': tsconfig({ moduleDetection: 'auto' }) }),

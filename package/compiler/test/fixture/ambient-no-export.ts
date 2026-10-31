@@ -1,3 +1,3 @@
 import { ambient3 } from './ambient-lib.js';
 
-ambient3(1);
+ambient3(i32(1));

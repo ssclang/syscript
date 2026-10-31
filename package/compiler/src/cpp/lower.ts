@@ -39,7 +39,13 @@ import {
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
-import { commonType, CommonTypeOperand, isLiteralInRange, isLossless } from '~/ts/common-type.js';
+import {
+  commonType,
+  CommonTypeOperand,
+  isLiteralInRange,
+  isLossless,
+  literalInteger,
+} from '~/ts/common-type.js';
 import {
   AbstractNode,
   AbstractStatement,
@@ -635,35 +641,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   }
 
   if (isEffectiveNumericLiteral(node)) {
-    const bigNumber = getNumberLiteralValue(node.app, node.getType());
-    const value = bigNumber.toFixed();
-    const contextualType = node.app.checker.getContextualType(node.tsNode);
-    const type =
-      contextualType && !isTypeFlagMatch(contextualType, ts.TypeFlags.AnyOrUnknown) ?
-        contextualType
-      : node.getType();
+    const value = getEffectiveNumericLiteralValue(node);
 
-    if (!type.isUnionType()) {
-      return new CppNumericLiteral(getSscNumberType(node, type), value).code();
-    }
+    assertExactNumericLiteral(node, value, 'f64');
 
-    const numberTypes = type
-      .getTypes()
-      .filter((t) => !isTypeFlagMatch(t, ts.TypeFlags.Literal))
-      .map((t) => getSscTypeName(node.app, t))
-      .filter<SscNumberType>((t) => includes(sscNumberTypes, t));
-    const [numberType] = numberTypes;
-
-    if (numberTypes.length === 1 && numberType) {
-      assert(
-        isLiteralInRange(bigNumber, numberType),
-        `${node.location()}: '${node.getText()}' can not be converted to ${numberType}`,
-      );
-
-      return new CppNumericLiteral(numberType, value).code();
-    }
-
-    return new CppNumericLiteral(getUnionNumberLiteralStorageType(bigNumber), value).code();
+    return new CppNumericLiteral('f64', new BigNumber(value.toNumber()).toFixed()).code();
   }
 
   if (node instanceof NodeStringLiteral) {
@@ -1153,7 +1135,22 @@ function lowerElementAssignmentExpression(
 }
 
 function lowerArrayIndex(node: AbstractNode<ast.Expression>, context: LowerContext) {
-  return lowerNumber(node, 'u64', context);
+  const type = getSscNumberType(node);
+
+  assert(
+    type === 'u64' || type === 'f64',
+    `${node.location()}: ${type} can not be an array index, use u64(${node.getText()})`,
+  );
+
+  if (isEffectiveNumericLiteral(node)) {
+    const value = getEffectiveNumericLiteralValue(node);
+
+    if (isLiteralInRange(value, 'u64') && value.isInteger()) {
+      return new CppNumericLiteral('u64', value.toFixed()).code();
+    }
+  }
+
+  return lowerNumber(node, type, context);
 }
 
 function getArrayElementSscTypeName(node: AbstractNode<ast.Expression>) {
@@ -1196,6 +1193,15 @@ function lowerPreludeCallExpression(node: NodeCallExpression, name: string, cont
     || name === 'f32'
     || name === 'f64'
   ) {
+    if (argument instanceof NodeStringLiteral) {
+      return lowerNumberText(argument, name);
+    }
+
+    assert(
+      !isStringType(argument.getType()),
+      `${argument.location()}: '${name}' takes a string literal only, not a string value`,
+    );
+
     return lowerNumber(argument, name, context);
   }
 
@@ -1296,6 +1302,51 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
 function lowerPostfixUnaryExpression(node: NodePostfixUnaryExpression, context: LowerContext) {
   // ++ --
   return lowerUpdateExpression(node, context);
+}
+
+function lowerNumberText(node: NodeStringLiteral, type: SscNumberType) {
+  const value = new BigNumber(node.value);
+
+  assert(!value.isNaN(), `${node.location()}: '${node.value}' is not a number`);
+  assert(
+    isLiteralInRange(value, type),
+    `${node.location()}: '${node.value}' can not be converted to ${type}`,
+  );
+
+  return new CppNumericLiteral(type, value.toFixed()).code();
+}
+
+function assertExactNumericLiteral(
+  node: AbstractNode<ast.Expression>,
+  value: BigNumber,
+  type: SscNumberType,
+) {
+  const number = value.toNumber();
+  const text = node.getText().replace(/^[-+]/, '');
+  const isIntegerNotation = /^0[xXbBoO]/.test(text) || !/[.eE]/.test(text);
+  const isExact =
+    Number.isFinite(number)
+    && (!isIntegerNotation || value.eq(new BigNumber(number.toString(2), 2)));
+
+  assert(
+    isExact,
+    `${node.location()}: '${node.getText()}' can not be represented exactly as a number, use a string like ${type}('${value.toFixed()}')`,
+  );
+}
+
+function getEffectiveNumericLiteralValue(node: AbstractNode<ast.Expression>) {
+  if (node instanceof NodeNumericLiteral) {
+    return new BigNumber(node.value);
+  }
+
+  assert(
+    node instanceof NodePrefixUnaryExpression && node.operand instanceof NodeNumericLiteral,
+    `${node.location()}: not a numeric literal: ${node.getText()}`,
+  );
+
+  const value = new BigNumber(node.operand.value);
+
+  return node.operator === ast.SyntaxKind.MinusToken ? value.negated() : value;
 }
 
 function isEffectiveNumericLiteral(node: AbstractNode<ast.Expression>) {
@@ -2128,18 +2179,6 @@ function getJsTypeOf(typeName: string) {
   throw new Error(`not implemented typeof: ${typeName}`);
 }
 
-function getUnionNumberLiteralStorageType(value: BigNumber) {
-  if (isLiteralInRange(value, 'i64')) {
-    return 'i64';
-  }
-
-  if (isLiteralInRange(value, 'u64')) {
-    return 'u64';
-  }
-
-  return 'f64';
-}
-
 function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { kind } = node.binaryOperatorToken;
 
@@ -2187,6 +2226,15 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
 
 function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { left, right } = node;
+  const leftNumberTypes = getNumberTypeNames(left);
+  const rightNumberTypes = getNumberTypeNames(right);
+
+  assert(
+    !leftNumberTypes.length
+      || !rightNumberTypes.length
+      || leftNumberTypes.some((t) => rightNumberTypes.includes(t)),
+    `${node.location()}: ${leftNumberTypes.join(' | ')} and ${rightNumberTypes.join(' | ')} can not be compared, convert one side explicitly like ${leftNumberTypes[0]}(${right.getText()})`,
+  );
 
   if (isTypeIdComparison(left) || isTypeIdComparison(right)) {
     const leftText = lowerEqualityOperand(left, right, context);
@@ -2222,8 +2270,7 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     return new CppCoreFunctionCall('ssc__core__fn__strict_equals', [], args).code();
   }
 
-  const type = commonType([...getOperands(left), ...getOperands(right)]);
-
+  const type = getSscNumberType(left);
   const leftText = new CppUnknownExpression(lowerNumber(left, type, context));
 
   return new CppBinaryExpression(
@@ -2231,6 +2278,16 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     leftText,
     new CppUnknownExpression(lowerNumber(right, type, context)),
   ).code();
+}
+
+function getNumberTypeNames(node: AbstractNode<ast.Expression>) {
+  const type = node.getType();
+  const memberTypes = type.isUnionType() ? type.getTypes() : [type];
+  const names = memberTypes
+    .map((t) => getSscTypeName(node.app, t))
+    .filter<SscNumberType>((t) => includes(sscNumberTypes, t));
+
+  return [...new Set(names)];
 }
 
 function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
@@ -2372,7 +2429,14 @@ function lowerNumber(
   }
 
   if (isTypeFlagMatch(nodeType, ts.TypeFlags.NumberLiteral)) {
-    const value = getNumberLiteralValue(node.app, nodeType);
+    const value =
+      isEffectiveNumericLiteral(node) ?
+        getEffectiveNumericLiteralValue(node)
+      : getNumberLiteralValue(node.app, nodeType);
+
+    if (isEffectiveNumericLiteral(node)) {
+      assertExactNumericLiteral(node, value, type);
+    }
 
     assert(
       isLiteralInRange(value, type),
@@ -2380,7 +2444,12 @@ function lowerNumber(
     );
 
     if (isEffectiveNumericLiteral(node)) {
-      return new CppNumericLiteral(type, value.toFixed()).code();
+      const literal =
+        includes(sscFloatTypes, type) ? new BigNumber(value.toNumber()) : literalInteger(value);
+
+      assert(literal, `${node.location()}: '${node.getText()}' can not be converted to ${type}`);
+
+      return new CppNumericLiteral(type, literal.toFixed()).code();
     }
 
     return new CppStaticCast(type, new CppUnknownExpression(lowerExpression(node, context))).code();

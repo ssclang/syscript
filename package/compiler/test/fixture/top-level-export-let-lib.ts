@@ -1,5 +1,5 @@
-export let count: i32 = 0;
+export let count: i32 = i32(0);
 
 export function inc(): void {
-  count = count + 1;
+  count = count + i32(1);
 }

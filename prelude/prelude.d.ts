@@ -35,7 +35,7 @@ declare global {
   /** `-9007199254740992` ~ `9007199254740992` (exact integers)\
    * fractions may lose precision
    */
-  type f64 = number & { readonly [ssc]: 'f64' };
+  type f64 = number;
 
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
   type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
@@ -43,17 +43,17 @@ declare global {
   type SscFloatType = f32 | f64;
   type SscNumberType = SscIntegerType | SscFloatType | char;
 
-  function i8(value: i8): i8;
-  function i16(value: i16): i16;
-  function i32(value: i32): i32;
-  function i64(value: i64): i64;
-  function u8(value: u8): u8;
-  function u16(value: u16): u16;
-  function u32(value: u32): u32;
-  function u64(value: u64): u64;
-  function char(codePoint: u32): char;
-  function f32(value: f32): f32;
-  function f64(value: f64): f64;
+  function i8(value: number | string): i8;
+  function i16(value: number | string): i16;
+  function i32(value: number | string): i32;
+  function i64(value: number | string): i64;
+  function u8(value: number | string): u8;
+  function u16(value: number | string): u16;
+  function u32(value: number | string): u32;
+  function u64(value: number | string): u64;
+  function char(value: number | string): char;
+  function f32(value: number | string): f32;
+  function f64(value: number | string): f64;
 
   function addWrap<T extends SscIntegerType>(left: T, right: T): T;
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;
@@ -83,7 +83,7 @@ declare global {
   interface Array<T> {
     readonly length: u64;
 
-    [index: u64]: T;
+    [index: number]: T;
 
     push(...values: T[]): u64;
     pop(): T | undefined;

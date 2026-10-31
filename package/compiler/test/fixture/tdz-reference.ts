@@ -14,5 +14,5 @@ if (run) {
   exit(early());
 }
 
-const value: i32 = 7;
+const value: i32 = i32(7);
 exit(late());

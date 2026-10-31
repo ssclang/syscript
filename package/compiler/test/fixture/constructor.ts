@@ -9,45 +9,45 @@ function of(codePoint: u32): char {
 }
 
 function offset(c: char): u32 {
-  return c - 65;
+  return u32(c) - u32(65);
 }
 
 function widenChar(c: char, n: i32): i64 {
-  return c + n;
+  return i64(c) + i64(n);
 }
 
-let result: i32 = 0;
+let result: i32 = i32(0);
 
-if (widen(-1) === -1) {
-  result += 1;
+if (widen(i32(-1)) === i64(-1)) {
+  result += i32(1);
 }
 
-if (u8(255) === 255) {
-  result += 2;
+if (u8(255) === u8(255)) {
+  result += i32(2);
 }
 
 if (f64(u32(7)) === 7) {
-  result += 4;
+  result += i32(4);
 }
 
-if (of(65) === 'A') {
-  result += 8;
+if (of(u32(65)) === char('A')) {
+  result += i32(8);
 }
 
-if (char(0x1f44d) === '👍') {
-  result += 16;
+if (char(0x1f44d) === char('👍')) {
+  result += i32(16);
 }
 
-if (char('A') === 'A') {
-  result += 32;
+if (char('A') === char('A')) {
+  result += i32(32);
 }
 
-if (offset(of(67)) === 2) {
-  result += 64;
+if (offset(of(u32(67))) === u32(2)) {
+  result += i32(64);
 }
 
-if (widenChar(of(65), -66) === -1) {
-  result += 128;
+if (widenChar(of(u32(65)), i32(-66)) === i64(-1)) {
+  result += i32(128);
 }
 
 exit(result);

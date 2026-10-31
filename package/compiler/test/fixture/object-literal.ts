@@ -34,20 +34,20 @@ function describe(animal: Animal): string {
   return animal.name;
 }
 
-const point: Point = { y: 2, x: 1 };
+const point: Point = { y: i32(2), x: i32(1) };
 const pair: Pair = point;
-const x: i32 = 10;
-const shorthand: Point = { x, y: 20 };
+const x: i32 = i32(10);
+const shorthand: Point = { x, y: i32(20) };
 const dog: Dog = { name: 'rex', breed: 'pug' };
-const cat: Cat = { lives: 9, name: 'tom' };
-const options: Options = { size: 3 };
+const cat: Cat = { lives: i32(9), name: 'tom' };
+const options: Options = { size: i32(3) };
 const nested = { point, tags: ['a'] };
 
 console.log(point, pair, shorthand, options);
 console.log(sum(point), sum(pair), point === pair);
-point.x = 5;
+point.x = i32(5);
 console.log(pair.x);
 rename(dog, 'max');
 console.log(describe(dog), describe(cat), dog.name, dog);
 console.log(options.label, typeof point, nested);
-exit(0);
+exit(i32(0));

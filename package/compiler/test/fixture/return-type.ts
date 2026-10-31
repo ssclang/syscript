@@ -51,14 +51,14 @@ function retGenericAdd<T extends number>(x: T, y: T) {
 // 9. multiple returns with different types
 function retMixed(c: boolean, x: i32, y: i64) {
   if (c) {
-    return x + 1;
+    return x + i32(1);
   }
   return y;
 }
 
 // 10. conditional with different types
 function retCond(c: boolean, x: i32, y: i64) {
-  return c ? x + 1 : y;
+  return c ? x + i32(1) : y;
 }
 
 // 11. call of a widened function

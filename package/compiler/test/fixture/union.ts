@@ -1,21 +1,21 @@
 declare function exit(code: i32): void;
 
 function find(target: i32): i32 | undefined {
-  if (target > 10) {
+  if (target > i32(10)) {
     return undefined;
   }
 
-  return target * 2;
+  return target * i32(2);
 }
 
 function use(target: i32): i32 {
   const found = find(target);
 
   if (found === undefined) {
-    return -1;
+    return i32(-1);
   }
 
-  return found + 1;
+  return found + i32(1);
 }
 
 let last: i32 | undefined = undefined;
@@ -23,7 +23,7 @@ let last: i32 | undefined = undefined;
 function remember(a: i32): i32 {
   let x: i32 | undefined = undefined;
 
-  if (a > 0) {
+  if (a > i32(0)) {
     x = a;
     last = a;
   }
@@ -32,7 +32,7 @@ function remember(a: i32): i32 {
     return x;
   }
 
-  return 0;
+  return i32(0);
 }
 
 function lastOr(fallback: i32): i32 {
@@ -45,38 +45,38 @@ function lastOr(fallback: i32): i32 {
 
 function orZero(v: i32 | undefined): i32 {
   if (v === undefined) {
-    return 0;
+    return i32(0);
   }
 
   return v;
 }
 
 function small(a: u8): i32 {
-  return orZero(a) + orZero(undefined) + orZero(300);
+  return orZero(i32(a)) + orZero(undefined) + orZero(i32(300));
 }
 
-function next(v: i32 | i64): i64 {
-  return v + 1;
+function next(v: i64): i64 {
+  return v + i64(1);
 }
 
 function both(a: i32, b: i64): i64 {
-  return next(a) + next(b);
+  return next(i64(a)) + next(b);
 }
 
 function score(x: i32 | boolean | undefined): i32 {
   if (x === undefined) {
-    return 0;
+    return i32(0);
   }
 
   if (typeof x === 'boolean') {
     if (x) {
-      return 1;
+      return i32(1);
     }
 
-    return 2;
+    return i32(2);
   }
 
-  return x + 10;
+  return x + i32(10);
 }
 
 function widen(v: i32 | undefined): i32 | boolean | undefined {
@@ -85,7 +85,7 @@ function widen(v: i32 | undefined): i32 | boolean | undefined {
 
 function orNegative(x: i32 | null): i32 {
   if (x === null) {
-    return -1;
+    return i32(-1);
   }
 
   return x;
@@ -93,17 +93,17 @@ function orNegative(x: i32 | null): i32 {
 
 function kind(x: i32 | null | undefined): i32 {
   if (x === undefined) {
-    return 0;
+    return i32(0);
   }
 
   if (typeof x === 'object') {
-    return 1;
+    return i32(1);
   }
 
-  return 2;
+  return i32(2);
 }
 
-function mixed(x: f32 | i32 | f64 | u32): f64 {
+function mixed(x: f64): f64 {
   return x + 0.5;
 }
 
@@ -114,7 +114,7 @@ function none(): undefined {
 }
 
 function nullCount(x: null): i32 {
-  return 1;
+  return i32(1);
 }
 
 function wrap(): i32 | undefined {
@@ -126,7 +126,7 @@ function wrap(): i32 | undefined {
 function unwrap(a: i32): i32 {
   let x: i32 | null = null;
 
-  if (a > 0) {
+  if (a > i32(0)) {
     x = a;
   }
 
@@ -136,44 +136,44 @@ function unwrap(a: i32): i32 {
     return nullCount(y);
   }
 
-  return 0;
+  return i32(0);
 }
 
-let result: i32 = 0;
+let result: i32 = i32(0);
 
-if (use(3) === 7 && use(20) === -1) {
-  result += 1;
+if (use(i32(3)) === i32(7) && use(i32(20)) === i32(-1)) {
+  result += i32(1);
 }
 
-if (lastOr(9) === 9 && remember(5) === 5 && remember(-1) === 0 && lastOr(9) === 5) {
-  result += 2;
+if (lastOr(i32(9)) === i32(9) && remember(i32(5)) === i32(5) && remember(i32(-1)) === i32(0) && lastOr(i32(9)) === i32(5)) {
+  result += i32(2);
 }
 
-if (small(7) === 307) {
-  result += 4;
+if (small(u8(7)) === i32(307)) {
+  result += i32(4);
 }
 
-if (both(1, 10) === 13) {
-  result += 8;
+if (both(i32(1), i64(10)) === i64(13)) {
+  result += i32(8);
 }
 
-if (score(undefined) === 0 && score(true) === 1 && score(false) === 2 && score(5) === 15 && score(widen(7)) === 17 && score(widen(undefined)) === 0) {
-  result += 16;
+if (score(undefined) === i32(0) && score(true) === i32(1) && score(false) === i32(2) && score(i32(5)) === i32(15) && score(widen(i32(7))) === i32(17) && score(widen(undefined)) === i32(0)) {
+  result += i32(16);
 }
 
-if (orNegative(null) === -1 && orNegative(4) === 4 && kind(undefined) === 0 && kind(null) === 1 && kind(7) === 2) {
-  result += 32;
+if (orNegative(null) === i32(-1) && orNegative(i32(4)) === i32(4) && kind(undefined) === i32(0) && kind(null) === i32(1) && kind(i32(7)) === i32(2)) {
+  result += i32(32);
 }
 
-const smallValue: u8 = 2;
-const negative: i8 = -3;
+const smallValue: u8 = u8(2);
+const negative: i8 = i8(-3);
 
-if (mixed(smallValue) === 2.5 && mixed(negative) === -2.5 && mixed(1.5) === 2) {
-  result += 64;
+if (mixed(f64(smallValue)) === 2.5 && mixed(f64(negative)) === -2.5 && mixed(1.5) === 2) {
+  result += i32(64);
 }
 
-if (wrap() === undefined && nullCount(null) === 1 && unwrap(-1) === 1 && unwrap(1) === 0) {
-  result += 128;
+if (wrap() === undefined && nullCount(null) === i32(1) && unwrap(i32(-1)) === i32(1) && unwrap(i32(1)) === i32(0)) {
+  result += i32(128);
 }
 
 exit(result);

@@ -4,13 +4,13 @@ import { clock, exit } from './libc.js';
 declare function abs(x: i32): i32;
 
 function date_now(): i64 {
-  return clock() / 1_000;
+  return clock() / i64(1_000);
 }
 
 export function sum(n: i32): i32 {
-  let total: i32 = 0;
+  let total: i32 = i32(0);
 
-  for (let i: i32 = 0; i < n; i++) {
+  for (let i: i32 = i32(0); i < n; i++) {
     total = add(total, i);
   }
 
@@ -18,11 +18,11 @@ export function sum(n: i32): i32 {
 }
 
 export function countdown(n: i32): i32 {
-  let count: i32 = 0;
+  let count: i32 = i32(0);
 
-  while (n > 0) {
-    count = count + 1;
-    n = n - 1;
+  while (n > i32(0)) {
+    count = count + i32(1);
+    n = n - i32(1);
   }
 
   return count;
@@ -34,26 +34,26 @@ export function nanIsFalsy(): i32 {
   const nan: f64 = zero / zero;
 
   if (nan) {
-    return 1;
+    return i32(1);
   }
 
-  return 0;
+  return i32(0);
 }
 
 /** boolean은 조건에 그대로, 그 외 타입은 JS 규칙으로 판정한다. */
 export function flags(n: i32, seen: boolean): i32 {
-  let total: i32 = 0;
+  let total: i32 = i32(0);
 
   if (n) {
-    total = total + 1;
+    total = total + i32(1);
   }
 
   if (!seen) {
-    total = total + 2;
+    total = total + i32(2);
   }
 
   if (seen) {
-    total = total + 4;
+    total = total + i32(4);
   }
 
   return total;
@@ -61,24 +61,24 @@ export function flags(n: i32, seen: boolean): i32 {
 
 /** `&&`, `||`는 조건 자리에서만 쓴다. 양쪽이 각각 JS 규칙으로 판정된다. */
 export function logic(n: i32, seen: boolean): i32 {
-  let total: i32 = 0;
+  let total: i32 = i32(0);
 
-  if (n > 0 && seen) {
-    total = total + 1;
+  if (n > i32(0) && seen) {
+    total = total + i32(1);
   }
 
-  if (n > 100 || seen) {
-    total = total + 2;
+  if (n > i32(100) || seen) {
+    total = total + i32(2);
   }
 
-  if (!(n > 0 && seen)) {
-    total = total + 4;
+  if (!(n > i32(0) && seen)) {
+    total = total + i32(4);
   }
 
   const nan: f64 = 0 / 0;
 
-  if (nan || n) {
-    total = total + 8;
+  if (nan || f64(n)) {
+    total = total + i32(8);
   }
 
   return total;
@@ -86,14 +86,14 @@ export function logic(n: i32, seen: boolean): i32 {
 
 /** `break`는 루프를 끝내고 `continue`는 다음 회차로 넘어간다. */
 export function oddSum(n: i32): i32 {
-  let total: i32 = 0;
+  let total: i32 = i32(0);
 
-  for (let i: i32 = 0; i < 100; i++) {
+  for (let i: i32 = i32(0); i < i32(100); i++) {
     if (i >= n) {
       break;
     }
 
-    if (i % 2 === 0) {
+    if (i % i32(2) === i32(0)) {
       continue;
     }
 
@@ -105,20 +105,20 @@ export function oddSum(n: i32): i32 {
 
 /** 진법과 지수 표기. 리터럴 원문을 어떻게 읽어야 하는지가 여기서 갈린다. */
 export function literals(): i32 {
-  const hex: i32 = 0xff;
-  const bin: i32 = 0b1010;
-  const oct: i32 = 0o17;
-  const exp: i32 = 1e3;
-  const under: i32 = 1_000;
+  const hex: i32 = i32(0xff);
+  const bin: i32 = i32(0b1010);
+  const oct: i32 = i32(0o17);
+  const exp: i32 = i32(1e3);
+  const under: i32 = i32(1_000);
 
   return hex + bin + oct + exp + under;
 }
 
 /** 사용자가 직접 쓴 괄호는 ParenthesizedExpression 노드로 들어온다. */
 export function grouped(a: i32, b: i32): i32 {
-  const scaled: i32 = (a + b) * 2;
+  const scaled: i32 = (a + b) * i32(2);
 
-  return scaled + (a % (b + 1));
+  return scaled + (a % (b + i32(1)));
 }
 
 /** 단항이 겹칠 때 `--`로 붙으면 감소 연산자가 되므로 방출기가 스스로 괄호를 친다. */
@@ -136,43 +136,43 @@ export function negate(x: i32): i32 {
 
 /** 자기 자신을 부른다. 전방 선언을 상단에 모아두어 정의 순서와 무관하다. */
 export function fib(n: i32): i32 {
-  if (n < 2) {
+  if (n < i32(2)) {
     return n;
   }
 
-  return fib(n - 1) + fib(n - 2);
+  return fib(n - i32(1)) + fib(n - i32(2));
 }
 
 /** 서로를 부른다. */
 function isEven(n: i32): i32 {
-  if (n === 0) {
-    return 1;
+  if (n === i32(0)) {
+    return i32(1);
   }
 
-  return isOdd(n - 1);
+  return isOdd(n - i32(1));
 }
 
 function isOdd(n: i32): i32 {
-  if (n === 0) {
-    return 0;
+  if (n === i32(0)) {
+    return i32(0);
   }
 
-  return isEven(n - 1);
+  return isEven(n - i32(1));
 }
 
 export function main(): i32 {
   // const start = date_now();
-  const total = abs(0 - sum(5));
+  const total = abs(i32(0) - sum(i32(5)));
   // const elapsed = date_now() - start;
 
   console.log(total);
   // console.log(elapsed);
-  console.log(fib(20));
-  console.log(isEven(10));
+  console.log(fib(i32(20)));
+  console.log(isEven(i32(10)));
   console.log(nanIsFalsy());
-  console.log(flags(1, true));
-  console.log(logic(1, true));
-  console.log(oddSum(10));
+  console.log(flags(i32(1), true));
+  console.log(logic(i32(1), true));
+  console.log(oddSum(i32(10)));
 
   return total;
   // return total + elapsed;

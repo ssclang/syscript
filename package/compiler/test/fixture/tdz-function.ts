@@ -6,4 +6,4 @@ function read(): i32 {
 
 exit(read());
 
-const value: i32 = 7;
+const value: i32 = i32(7);
