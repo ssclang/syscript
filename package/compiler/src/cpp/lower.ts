@@ -3,11 +3,14 @@ import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
 import { Capture } from '~/cpp/closure.js';
+import { CppCoreFunctionName } from '~/cpp/core.js';
 import {
   CppBlock,
   CppBooleanLiteral,
   CppBreakStatement,
   CppContinueStatement,
+  CppCoreFunctionCall,
+  CppCStringLiteral,
   CppDeclarationStatement,
   CppNode,
   CppNullLiteral,
@@ -1109,7 +1112,9 @@ function lowerPreludeCallExpression(node: NodeCallExpression, name: string, cont
   }
 
   if (name === 'char') {
-    return `ssc__core__fn__char(${lowerNumber(argument, 'u32', context)})`;
+    const args = [new CppUnknownExpression(lowerNumber(argument, 'u32', context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__char', [], args).code();
   }
 
   if (name === 'addWrap' || name === 'subWrap' || name === 'mulWrap') {
@@ -1120,24 +1125,31 @@ function lowerPreludeCallExpression(node: NodeCallExpression, name: string, cont
     const type = getSscNumberType(node);
     const functionName = getSscWrappingArithmeticFunctionName(name);
 
-    return `ssc__core__fn__${functionName}(${lowerNumber(argument, type, context)}, ${lowerNumber(right, type, context)})`;
+    const args = [
+      new CppUnknownExpression(lowerNumber(argument, type, context)),
+      new CppUnknownExpression(lowerNumber(right, type, context)),
+    ];
+
+    return new CppCoreFunctionCall(functionName, [], args).code();
   }
 
   throw new Error(`${node.location()}: not implemented prelude function: ${name}`);
 }
 
-function getSscWrappingArithmeticFunctionName(name: 'addWrap' | 'subWrap' | 'mulWrap') {
+function getSscWrappingArithmeticFunctionName(
+  name: 'addWrap' | 'subWrap' | 'mulWrap',
+): CppCoreFunctionName {
   if (name === 'addWrap') {
-    return 'add_wrap';
+    return 'ssc__core__fn__add_wrap';
   }
 
   if (name === 'subWrap') {
-    return 'sub_wrap';
+    return 'ssc__core__fn__sub_wrap';
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (name === 'mulWrap') {
-    return 'mul_wrap';
+    return 'ssc__core__fn__mul_wrap';
   }
 
   assertNever(name);
@@ -1160,9 +1172,13 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
       return `(-${text})`;
     }
 
-    const zero = new CppNumericLiteral(type, '0').code();
+    const args = [
+      new CppNumericLiteral(type, '0'),
+      new CppUnknownExpression(text),
+      new CppCStringLiteral(type),
+    ];
 
-    return `ssc__core__fn__sub(${zero}, ${text}, "${type}")`;
+    return new CppCoreFunctionCall('ssc__core__fn__sub', [], args).code();
   }
 
   // +
@@ -1172,7 +1188,13 @@ function lowerPrefixUnaryExpression(node: NodePrefixUnaryExpression, context: Lo
 
   // ~
   if (operator === ast.SyntaxKind.TildeToken) {
-    return `ssc__core__fn__bitwise_not(${lowerNumber(operand, getSscNumberType(node), context)})`;
+    const text = lowerNumber(operand, getSscNumberType(node), context);
+
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__bitwise_not',
+      [],
+      [new CppUnknownExpression(text)],
+    ).code();
   }
 
   // ++ --
@@ -1302,7 +1324,15 @@ function lowerUpdateExpression(
     const step =
       includes(sscFloatTypes, type) ?
         `previous ${isIncrement ? '+' : '-'} ${one}`
-      : `ssc__core__fn__${isIncrement ? 'add' : 'sub'}(previous, ${one}, "${type}")`;
+      : new CppCoreFunctionCall(
+          isIncrement ? 'ssc__core__fn__add' : 'ssc__core__fn__sub',
+          [],
+          [
+            new CppUnknownExpression('previous'),
+            new CppUnknownExpression(one),
+            new CppCStringLiteral(type),
+          ],
+        ).code();
     const result = isPrefix ? 'next' : 'previous';
 
     return `[&] { const ${CppNode.toCppTypeName(type)} previous = ${lowerExpression(operand, context)}; const ${CppNode.toCppTypeName(type)} next = ${step}; ${target} = next; return ${result}; }()`;
@@ -1314,9 +1344,26 @@ function lowerUpdateExpression(
     return isPrefix ? `(${text}${target})` : `(${target}${text})`;
   }
 
-  const name = `${isIncrement ? 'increment' : 'decrement'}_${isPrefix ? 'prefix' : 'postfix'}`;
+  const functionName = getUpdateFunctionName(isIncrement, isPrefix);
+  const args = [new CppUnknownExpression(target), new CppCStringLiteral(type)];
 
-  return `ssc__core__fn__${name}(${target}, "${type}")`;
+  return new CppCoreFunctionCall(functionName, [], args).code();
+}
+
+function getUpdateFunctionName(isIncrement: boolean, isPrefix: boolean): CppCoreFunctionName {
+  if (isIncrement && isPrefix) {
+    return 'ssc__core__fn__increment_prefix';
+  }
+
+  if (isIncrement && !isPrefix) {
+    return 'ssc__core__fn__increment_postfix';
+  }
+
+  if (!isIncrement && isPrefix) {
+    return 'ssc__core__fn__decrement_prefix';
+  }
+
+  return 'ssc__core__fn__decrement_postfix';
 }
 
 function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerContext) {
@@ -1356,15 +1403,18 @@ function getArithmeticText(
     return `(${left} ${getArithmeticOperator(kind)} ${right})`;
   }
 
+  const functionName = getArithmeticFunctionName(kind);
+  const args = [new CppUnknownExpression(left), new CppUnknownExpression(right)];
+
   if (
     kind === ast.SyntaxKind.AmpersandToken // &
     || kind === ast.SyntaxKind.BarToken // |
     || kind === ast.SyntaxKind.CaretToken // ^
   ) {
-    return `ssc__core__fn__${getArithmeticFunctionName(kind)}(${left}, ${right})`;
+    return new CppCoreFunctionCall(functionName, [], args).code();
   }
 
-  return `ssc__core__fn__${getArithmeticFunctionName(kind)}(${left}, ${right}, "${type}")`;
+  return new CppCoreFunctionCall(functionName, [], [...args, new CppCStringLiteral(type)]).code();
 }
 
 function getArithmeticOperator(kind: ast.BinaryOperator) {
@@ -1391,60 +1441,60 @@ function getArithmeticOperator(kind: ast.BinaryOperator) {
   assertNever(kind as never);
 }
 
-function getArithmeticFunctionName(kind: ast.BinaryOperator) {
+function getArithmeticFunctionName(kind: ast.BinaryOperator): CppCoreFunctionName {
   // +
   if (kind === ast.SyntaxKind.PlusToken) {
-    return 'add';
+    return 'ssc__core__fn__add';
   }
 
   // -
   if (kind === ast.SyntaxKind.MinusToken) {
-    return 'sub';
+    return 'ssc__core__fn__sub';
   }
 
   // *
   if (kind === ast.SyntaxKind.AsteriskToken) {
-    return 'mul';
+    return 'ssc__core__fn__mul';
   }
 
   // /
   if (kind === ast.SyntaxKind.SlashToken) {
-    return 'div';
+    return 'ssc__core__fn__div';
   }
 
   // %
   if (kind === ast.SyntaxKind.PercentToken) {
-    return 'rem';
+    return 'ssc__core__fn__rem';
   }
 
   // &
   if (kind === ast.SyntaxKind.AmpersandToken) {
-    return 'bitwise_and';
+    return 'ssc__core__fn__bitwise_and';
   }
 
   // |
   if (kind === ast.SyntaxKind.BarToken) {
-    return 'bitwise_or';
+    return 'ssc__core__fn__bitwise_or';
   }
 
   // ^
   if (kind === ast.SyntaxKind.CaretToken) {
-    return 'bitwise_xor';
+    return 'ssc__core__fn__bitwise_xor';
   }
 
   // <<
   if (kind === ast.SyntaxKind.LessThanLessThanToken) {
-    return 'shift_left';
+    return 'ssc__core__fn__shift_left';
   }
 
   // >>
   if (kind === ast.SyntaxKind.GreaterThanGreaterThanToken) {
-    return 'shift_right';
+    return 'ssc__core__fn__shift_right';
   }
 
   // >>>
   if (kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanToken) {
-    return 'unsigned_shift_right';
+    return 'ssc__core__fn__unsigned_shift_right';
   }
 
   assertNever(kind as never);
