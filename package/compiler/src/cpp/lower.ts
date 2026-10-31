@@ -999,7 +999,14 @@ function lowerMethodCallExpression(
 
     assert(text, `${node.location()}: '${callee.getText()}' takes an argument`);
 
-    return `ssc__core__fn__write_${expression.name}(${lowerString(text, context)})`;
+    const functionName =
+      expression.name === 'stdout' ? 'ssc__core__fn__write_stdout' : 'ssc__core__fn__write_stderr';
+
+    return new CppCoreFunctionCall(
+      functionName,
+      [],
+      [new CppUnknownExpression(lowerString(text, context))],
+    ).code();
   }
 
   if (
@@ -1008,66 +1015,78 @@ function lowerMethodCallExpression(
     && expression.text === 'console'
     && isPreludeDeclaration(expression)
   ) {
-    const args = node.arguments.map((a) => lowerExpression(a, context)).join(', ');
+    const functionName =
+      callee.name === 'log' ? 'ssc__core__fn__console_log' : 'ssc__core__fn__console_error';
+    const args = node.arguments.map((a) => new CppUnknownExpression(lowerExpression(a, context)));
 
-    return `ssc__core__fn__console_${callee.name}(${args})`;
+    return new CppCoreFunctionCall(functionName, [], args).code();
   }
 
   if (expression.app.checker.isArrayType(expression.getType())) {
     const elementType = getArrayElementSscTypeName(expression);
-    const array = lowerExpression(expression, context);
+    const array = new CppUnknownExpression(lowerExpression(expression, context));
+    const callArray = (functionName: CppCoreFunctionName, args: CppExpression[]) =>
+      new CppCoreFunctionCall(functionName, [elementType], [array, ...args]).code();
 
     if (callee.name === 'push') {
-      const values = node.arguments.map((a) => `, ${lowerValue(a, context)}`).join('');
+      const values = node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context)));
 
-      return `ssc__core__fn__array_push<${elementType}>(${array}${values})`;
+      return callArray('ssc__core__fn__array_push', values);
     }
 
     if (callee.name === 'pop') {
-      return `ssc__core__fn__array_pop<${elementType}>(${array})`;
+      return callArray('ssc__core__fn__array_pop', []);
     }
 
     const [first, second] = node.arguments;
 
     assert(first, `${node.location()}: '${callee.getText()}' takes an argument`);
 
-    const argument = lowerValue(first, context);
+    const argument = new CppUnknownExpression(lowerValue(first, context));
 
     if (callee.name === 'map') {
-      return `ssc__core__fn__array_map<${elementType}, ${getArrayElementSscTypeName(node)}>(${array}, ${argument})`;
+      const templateTypeNames = [elementType, getArrayElementSscTypeName(node)];
+
+      return new CppCoreFunctionCall('ssc__core__fn__array_map', templateTypeNames, [
+        array,
+        argument,
+      ]).code();
     }
 
     if (callee.name === 'reduce') {
       assert(second, `${node.location()}: 'reduce' takes an initial value`);
 
-      const text = `ssc__core__fn__array_reduce<${elementType}>(${array}, ${argument}, ssc__core__type__union(${lowerValue(second, context)}))`;
+      const initial = new CppUnknownExpression(
+        `ssc__core__type__union(${lowerValue(second, context)})`,
+      );
+      const text = callArray('ssc__core__fn__array_reduce', [argument, initial]);
       const typeName = getSscTypeName(node.app, node.getType());
 
       return typeName === 'union' ? text : getUnionReadText(typeName, text);
     }
 
     if (callee.name === 'forEach') {
-      return `ssc__core__fn__array_for_each<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_for_each', [argument]);
     }
 
     if (callee.name === 'filter') {
-      return `ssc__core__fn__array_filter<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_filter', [argument]);
     }
 
     if (callee.name === 'find') {
-      return `ssc__core__fn__array_find<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_find', [argument]);
     }
 
     if (callee.name === 'some') {
-      return `ssc__core__fn__array_some<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_some', [argument]);
     }
 
     if (callee.name === 'every') {
-      return `ssc__core__fn__array_every<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_every', [argument]);
     }
 
     if (callee.name === 'indexOf') {
-      return `ssc__core__fn__array_index_of<${elementType}>(${array}, ${argument})`;
+      return callArray('ssc__core__fn__array_index_of', [argument]);
     }
   }
 
@@ -1076,16 +1095,21 @@ function lowerMethodCallExpression(
 
 function lowerArrayLiteralExpression(node: NodeArrayLiteralExpression, context: LowerContext) {
   const elementType = getArrayElementSscTypeName(node);
-  const values = node.elements.map((e) => lowerValue(e, context)).join(', ');
+  const values = node.elements.map((e) => new CppUnknownExpression(lowerValue(e, context)));
 
-  return `ssc__core__fn__array_of<${elementType}>(${values})`;
+  return new CppCoreFunctionCall('ssc__core__fn__array_of', [elementType], values).code();
 }
 
 function lowerElementAccessExpression(node: NodeElementAccessExpression, context: LowerContext) {
   const { expression, argumentExpression } = node;
   const elementType = getArrayElementSscTypeName(expression);
 
-  return `ssc__core__fn__array_get<${elementType}>(${lowerExpression(expression, context)}, ${lowerArrayIndex(argumentExpression, context)})`;
+  const args = [
+    new CppUnknownExpression(lowerExpression(expression, context)),
+    new CppUnknownExpression(lowerArrayIndex(argumentExpression, context)),
+  ];
+
+  return new CppCoreFunctionCall('ssc__core__fn__array_get', [elementType], args).code();
 }
 
 function lowerElementAssignmentExpression(
@@ -1098,7 +1122,13 @@ function lowerElementAssignmentExpression(
   const array = lowerExpression(expression, context);
   const index = lowerArrayIndex(argumentExpression, context);
 
-  return `ssc__core__fn__array_set<${elementType}>(${array}, ${index}, ${lowerValue(value, context)})`;
+  const args = [
+    new CppUnknownExpression(array),
+    new CppUnknownExpression(index),
+    new CppUnknownExpression(lowerValue(value, context)),
+  ];
+
+  return new CppCoreFunctionCall('ssc__core__fn__array_set', [elementType], args).code();
 }
 
 function lowerArrayIndex(node: AbstractNode<ast.Expression>, context: LowerContext) {
@@ -1116,7 +1146,7 @@ function getArrayElementSscTypeName(node: AbstractNode<ast.Expression>) {
 
   assert(elementType, `${node.location()}: array element type not found: ${node.getText()}`);
 
-  return CppNode.toCppTypeName(getSscTypeName(node.app, elementType));
+  return getSscTypeName(node.app, elementType);
 }
 
 function isPreludeDeclaration(node: NodeIdentifier) {
@@ -1661,7 +1691,9 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
   }
 
   if (node.app.checker.isArrayType(node.expression.getType()) && node.name === 'length') {
-    return `ssc__core__fn__array_length(${lowerExpression(node.expression, context)})`;
+    const args = [new CppUnknownExpression(lowerExpression(node.expression, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__array_length', [], args).code();
   }
 
   if (isObjectType(node.app, node.expression.getType())) {
@@ -1800,7 +1832,8 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
   const descriptor = getDescriptorName(shape, keys, context);
   const field = (name: string) => `__builtin_addressof(object->ssc__ts__member__${name})`;
   const values = node.properties.map(
-    (p) => `ssc__core__fn__construct(${field(p.name)}, ${lowerValue(p.value, context)});`,
+    (p) =>
+      `${new CppCoreFunctionCall('ssc__core__fn__construct', [], [new CppUnknownExpression(field(p.name)), new CppUnknownExpression(lowerValue(p.value, context))]).code()};`,
   );
   const missings = shape.fields
     .filter((f) => !keys.includes(f.name))
@@ -1810,9 +1843,21 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
         `${node.location()}: not implemented missing property: ${f.name}`,
       );
 
-      return `ssc__core__fn__construct(${field(f.name)}, ssc__core__type__union(${new CppUndefinedLiteral().code()}));`;
+      const value = new CppUnknownExpression(
+        `ssc__core__type__union(${new CppUndefinedLiteral().code()})`,
+      );
+
+      return `${new CppCoreFunctionCall('ssc__core__fn__construct', [], [new CppUnknownExpression(field(f.name)), value]).code()};`;
     });
-  const allocation = `${shape.structName}* object = reinterpret_cast<${shape.structName}*>(ssc__core__fn__allocate_object(sizeof(${shape.structName}), __builtin_addressof(${descriptor})));`;
+  const allocate = new CppCoreFunctionCall(
+    'ssc__core__fn__allocate_object',
+    [],
+    [
+      new CppUnknownExpression(`sizeof(${shape.structName})`),
+      new CppUnknownExpression(`__builtin_addressof(${descriptor})`),
+    ],
+  );
+  const allocation = `${shape.structName}* object = reinterpret_cast<${shape.structName}*>(${allocate.code()});`;
 
   return `[&] { ${[allocation, ...values, ...missings].join(' ')} return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }()`;
 }
@@ -1823,7 +1868,16 @@ function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerC
 
   assert(field, `${node.location()}: not implemented property: ${node.getText()}`);
 
-  return `ssc__core__fn__field<${CppNode.toCppTypeName(field.typeName)}>(${lowerExpression(node.expression, context)}, 0x${shape.id}ull, __builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name}), "${node.name}")`;
+  const args = [
+    new CppUnknownExpression(lowerExpression(node.expression, context)),
+    new CppUnknownExpression(`0x${shape.id}ull`),
+    new CppUnknownExpression(
+      `__builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name})`,
+    ),
+    new CppCStringLiteral(node.name),
+  ];
+
+  return new CppCoreFunctionCall('ssc__core__fn__field', [field.typeName], args).code();
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {
@@ -2364,7 +2418,13 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
     addImportedForward(context, realPath, tdzTagName, `${reference.declaration.tdzTagCode()};`);
   }
 
-  return `(ssc__core__fn__throw_if_tdz(${tdzTagName}, "${node.text}"), ${variableName})`;
+  const check = new CppCoreFunctionCall(
+    'ssc__core__fn__throw_if_tdz',
+    [],
+    [new CppUnknownExpression(tdzTagName), new CppCStringLiteral(node.text)],
+  );
+
+  return `(${check.code()}, ${variableName})`;
 }
 
 function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
