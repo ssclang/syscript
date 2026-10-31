@@ -1,11 +1,29 @@
 import { assertNever } from '@syscript/share/util';
+import { CppCoreFunctionName } from '~/cpp/core.js';
 import { CppWriter } from '~/cpp/writer.js';
 import { SscNumberType } from '~/ssc/type.js';
 
-let currentId = 0;
+let nodeIdCounter = 0;
 
 function generateId(): number {
-  return currentId++;
+  return ++nodeIdCounter;
+}
+
+function escapeStringLiteral(value: string) {
+  const chars = Array.from(value);
+
+  return chars
+    .map((c, index) => {
+      const maybeTrigraphStart =
+        c === '?' && chars[index + 1] === '?' && chars[index + 2] !== undefined;
+
+      if (c === '"' || c === '\\' || c === '\n' || c === '\r' || c === '\0' || maybeTrigraphStart) {
+        return `\\${c.charCodeAt(0).toString(8).padStart(3, '0')}`;
+      }
+
+      return c;
+    })
+    .join('');
 }
 
 export abstract class CppNode {
@@ -264,16 +282,20 @@ export class CppStringLiteral extends CppExpression {
   }
 
   code() {
-    const bytes = new TextEncoder().encode(this.value);
-    const text = Array.from(bytes, (b) => {
-      if (0x20 <= b && b < 0x7f && b !== 0x22 && b !== 0x5c && b !== 0x3f) {
-        return String.fromCharCode(b);
-      }
+    return `ssc__core__fn__string_literal<u8"${escapeStringLiteral(this.value)}">()`;
+  }
+}
 
-      return `\\${b.toString(8).padStart(3, '0')}`;
-    }).join('');
+export class CppCStringLiteral extends CppExpression {
+  readonly value: string;
 
-    return `ssc__core__fn__string_literal<u8"${text}">()`;
+  constructor(value: string) {
+    super();
+    this.value = value;
+  }
+
+  code() {
+    return `"${escapeStringLiteral(this.value)}"`;
   }
 }
 
@@ -369,6 +391,35 @@ export class CppFunctionCall extends CppExpression {
     const args = this.arguments.map((a) => a.code()).join(', ');
 
     return `${this.reference.code()}(${args})`;
+  }
+}
+
+// region core
+
+export class CppCoreFunctionCall extends CppExpression {
+  readonly cppFunctionName: CppCoreFunctionName;
+  readonly templateTypeNames: string[];
+  readonly arguments: CppExpression[];
+
+  constructor(
+    cppFunctionName: CppCoreFunctionName,
+    templateTypeNames: string[],
+    args: CppExpression[],
+  ) {
+    super();
+    this.cppFunctionName = cppFunctionName;
+    this.templateTypeNames = templateTypeNames;
+    this.arguments = args;
+  }
+
+  code() {
+    const templateArguments =
+      this.templateTypeNames.length === 0 ?
+        ''
+      : `<${this.templateTypeNames.map((t) => CppNode.toCppTypeName(t)).join(', ')}>`;
+    const args = this.arguments.map((a) => a.code()).join(', ');
+
+    return `${this.cppFunctionName}${templateArguments}(${args})`;
   }
 }
 

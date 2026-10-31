@@ -11,6 +11,7 @@ function isFunctionLike(node: ast.Node) {
 }
 
 function getEnclosingFunction(node: ast.Node) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   for (let current = node.parent; current; current = current.parent) {
     if (isFunctionLike(current)) {
       return current;
