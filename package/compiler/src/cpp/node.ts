@@ -16,6 +16,18 @@ export abstract class CppNode {
 
   abstract code(): string;
 
+  static toCppNamespaceName(pathId: string) {
+    return `ssc__ts__namespace__${pathId}`;
+  }
+
+  static toCppNamespacedName(pathId: string | undefined, cppName: string) {
+    if (pathId === undefined) {
+      return cppName;
+    }
+
+    return `${CppNode.toCppNamespaceName(pathId)}::${cppName}`;
+  }
+
   static toCppVariableName(tsVariableName: string) {
     return `ssc__ts__var__${tsVariableName}`;
   }
@@ -53,6 +65,7 @@ export class CppUnknownExpression extends CppExpression {
 export type CppVariableStorage = 'imported' | 'topLevel' | 'exportedTopLevel' | 'local';
 
 export class CppVariableDeclaration extends CppNode {
+  readonly pathId?: string;
   readonly storage: CppVariableStorage;
   readonly isConst: boolean;
   readonly tsTypeName: string;
@@ -63,6 +76,7 @@ export class CppVariableDeclaration extends CppNode {
   readonly reference: CppVariableReference;
 
   constructor(
+    pathId: string | undefined,
     storage: CppVariableStorage,
     isConst: boolean,
     tsTypeName: string,
@@ -70,6 +84,7 @@ export class CppVariableDeclaration extends CppNode {
     initializer?: CppExpression,
   ) {
     super();
+    this.pathId = pathId;
     this.storage = storage;
     this.isConst = isConst;
     this.tsTypeName = tsTypeName;
@@ -136,11 +151,13 @@ export class CppVariableReference extends CppExpression {
   }
 
   code() {
-    return this.declaration.cppVariableName;
+    return CppNode.toCppNamespacedName(this.declaration.pathId, this.declaration.cppVariableName);
   }
 
   tdzTagCode() {
-    return CppNode.toCppTdzTagName(this.declaration.tsVariableName);
+    const { pathId, tsVariableName } = this.declaration;
+
+    return CppNode.toCppNamespacedName(pathId, CppNode.toCppTdzTagName(tsVariableName));
   }
 }
 
@@ -249,6 +266,7 @@ export class CppStringLiteral extends CppExpression {
 export type CppFunctionStorage = 'imported' | 'topLevel' | 'exportedTopLevel';
 
 export class CppFunctionDeclaration extends CppNode {
+  readonly pathId: string;
   readonly storage: CppFunctionStorage;
   readonly isExternC: boolean;
   readonly tsReturnTypeName: string;
@@ -259,6 +277,7 @@ export class CppFunctionDeclaration extends CppNode {
   readonly reference: CppFunctionReference;
 
   constructor(
+    pathId: string,
     storage: CppFunctionStorage,
     isExternC: boolean,
     tsReturnTypeName: string,
@@ -266,6 +285,7 @@ export class CppFunctionDeclaration extends CppNode {
     parameters: CppVariableDeclaration[],
   ) {
     super();
+    this.pathId = pathId;
     this.storage = storage;
     this.isExternC = isExternC;
     this.tsReturnTypeName = tsReturnTypeName;
@@ -315,6 +335,6 @@ export class CppFunctionReference extends CppExpression {
   }
 
   code() {
-    return this.declaration.cppFunctionName;
+    return CppNode.toCppNamespacedName(this.declaration.pathId, this.declaration.cppFunctionName);
   }
 }
