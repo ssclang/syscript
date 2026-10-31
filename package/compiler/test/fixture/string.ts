@@ -91,7 +91,7 @@ if (orEmpty('hi') === 'hi' && orEmpty(undefined) === '' && kind('ab') === i32(1)
   result += i32(16);
 }
 
-if (join('ab', 'cd') === 'abcd' && withChar('a', char(0x1f44d)) === 'a👍' && append('hi') === 'hi!') {
+if (join('ab', 'cd') === 'abcd' && withChar('a', char(0x1f44d)) === 'a128077' && append('hi') === 'hi!') {
   result += i32(32);
 }
 

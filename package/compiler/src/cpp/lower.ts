@@ -15,8 +15,6 @@ import {
   CppCoreFunctionCall,
   CppCStringLiteral,
   CppDeclarationStatement,
-  CppNode,
-  CppNullLiteral,
   CppExpression,
   CppExpressionStatement,
   CppForStatement,
@@ -24,21 +22,29 @@ import {
   CppFunctionDeclaration,
   CppFunctionStorage,
   CppIfStatement,
+  CppNode,
+  CppNullLiteral,
   CppNumericLiteral,
   CppReturnStatement,
-  CppStaticCast,
   CppStatement,
-  CppUnknownExpression,
+  CppStaticCast,
   CppStringLiteral,
   CppUnaryExpression,
   CppUndefinedLiteral,
   CppUnknownDeclaration,
+  CppUnknownExpression,
   CppVariableDeclaration,
   CppVariableStorage,
   CppWhileStatement,
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
-import { includes, sscFloatTypes, SscNumberType, sscNumberTypes } from '~/ssc/type.js';
+import {
+  includes,
+  parseSafeCodePoint,
+  sscFloatTypes,
+  SscNumberType,
+  sscNumberTypes,
+} from '~/ssc/type.js';
 import {
   commonType,
   CommonTypeOperand,
@@ -819,8 +825,8 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     const realPath = node.app.parser.tsPathToRealPath(declaration.getSourceFile().fileName);
     const isSameFile = declaration.getSourceFile().fileName === node.getSourceFile().fileName;
 
-    if (realPath === node.app.preludeSourceFile.realPath) {
-      return lowerPreludeCallExpression(node, callee.text, context);
+    if (isPreludeDeclaration(callee)) {
+      return lowerPreludeCallExpression(node, context);
     }
 
     if (ast.isFunctionDeclaration(declaration)) {
@@ -1176,7 +1182,15 @@ function isPreludeDeclaration(node: NodeIdentifier) {
   );
 }
 
-function lowerPreludeCallExpression(node: NodeCallExpression, name: string, context: LowerContext) {
+function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerContext) {
+  const callee = node.expression;
+
+  assert(
+    callee instanceof NodeIdentifier && isPreludeDeclaration(callee),
+    `${node.location()}: not a prelude call: ${node.getText()}`,
+  );
+
+  const name = callee.text;
   const [argument] = node.arguments;
 
   assert(argument, `${node.location()}: '${name}' takes an argument`);
@@ -1206,9 +1220,20 @@ function lowerPreludeCallExpression(node: NodeCallExpression, name: string, cont
   }
 
   if (name === 'char') {
-    const args = [new CppUnknownExpression(lowerNumber(argument, 'u32', context))];
+    const argumentType = argument.getType();
 
-    return new CppCoreFunctionCall('ssc__core__fn__char', [], args).code();
+    if (argumentType.isStringLiteralType() || argumentType.isNumberLiteralType()) {
+      assert(
+        parseSafeCodePoint(argumentType.value) !== undefined,
+        `${argument.location()}: ${argument.getText()} is an invalid code point`,
+      );
+    }
+
+    return new CppCoreFunctionCall(
+      'ssc__core__fn__char',
+      [],
+      [new CppUnknownExpression(lowerExpression(argument, context))],
+    ).code();
   }
 
   if (name === 'addWrap' || name === 'subWrap' || name === 'mulWrap') {
@@ -1568,7 +1593,15 @@ function getArithmeticText(
     ).code();
   }
 
-  if (includes(sscFloatTypes, type)) {
+  const isBitwise =
+    kind === ast.SyntaxKind.AmpersandToken // &
+    || kind === ast.SyntaxKind.BarToken // |
+    || kind === ast.SyntaxKind.CaretToken // ^
+    || kind === ast.SyntaxKind.LessThanLessThanToken // <<
+    || kind === ast.SyntaxKind.GreaterThanGreaterThanToken // >>
+    || kind === ast.SyntaxKind.GreaterThanGreaterThanGreaterThanToken; // >>>
+
+  if (includes(sscFloatTypes, type) && !isBitwise) {
     return new CppBinaryExpression(
       getArithmeticOperator(kind),
       new CppUnknownExpression(left),
@@ -2116,8 +2149,7 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
   assert(!isTypeFlagMatch(targetType, ts.TypeFlags.AnyOrUnknown), message);
 
   const target = getSscTypeName(node.app, targetType);
-  const isLiteral =
-    isTypeFlagMatch(sourceType, ts.TypeFlags.NumberLiteral) || isCharLiteralType(sourceType);
+  const isLiteral = isTypeFlagMatch(sourceType, ts.TypeFlags.NumberLiteral);
 
   if (isLiteral && includes(sscNumberTypes, target)) {
     return lowerNumber(expression, target, context);
@@ -2237,8 +2269,8 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
   );
 
   if (isTypeIdComparison(left) || isTypeIdComparison(right)) {
-    const leftText = lowerEqualityOperand(left, right, context);
-    const rightText = lowerEqualityOperand(right, left, context);
+    const leftText = lowerExpression(left, context);
+    const rightText = lowerExpression(right, context);
 
     const args = [new CppUnknownExpression(leftText), new CppUnknownExpression(rightText)];
 
@@ -2299,22 +2331,6 @@ function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
   );
 }
 
-function lowerEqualityOperand(
-  node: AbstractNode<ast.Expression>,
-  other: AbstractNode<ast.Expression>,
-  context: LowerContext,
-) {
-  if (isCharLiteralType(node.getType()) && hasCharMember(node.app, other.getType())) {
-    return lowerNumber(node, 'char', context);
-  }
-
-  return lowerExpression(node, context);
-}
-
-function hasCharMember(app: AppSourceFile['app'], type: ts.Type) {
-  return type.isUnionType() && type.getTypes().some((t) => getSscTypeName(app, t) === 'char');
-}
-
 function getComparisonOperator(kind: ast.BinaryOperator): CppBinaryOperator {
   // <
   if (kind === ast.SyntaxKind.LessThanToken) {
@@ -2354,10 +2370,6 @@ function getOperands(node: AbstractNode<ast.Expression>): CommonTypeOperand[] {
   const memberTypes = type.isUnionType() ? type.getTypes() : [type];
 
   return memberTypes.flatMap((t): CommonTypeOperand[] => {
-    if (isCharLiteralType(t)) {
-      return [];
-    }
-
     if (isTypeFlagMatch(t, ts.TypeFlags.NumberLiteral)) {
       return [{ literal: getNumberLiteralValue(node.app, t) }];
     }
@@ -2374,10 +2386,6 @@ function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
   }
 
   checkSharedRepresentation(node, targetType);
-
-  if (isCharLiteralType(node.getType()) && hasCharMember(node.app, targetType)) {
-    return lowerNumber(node, 'char', context);
-  }
 
   const type = getSscTypeName(node.app, targetType);
 
@@ -2414,19 +2422,6 @@ function lowerNumber(
   }
 
   const nodeType = node.getType();
-
-  if (isCharLiteralType(nodeType)) {
-    assert(
-      node instanceof NodeStringLiteral,
-      `${node.location()}: not implemented char literal expression: ${node.getText()}`,
-    );
-    assert(
-      isLiteralInRange(nodeType.value, type),
-      `${node.location()}: '${node.getText()}' can not be converted to ${type}`,
-    );
-
-    return new CppNumericLiteral(type, String(nodeType.value.codePointAt(0))).code();
-  }
 
   if (isTypeFlagMatch(nodeType, ts.TypeFlags.NumberLiteral)) {
     const value =
@@ -2485,12 +2480,6 @@ function getNumberLiteralValue(app: AppSourceFile['app'], type: ts.Type) {
   assert(isTypeFlagMatch(type, ts.TypeFlags.NumberLiteral), `not a number literal type: ${text}`);
 
   return new BigNumber(text);
-}
-
-function isCharLiteralType(type: ts.Type): type is ts.StringLiteralType {
-  return (
-    type.isStringLiteralType() && type.value.isWellFormed() && Array.from(type.value).length === 1
-  );
 }
 
 function getSscNumberType(node: AbstractNode<ast.Expression>, type = node.getType()) {

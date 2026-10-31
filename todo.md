@@ -86,7 +86,8 @@ path.json,  setting.json, config.json 등
 - TS는 문법, 타입 추론, 좁히기, LSP, 린터 등 생태계를 위해 유지
 - fork 패치: 생성자로 대응할 수 있는 편의 기능은 패치하지 않음. 남은 것은 같은 숫자 타입끼리 연산의 결과 타입
   (i32 + i32 → i32, 섞이면 오류)뿐. 순정 TS에서는 산술 결과가 number가 됨(확인). 리터럴과 number는 연산에서 f64로
-  취급. 실수 비트 연산, 부호 없는 타입 단항 -, char 산술은 오류(char는 비교만)
+  취급. f32 비트 연산, 부호 없는 타입 단항 -는 오류. 숫자 취급 훅 2개(checkArithmeticOperandType,
+  isTypeAssignableToKindEx)는 삭제(844줄)
 - 우리 검사 층: TS보다 더 막는 규칙은 패치 대신 컴파일러에서 TS 타입 정보로 검사(값이 다른 타입 자리로 옮겨 가는
   lowerValue 지점에 모음). 필요하면 LSP 진단으로도 노출(TS 언어 서비스 플러그인 또는 fork LSP의 작은 훅)
 - scriptc와 대비: scriptc는 JS 호환이 목표라 막지 못하고 복사, 경고, 동적 저장소로 처리함(divergences). 우리는 막음
@@ -107,6 +108,15 @@ path.json,  setting.json, config.json 등
   있으면 검사가 꺼짐, relater.go tryGetTypeAtPosition). 컴파일러는 u64와 f64만 허용. 0 이상 정수 리터럴은 u64로,
   f64는 실행 중 정수이고 0 이상인지 확인(아니면 -1로 범위 밖). 읽기는 undefined(JS와 같음), 쓰기는 RangeError
   (JS는 속성을 조용히 만듦)
+- f64 비트 연산과 시프트는 JS와 같게 허용(ToInt32/ToUint32, 시프트 수는 & 31). prelude의
+  ssc__core__fn__f64_to_i32/f64_to_u32로 변환. 실제로 쓸 때만 비용이 듦. f32는 계속 오류
+- char는 브랜드로 남기되 부호 없는 정수 그룹(SscUnsignedIntegerType)에 넣고 u32와 같게 처리. C++에서는
+  ssc__core__type__char = __UINT32_TYPE__ 별칭이라 char 전용 분기가 없음. 출력과 문자열 이어 붙이기에서 숫자로 나옴
+  ('a' + char('A') → 'a65'). u32 ↔ char는 다른 숫자 타입처럼 생성자로 변환
+- char 생성자: 생성 코드는 항상 실행 중 ssc__core__fn__char 호출이고 검사 규칙은 prelude 한 곳(is_code_point).
+  문자열은 UTF-8에서 코드 포인트 하나를 꺼낸 뒤 숫자와 같은 범위 검사(정수, 0 ~ 0x10FFFF, 서로게이트 제외),
+  실패하면 RangeError: Invalid code point. 다른 숫자 리터럴처럼 리터럴 타입 인자는 컴파일러도
+  parseSafeCodePoint로 검사해 컴파일 오류(`0xd800 is an invalid code point`)
 - 생성자 확장(검토 중): 손실 없는 변환은 그대로, 범위가 줄거나 실수 → 정수면 실행 중 검사 후 RangeError(Rust try_from)
 - 공유 컨테이너(배열 원소, 객체 속성)의 칸 표현이 바뀌는 대입은 컴파일 오류(i32[] → (i32 | string)[],
   { x: i32 } → { x?: i32 }). 복사하면 === 와 변경 공유가 조용히 달라져서 막음. 필요하면 사용자가 명시적으로 복사
@@ -115,6 +125,11 @@ path.json,  setting.json, config.json 등
   고정해서 `interface Array<in out T>`가 무시됨(확인). 배열 엄격 변성 옵션도 없음(microsoft/TypeScript#58607)
 
 남은 고민
+- char(string)은 첫 바이트로 길이만 보고 연속 바이트와 과잉 표현은 검사하지 않음(리터럴과 이어 붙이기로만 문자열을
+  만드는 지금은 잘못된 UTF-8이 없음). 바이트 단위 자르기, 외부 입력, FFI처럼 문자열을 만드는 경로가 생기면 그
+  경로에서 검증하거나 여기서 완전 검증(Unicode 표 3-7)
+- prelude의 requires type_id 범위 조건(숫자 17~24, 32~33)이 26곳에 풀어 쓰여 있음. C++20 concept
+  (ssc__core__concept__number 등)로 이름을 붙여 정리(보류)
 - union끼리 넓히기((i32 | string)[] → (i32 | string | undefined)[]): 메모리는 안전(union 칸 공유, 잘못 읽으면
   TypeError)하지만 넓힌 쪽으로 쓰면 좁은 쪽 타입이 깨짐(TS 자체의 배열 공변 구멍). 쓰기 가능 컨테이너는 불변 변성,
   읽기 전용만 공변으로 할지 검토(Kotlin MutableList/List, Rust, C#)
@@ -139,7 +154,7 @@ path.json,  setting.json, config.json 등
 - string은 유효성을 보장하지 않음. chars()와 기본 순회는 순회하면서 디코딩하고, 잘못된 바이트를 만나면
   `TypeError: The encoded data was not valid for encoding utf-8`
 - `str.isWellFormed()`, `str.toWellFormed()` 제공
-- `str + c`(char)는 문자를 이어 붙임. char가 문자로 다뤄지는 곳은 string과의 + 뿐
+- `str + c`(char)는 다른 숫자처럼 숫자로 이어 붙음(char는 u32와 같게 처리)
 - 메모리 표현: `{length, bytes..., NUL}`을 가리키는 8바이트 포인터
   - 다른 참조와 같은 8바이트라 union 값 칸, write barrier, 아레나 RC를 그대로 씀
   - 항상 NUL로 끝나 C에 바이트 시작 위치를 그대로 넘김

@@ -1037,13 +1037,13 @@ test('constructor.ts', async () => {
         if ((static_cast<ssc__core__type__f64>(ssc__core__type__u32{7u}) == ssc__core__type__f64{7.0})) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{4}, "i32"));
         }
-        if ((ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__fn__of(ssc__core__type__u32{65u}) == ssc__core__fn__char(ssc__core__type__u32{65u}))) {
+        if ((ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__fn__of(ssc__core__type__u32{65u}) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()))) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if ((ssc__core__fn__char(ssc__core__type__u32{128077u}) == ssc__core__fn__char(ssc__core__type__u32{128077u}))) {
+        if ((ssc__core__fn__char(ssc__core__type__f64{128077.0}) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"👍">()))) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if ((ssc__core__fn__char(ssc__core__type__u32{65u}) == ssc__core__fn__char(ssc__core__type__u32{65u}))) {
+        if ((ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()) == ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()))) {
           (ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         if ((ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__fn__offset(ssc__ts__namespace__09052c0e68fd4033a98fd8f91f193220::ssc__ts__fn__of(ssc__core__type__u32{67u})) == ssc__core__type__u32{2u})) {
@@ -1419,7 +1419,7 @@ test('string.ts', async () => {
         if ((((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__orEmpty(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__orEmpty(ssc__core__var__undefined), ssc__core__fn__string_literal<u8"">())) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__kind(ssc__core__fn__string_literal<u8"ab">()) == ssc__core__type__i32{1})) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__kind(ssc__core__type__i32{7}) == ssc__core__type__i32{2}))) {
           (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
-        if (((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__u32{128077u})), ssc__core__fn__string_literal<u8"a👍">())) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
+        if (((ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__join(ssc__core__fn__string_literal<u8"ab">(), ssc__core__fn__string_literal<u8"cd">()), ssc__core__fn__string_literal<u8"abcd">()) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__withChar(ssc__core__fn__string_literal<u8"a">(), ssc__core__fn__char(ssc__core__type__f64{128077.0})), ssc__core__fn__string_literal<u8"a128077">())) && ssc__core__fn__strict_equals(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__append(ssc__core__fn__string_literal<u8"hi">()), ssc__core__fn__string_literal<u8"hi!">()))) {
           (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__var__result, ssc__core__type__i32{32}, "i32"));
         }
         if (((ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"x">()) == ssc__core__type__i32{1}) && (ssc__ts__namespace__6c1c42aafe284ec8b3141605445b1779::ssc__ts__fn__truthy(ssc__core__fn__string_literal<u8"">()) == ssc__core__type__i32{0}))) {
@@ -1461,7 +1461,7 @@ test('equality.ts', async () => {
         return ssc__core__fn__strict_equals(ssc__ts__var__b, true);
       }
       static ssc__core__type__boolean ssc__ts__fn__isA(ssc__core__type__union ssc__ts__var__c) {
-        return ssc__core__fn__strict_equals(ssc__ts__var__c, ssc__core__fn__char(ssc__core__type__u32{65u}));
+        return ssc__core__fn__strict_equals(ssc__ts__var__c, ssc__core__fn__char(ssc__core__fn__string_literal<u8"A">()));
       }
       static ssc__core__type__boolean ssc__ts__fn__isTwo(ssc__core__type__union ssc__ts__var__x) {
         return ssc__core__fn__strict_equals(ssc__ts__var__x, ssc__core__type__f64{2.0});
@@ -1482,7 +1482,7 @@ test('equality.ts', async () => {
         if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(true) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(false))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTrue(ssc__core__var__undefined)))) {
           (ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result, ssc__core__type__i32{8}, "i32"));
         }
-        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__u32{65u})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__u32{66u})))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__var__undefined)))) {
+        if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__f64{65.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__fn__char(ssc__core__type__f64{66.0})))) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isA(ssc__core__var__undefined)))) {
           (ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result = ssc__core__fn__add(ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__var__result, ssc__core__type__i32{16}, "i32"));
         }
         if (((ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.0}) && ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.0})) && (!ssc__ts__namespace__e14924753f344a18a1ac49899afdb0e4::ssc__ts__fn__isTwo(ssc__core__type__f64{2.5})))) {
@@ -1583,7 +1583,7 @@ test('output.ts', async () => {
       }
       void ssc__core__fn__3cbe4d4831ec4c1fb5685af9d5b1824c() {
         ssc__core__fn__write_stdout(ssc__ts__namespace__3cbe4d4831ec4c1fb5685af9d5b1824c::ssc__ts__fn__greet(ssc__core__fn__string_literal<u8"syscript">()));
-        ssc__core__fn__write_stdout(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"한글 ">(), ssc__core__fn__to_string(ssc__core__fn__char(ssc__core__type__u32{128077u}))), ssc__core__fn__string_literal<u8"\\012">()));
+        ssc__core__fn__write_stdout(ssc__core__fn__string_concat(ssc__core__fn__string_concat(ssc__core__fn__string_literal<u8"한글 ">(), ssc__core__fn__to_string(ssc__core__fn__char(ssc__core__type__f64{128077.0}))), ssc__core__fn__string_literal<u8"\\012">()));
         ssc__core__fn__write_stderr(ssc__core__fn__string_literal<u8"warning\\012">());
         ssc__ts__namespace__3cbe4d4831ec4c1fb5685af9d5b1824c::exit(ssc__core__type__i32{0});
       }
@@ -1609,7 +1609,7 @@ test('template.ts', async () => {
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__name = ssc__core__fn__string_literal<u8"syscript">();
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__count = ssc__core__type__i32{3};
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__ratio = ssc__core__type__f64{0.5};
-        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__emoji = ssc__core__fn__char(ssc__core__type__u32{128077u});
+        ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__emoji = ssc__core__fn__char(ssc__core__type__f64{128077.0});
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__flag = true;
         ssc__ts__namespace__3bc3403a854e470cb5adeee04d3d7fad::ssc__ts__var__value = ssc__core__var__undefined;
         ssc__core__fn__console_log(ssc__core__fn__string_literal<u8"plain">());

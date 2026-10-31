@@ -1,33 +1,17 @@
 import BigNumber from 'bignumber.js';
 import {
   includes,
-  isSafeNumber,
+  integerRanges,
   sscFloatTypes,
-  SscIntegerType,
   SscNumberType,
+  sscSignedIntegerTypes,
+  sscUnsignedIntegerTypes,
 } from '~/ssc/type.js';
 
 /*
  * 패치한 TypeScript checker(ssc.go)의 공통 타입 규칙을 그대로 옮긴다. checker를 통과한
  * 프로그램만 내려오지만, 규칙이 어긋나면 잘못된 C가 나오므로 여기서도 판정하고 에러를 낸다.
  */
-
-const signedTypes = ['i8', 'i16', 'i32', 'i64'] as const satisfies readonly SscIntegerType[];
-
-const unsignedTypes = ['u8', 'u16', 'u32', 'u64'] as const satisfies readonly SscIntegerType[];
-
-export const sortedTypes = [
-  'i8',
-  'u8',
-  'i16',
-  'u16',
-  'i32',
-  'u32',
-  'i64',
-  'u64',
-  'f32',
-  'f64',
-] as const satisfies readonly SscNumberType[];
 
 const losslessTargets = {
   i8: ['i8', 'i16', 'i32', 'i64', 'f32', 'f64'],
@@ -42,17 +26,6 @@ const losslessTargets = {
   f32: ['f32', 'f64'],
   f64: ['f64'],
 } as const satisfies Record<SscNumberType, readonly SscNumberType[]>;
-
-const integerRanges = {
-  i8: { min: new BigNumber('-128'), max: new BigNumber('127') },
-  i16: { min: new BigNumber('-32768'), max: new BigNumber('32767') },
-  i32: { min: new BigNumber('-2147483648'), max: new BigNumber('2147483647') },
-  i64: { min: new BigNumber('-9223372036854775808'), max: new BigNumber('9223372036854775807') },
-  u8: { min: new BigNumber('0'), max: new BigNumber('255') },
-  u16: { min: new BigNumber('0'), max: new BigNumber('65535') },
-  u32: { min: new BigNumber('0'), max: new BigNumber('4294967295') },
-  u64: { min: new BigNumber('0'), max: new BigNumber('18446744073709551615') },
-} as const satisfies Record<SscIntegerType, { min: BigNumber; max: BigNumber }>;
 
 export type CommonTypeOperand = { type: SscNumberType } | { literal: BigNumber };
 
@@ -84,23 +57,15 @@ export function literalInteger(literal: BigNumber) {
 }
 
 /** 실수는 IEEE 754로 반올림하므로 정수 타입만 리터럴을 제한한다. */
-export function isLiteralInRange(literal: BigNumber | string, type: SscNumberType) {
-  if (typeof literal === 'string') {
-    return isLossless('char', type) && isSafeNumber(literal, 'char');
-  }
-
-  if (type === 'char') {
-    return false;
-  }
-
+export function isLiteralInRange(literal: BigNumber, type: SscNumberType) {
   if (includes(sscFloatTypes, type)) {
     return true;
   }
 
-  const range = integerRanges[type];
+  const [min, max] = integerRanges[type];
   const integer = literalInteger(literal);
 
-  return !!integer && range.min.lte(integer) && integer.lte(range.max);
+  return !!integer && integer.gte(min) && integer.lte(max);
 }
 
 export function isLossless(from: SscNumberType, to: SscNumberType) {
@@ -122,7 +87,7 @@ export function commonType(operands: readonly CommonTypeOperand[]): SscNumberTyp
   const isFloat =
     types.some((t) => includes(sscFloatTypes, t)) || literals.some((l) => !literalInteger(l));
   const isSigned =
-    types.some((t) => includes(signedTypes, t))
+    types.some((t) => includes(sscSignedIntegerTypes, t))
     || literals.some((l) => {
       const integer = literalInteger(l);
       return !!integer && integer.isNegative() && !integer.isZero();
@@ -132,9 +97,9 @@ export function commonType(operands: readonly CommonTypeOperand[]): SscNumberTyp
   if (isFloat) {
     candidates = sscFloatTypes;
   } else if (isSigned) {
-    candidates = [...signedTypes, ...sscFloatTypes];
+    candidates = [...sscSignedIntegerTypes, ...sscFloatTypes];
   } else {
-    candidates = [...unsignedTypes, ...sscFloatTypes];
+    candidates = [...sscUnsignedIntegerTypes, ...sscFloatTypes];
   }
 
   const common = candidates.find(

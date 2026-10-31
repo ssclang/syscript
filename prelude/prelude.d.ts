@@ -38,10 +38,10 @@ declare global {
   type f64 = number & {};
 
   type SscSignedIntegerType = i8 | i16 | i32 | i64;
-  type SscUnsignedIntegerType = u8 | u16 | u32 | u64;
+  type SscUnsignedIntegerType = u8 | u16 | u32 | u64 | char;
   type SscIntegerType = SscSignedIntegerType | SscUnsignedIntegerType;
   type SscFloatType = f32 | f64;
-  type SscNumberType = SscIntegerType | SscFloatType | char;
+  type SscNumberType = SscIntegerType | SscFloatType;
 
   function i8(value: number | string): i8;
   function i16(value: number | string): i16;

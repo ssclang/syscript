@@ -188,7 +188,7 @@ test('union-update.ts', async () => {
 test('output.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'output.ts'))).toEqual({
     status: 0,
-    stdout: 'hello, syscript\n한글 👍\n',
+    stdout: 'hello, syscript\n한글 128077\n',
     stderr: 'warning\n',
   });
 });
@@ -200,11 +200,11 @@ test('console.ts', async () => {
       'integer: -42 18446744073709551615',
       '0.30000000000000004 0.1 1e+21 1',
       'NaN Infinity -Infinity 0',
-      'true null undefined 👍',
+      'true null undefined 128077',
       '7',
       'text',
       'undefined',
-      'n=-42, f=0.1, ok=true, c=👍',
+      'n=-42, f=0.1, ok=true, c=128077',
       '',
       '',
     ].join('\n'),
@@ -215,7 +215,7 @@ test('console.ts', async () => {
 test('as-const.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'as-const.ts'))).toEqual({
     status: 0,
-    stdout: '5 0.5 ab A\n',
+    stdout: '5 0.5 ab 65\n',
     stderr: '',
   });
 });
@@ -321,6 +321,14 @@ test.each([
   ],
 ])('equality rejects %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
+});
+
+test('number-bitwise.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'number-bitwise.ts'))).toEqual({
+    status: 0,
+    stdout: '5 4294967295 0 3 -559939584\n2 -4 15 -6 2 5 7\n',
+    stderr: '',
+  });
 });
 
 test('array-index.ts', async () => {
@@ -450,7 +458,7 @@ test('template.ts', async () => {
       'hello, syscript!',
       '3 items',
       'ratio=0.5, ok=true, value=undefined',
-      '👍👍',
+      '128077128077',
       'sum=4, nested=[syscript]',
       '한글 syscript ${escaped} `tick`',
       'line1',
@@ -544,6 +552,21 @@ test.each([
 });
 
 test.each([
+  ['a negative i32', 'function of(v: i32): char { return char(v); }\nof(i32(-1));', '-1'],
+  ['a fractional f64', 'function of(v: f64): char { return char(v); }\nof(65.5);', '65.5'],
+  [
+    'a string of two code points',
+    "function of(s: string): char { return char(s); }\nof('AB');",
+    "'AB'",
+  ],
+])('char constructor rejects %s at run time', async (_, source, text) => {
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
+    status: 1,
+    stderr: `RangeError: Invalid code point ${text}\n`,
+  });
+});
+
+test.each([
   ['beyond the last code point', '0x110000', 'RangeError: Invalid code point 1114112\n'],
   ['a surrogate', '0xd800', 'RangeError: Invalid code point 55296\n'],
 ])('char constructor rejects %s', async (_, codePoint, stderr) => {
@@ -559,11 +582,8 @@ test.each([
     'i64 can not be converted to i32 without loss',
   ],
   ['a literal out of range', 'const v: u8 = u8(300);', "'300' can not be converted to u8"],
-  [
-    'a number to char',
-    'function f(v: i32): char { return char(v); }',
-    'i32 can not be converted to u32 without loss',
-  ],
+  ['an invalid code point literal', 'const c = char(0xd800);', '0xd800 is an invalid code point'],
+  ['a string literal of two code points', "const c = char('AB');", "'AB' is an invalid code point"],
 ])('a constructor rejects %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
 });
