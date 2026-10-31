@@ -351,7 +351,7 @@ function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelC
       .filter((i) => isBoxedVariable(i, context))
       .map(
         (i) =>
-          `ssc__core__type__ref ${getSscBoxName(i.text)} = ssc__core__fn__box(${getVariableReference(i, context).code()});`,
+          `ssc__core__type__ref ${getSscBoxName(i.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [getVariableReference(i, context)]).code()};`,
       );
 
     return [
@@ -483,7 +483,7 @@ function lowerVariableDeclaration(node: NodeVariableDeclaration, context: LowerC
     const value = node.initializer ? lowerValue(node.initializer, context) : '';
 
     return new CppUnknownDeclaration(
-      `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(ssc__core__type__union(${value}))`,
+      `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [new CppUnknownExpression(`ssc__core__type__union(${value})`)]).code()}`,
     );
   }
 
@@ -521,7 +521,12 @@ function lowerForStatement(node: NodeForStatement, context: LowerContext) {
     .map((i) => {
       const name = getSscBoxName(i.text);
 
-      return `${name} = ssc__core__fn__box(ssc__core__fn__box_value(${name}.ssc__core__member__get_object_header_pointer())), `;
+      const pointer = new CppUnknownExpression(
+        `${name}.ssc__core__member__get_object_header_pointer()`,
+      );
+      const value = new CppCoreFunctionCall('ssc__core__fn__box_value', [], [pointer]);
+
+      return `${name} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [value]).code()}, `;
     });
   const incrementor = new CppUnknownExpression(
     `${renewals.join('')}${lowerExpression(node.incrementor, context)}`,
@@ -850,7 +855,14 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
 
 function lowerFunctionValueCallExpression(node: NodeCallExpression, context: LowerContext) {
   const args = node.arguments.map((a) => `ssc__core__type__union(${lowerValue(a, context)})`);
-  const text = `ssc__core__fn__call(${lowerExpression(node.expression, context)}, {${args.join(', ')}})`;
+  const text = new CppCoreFunctionCall(
+    'ssc__core__fn__call',
+    [],
+    [
+      new CppUnknownExpression(lowerExpression(node.expression, context)),
+      new CppUnknownExpression(`{${args.join(', ')}}`),
+    ],
+  ).code();
   const typeName = getSscTypeName(node.app, node.getType());
 
   if (typeName === 'void' || typeName === 'union') {
@@ -872,7 +884,7 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
     const argument = `ssc__core__var__arguments[${index}]`;
 
     if (isBoxedVariable(identifier, closureContext)) {
-      return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ssc__core__fn__box(${argument});`;
+      return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [new CppUnknownExpression(argument)]).code()};`;
     }
 
     const typeName = getSscTypeName(node.app, identifier.getType());
@@ -902,7 +914,12 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
   const lambda = `+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${lines.join(' ')} }`;
   const boxes = captures.map((c) => getBoxPointerText(c, context));
 
-  return `ssc__core__fn__closure(${lambda}, {${boxes.join(', ')}})`;
+  const args = [
+    new CppUnknownExpression(lambda),
+    new CppUnknownExpression(`{${boxes.join(', ')}}`),
+  ];
+
+  return new CppCoreFunctionCall('ssc__core__fn__closure', [], args).code();
 }
 
 function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
@@ -939,7 +956,11 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
     `const ssc__core__struct__closure ${name}{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, +[](const ssc__core__struct__closure*, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${body} }, {0, nullptr}};`,
   );
 
-  return `ssc__core__fn__function_value(${name})`;
+  return new CppCoreFunctionCall(
+    'ssc__core__fn__function_value',
+    [],
+    [new CppUnknownExpression(name)],
+  ).code();
 }
 
 function isBoxedVariable(node: NodeIdentifier, context: LowerContext) {
@@ -2306,7 +2327,9 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
   if (isBoxedVariable(node, context)) {
     const capture = { symbolId: node.getSymbol().id, name: node.text };
 
-    return `ssc__core__fn__box_value(${getBoxPointerText(capture, context)})`;
+    const args = [new CppUnknownExpression(getBoxPointerText(capture, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__box_value', [], args).code();
   }
 
   if (!topLevelVariableSymbolIdSet.has(node.getSymbol().id)) {
