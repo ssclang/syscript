@@ -91,6 +91,9 @@ export const cppCoreFunctionNames = [
   // region tdz
   'ssc__core__fn__throw_if_tdz',
 
+  // region exception
+  'ssc__core__fn__throw_value',
+
   // region output
   'ssc__core__fn__write_stdout',
   'ssc__core__fn__write_stderr',

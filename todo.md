@@ -229,6 +229,22 @@ StringView를 따로 둔 이유인 "원본 아레나 전체를 붙잡는 누수"
   기본 연산만 남김
 - 나중: `length` 대입(잘라내기), `new Array(n)`
 
+[예외]
+- `throw`는 아무 값이나 던짐(JS와 같음). C++에서는 `ssc__core__type__union`을 그대로 throw. C++ 예외는 정상 경로 비용이
+  0(테이블 기반 unwinding)이고, unwinding 중 ref/union 소멸자가 RC를 내려 메모리도 안전함
+- `catch (e)`의 e는 TS에서 unknown, C++에서는 union 지역 변수(unknown 타입은 union으로 내림). `catch {}`도 지원
+- prelude의 실행 중 에러(RangeError, TypeError, ReferenceError)는 지금 `"RangeError: ..."` 메시지를 JS string 값으로
+  던짐(throw_message). 잡으면 e가 그 문자열
+- 잡히지 않은 예외: main이 union으로 받아 stderr에 console.error와 같은 형식으로 쓰고 종료 코드 1. node 출력의 값 줄과
+  같음(문자열은 따옴표 없이, 객체는 `{ a: 1 }`). 소스 위치, 스택 프레임, node 안내 문구는 낼 수 없음
+- 나중
+  - Error 객체(Error, RangeError, TypeError, ReferenceError, name/message), `new`, `instanceof`는 클래스와 함께 구현.
+    그때 prelude 에러도 Error 객체로 던짐
+  - `finally`는 지금 컴파일 에러(`not implemented finally`). JS와 같게 하려면 완료 기록 방식: try/catch 안의 return,
+    break, continue를 "어떻게 빠져나가는지 기록 + goto finally"로 바꾸고, 예외는 catch (...)로 받아 finally 뒤에 다시
+    던짐. finally 안의 return이 원래 반환값이나 예외를 덮어쓰는 것까지 같아짐. 소멸자 가드 방식은 finally에서
+    return/break를 할 수 없고 unwinding 중 예외면 std::terminate라 채택하지 않음
+
 [메모리 모델]
 기본: 객체별 참조 카운트(RC) + RAII (아레나 모델을 대체함)
 - 할당과 해제는 컴파일러가 자동으로 넣음. 사용자에게 노출하지 않음

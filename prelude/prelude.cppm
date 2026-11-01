@@ -771,12 +771,20 @@ inline ssc__core__type__boolean ssc__core__fn__utf16_to_utf8(const ssc__core__ty
   return true;
 }
 
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_message(const std::string& message) {
+  std::u16string units;
+
+  ssc__core__fn__utf8_to_utf16(reinterpret_cast<const ssc__core__type__u8*>(message.data()), message.size(), units);
+
+  throw ssc__core__type__union(ssc__core__fn__string_from_units(reinterpret_cast<const ssc__core__type__u16*>(units.data()), units.size()));
+}
+
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_lone_surrogate_error() {
-  throw std::string("RangeError: A lone surrogate can not be encoded as UTF-8");
+  ssc__core__fn__throw_message(std::string("RangeError: A lone surrogate can not be encoded as UTF-8"));
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_utf8_error() {
-  throw std::string("RangeError: The bytes are not valid UTF-8");
+  ssc__core__fn__throw_message(std::string("RangeError: The bytes are not valid UTF-8"));
 }
 
 inline std::string ssc__core__fn__string_to_utf8(const ssc__core__type__ref& string) {
@@ -1482,7 +1490,7 @@ inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 typ
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_union_type_error(const ssc__core__type__union& value, const char* type_name_pointer) {
   const std::string display_type_name = ssc__core__fn__union_is_string(value) || ssc__core__fn__union_is_bstring(value) ? "string" : ssc__core__fn__get_display_type_name(value.ssc__core__member__type_id);
-  throw std::string("TypeError: Type '") + display_type_name + "' is not assignable to type '" + type_name_pointer + "'";
+  ssc__core__fn__throw_message(std::string("TypeError: Type '") + display_type_name + "' is not assignable to type '" + type_name_pointer + "'");
 }
 
 export inline ssc__core__type__undefined ssc__core__fn__union_to_undefined(const ssc__core__type__union& value) {
@@ -1989,7 +1997,7 @@ inline std::string ssc__core__fn__number_text(Type value) {
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_number_conversion_error(const std::string& text, const char* type_name_pointer) {
-  throw "RangeError: " + text + " can not be converted to " + type_name_pointer;
+  ssc__core__fn__throw_message("RangeError: " + text + " can not be converted to " + type_name_pointer);
 }
 
 template <typename Target, typename Source>
@@ -2039,7 +2047,7 @@ inline Target ssc__core__fn__convert_number(Source value, const char* type_name_
 template <typename Index>
   requires(ssc__core__var__type_id<Index> == 24 || ssc__core__var__type_id<Index> == 34)
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_index_error(Index index, ssc__core__type__u64 length) {
-  throw "RangeError: Index " + ssc__core__fn__number_text(index) + " is out of bounds for length " + std::to_string(length);
+  ssc__core__fn__throw_message("RangeError: Index " + ssc__core__fn__number_text(index) + " is out of bounds for length " + std::to_string(length));
 }
 
 export template <typename Element, typename Index>
@@ -2265,6 +2273,14 @@ template <typename... Types> inline void ssc__core__fn__write_line(std::ostream&
   stream.put('\n');
 }
 
+export [[noreturn]] inline void ssc__core__fn__throw_value(const ssc__core__type__union& value) {
+  throw value;
+}
+
+export inline void ssc__core__fn__report_uncaught(const ssc__core__type__union& value) {
+  ssc__core__fn__write_line(std::cerr, value);
+}
+
 export template <typename... Types> inline void ssc__core__fn__console_log(const Types&... values) {
   ssc__core__fn__write_line(std::cout, values...);
 }
@@ -2274,7 +2290,7 @@ export template <typename... Types> inline void ssc__core__fn__console_error(con
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_tdz_error(const char* var_name_pointer) {
-  throw std::string("ReferenceError: Cannot access '") + var_name_pointer + "' before initialization";
+  ssc__core__fn__throw_message(std::string("ReferenceError: Cannot access '") + var_name_pointer + "' before initialization");
 }
 
 export inline void ssc__core__fn__throw_if_tdz(ssc__core__type__boolean is_initialized, const char* var_name_pointer) {
@@ -2284,11 +2300,11 @@ export inline void ssc__core__fn__throw_if_tdz(ssc__core__type__boolean is_initi
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_overflow_error(const char* type_name_pointer) {
-  throw std::string("RangeError: Overflow: ") + type_name_pointer;
+  ssc__core__fn__throw_message(std::string("RangeError: Overflow: ") + type_name_pointer);
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_division_by_zero_error(const char* type_name_pointer) {
-  throw std::string("RangeError: Division by zero: ") + type_name_pointer;
+  ssc__core__fn__throw_message(std::string("RangeError: Division by zero: ") + type_name_pointer);
 }
 
 export template <typename Type>
@@ -2404,7 +2420,7 @@ inline Type ssc__core__fn__decrement_postfix(Type& target, const char* type_name
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_shift_count_error(const char* type_name_pointer) {
-  throw std::string("RangeError: Shift count out of range: ") + type_name_pointer;
+  ssc__core__fn__throw_message(std::string("RangeError: Shift count out of range: ") + type_name_pointer);
 }
 
 template <typename Type> inline void ssc__core__fn__check_shift_count(Type count, const char* type_name_pointer) {
@@ -2508,7 +2524,7 @@ export inline ssc__core__type__number ssc__core__fn__unsigned_shift_right(ssc__c
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_code_point_error(const std::string& text) {
-  throw "RangeError: Invalid code point " + text;
+  ssc__core__fn__throw_message("RangeError: Invalid code point " + text);
 }
 
 template <typename Type>

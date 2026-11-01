@@ -657,6 +657,30 @@ export class CppIfStatement extends CppStatement {
   }
 }
 
+export class CppTryStatement extends CppStatement {
+  readonly tryStatements: CppStatement[];
+  readonly catchStatements: CppStatement[];
+
+  constructor(tryStatements: CppStatement[], catchStatements: CppStatement[]) {
+    super();
+    this.tryStatements = tryStatements;
+    this.catchStatements = catchStatements;
+  }
+
+  code() {
+    const w = new CppWriter();
+
+    w.block('try', () => this.tryStatements.flatMap((s) => s.code().split('\n')));
+    w.block(` catch (const ssc__core__type__union& ${CppTryStatement.exceptionName})`, () =>
+      this.catchStatements.flatMap((s) => s.code().split('\n')),
+    );
+
+    return w.lines().join('\n');
+  }
+
+  static readonly exceptionName = 'ssc__core__var__exception';
+}
+
 export class CppWhileStatement extends CppStatement {
   readonly condition: CppExpression;
   readonly statements: CppStatement[];

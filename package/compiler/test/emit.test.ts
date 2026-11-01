@@ -394,6 +394,33 @@ test('bstring rejects a lone surrogate literal', async () => {
   );
 });
 
+test('exception.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'exception.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '42 text { a: 1 } undefined',
+      'outer caught inner again RangeError: Index 3 is out of bounds for length 1 kept 11',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test.each([
+  ['a string', "throw 'x';", 'x\n'],
+  ['a number', 'throw 42;', '42\n'],
+  ['an object', 'throw { a: i32(1) };', '{ a: 1 }\n'],
+  ['undefined', 'throw undefined;', 'undefined\n'],
+])('an uncaught throw of %s', async (_, source, stderr) => {
+  expect(await runSource(source)).toEqual({ status: 1, stderr });
+});
+
+test('finally is not implemented', async () => {
+  await expect(runSource('try {\n} catch {\n} finally {\n}')).rejects.toThrow(
+    'not implemented finally',
+  );
+});
+
 test('number-output.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'number-output.ts'))).toEqual({
     status: 0,

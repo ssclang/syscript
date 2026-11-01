@@ -1,11 +1,11 @@
 import std;
 import ssc;
 
-template <typename Read> static bool throws(Read read, const char* expected) {
+template <typename Read> static bool throws(Read read, const ssc__core__type__ref& expected) {
   try {
     read();
-  } catch (const std::string& message) {
-    return message == expected;
+  } catch (const ssc__core__type__union& value) {
+    return ssc__core__fn__strict_equals(value, expected);
   }
   return false;
 }
@@ -17,8 +17,8 @@ static bool equals(const ssc__core__type__ref& left, const ssc__core__type__ref&
 int main() {
   const ssc__core__type__ref text = ssc__core__fn__string_literal<u"\xD55C\xD83D\xDC4D" u"a">();
   const ssc__core__type__ref bytes = ssc__core__fn__bstring_literal<u8"한👍a">();
-  const char* utf8_error = "RangeError: The bytes are not valid UTF-8";
-  const char* surrogate_error = "RangeError: A lone surrogate can not be encoded as UTF-8";
+  const ssc__core__type__ref utf8_error = ssc__core__fn__string_literal<u"RangeError: The bytes are not valid UTF-8">();
+  const ssc__core__type__ref surrogate_error = ssc__core__fn__string_literal<u"RangeError: A lone surrogate can not be encoded as UTF-8">();
 
   if (ssc__core__fn__string_length(text) != ssc__core__type__number(4.0)) {
     return 1;
@@ -95,7 +95,7 @@ int main() {
   if (!equals(ssc__core__fn__to_string(ssc__core__fn__array_of<ssc__core__type__ref>(text, bytes)), ssc__core__fn__string_literal<u"\xD55C\xD83D\xDC4D" u"a,\xD55C\xD83D\xDC4D" u"a">())) {
     return 25;
   }
-  if (ssc__core__fn__char(ssc__core__fn__string_literal<u"\xD83D\xDC4D">()) != 0x1F44D || !throws([] { ssc__core__fn__char(ssc__core__fn__string_literal<u"ab">()); }, "RangeError: Invalid code point 'ab'")) {
+  if (ssc__core__fn__char(ssc__core__fn__string_literal<u"\xD83D\xDC4D">()) != 0x1F44D || !throws([] { ssc__core__fn__char(ssc__core__fn__string_literal<u"ab">()); }, ssc__core__fn__string_literal<u"RangeError: Invalid code point 'ab'">())) {
     return 26;
   }
   return 0;

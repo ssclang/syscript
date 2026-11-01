@@ -153,6 +153,14 @@ export abstract class AbstractStatement<
       return new NodeContinueStatement(app, tsNode);
     }
 
+    if (ast.isThrowStatement(tsNode)) {
+      return new NodeThrowStatement(app, tsNode);
+    }
+
+    if (ast.isTryStatement(tsNode)) {
+      return new NodeTryStatement(app, tsNode);
+    }
+
     throw new Error(`not implemented statement: ${tsNode.getText()}`);
   }
 }
@@ -407,6 +415,37 @@ export class NodeForStatement extends AbstractStatement<ast.ForStatement> {
     assertExpectedNode(statement, ast.isBlock);
 
     this.block = new NodeBlock(app, statement);
+  }
+}
+
+export class NodeThrowStatement extends AbstractStatement<ast.ThrowStatement> {
+  readonly expression: AbstractExpression;
+
+  constructor(app: TsApp, tsNode: ast.ThrowStatement) {
+    super(app, tsNode);
+    this.expression = AbstractExpression.of(app, this.tsNode.expression);
+  }
+}
+
+export class NodeTryStatement extends AbstractStatement<ast.TryStatement> {
+  readonly tryBlock: NodeBlock;
+  readonly catchBindingName?: NodeBindingName;
+  readonly catchBlock: NodeBlock;
+
+  constructor(app: TsApp, tsNode: ast.TryStatement) {
+    super(app, tsNode);
+
+    const { tryBlock, catchClause, finallyBlock } = this.tsNode;
+
+    assert(!finallyBlock, `${this.location()}: not implemented finally: ${this.getText()}`);
+    assert(catchClause, `${this.location()}: try needs a catch: ${this.getText()}`);
+
+    const { variableDeclaration, block } = catchClause;
+
+    this.tryBlock = new NodeBlock(app, tryBlock);
+    this.catchBindingName =
+      variableDeclaration && new NodeBindingName(app, variableDeclaration.name);
+    this.catchBlock = new NodeBlock(app, block);
   }
 }
 

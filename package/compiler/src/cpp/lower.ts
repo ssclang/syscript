@@ -36,6 +36,7 @@ import {
   CppUnknownExpression,
   CppVariableDeclaration,
   CppVariableStorage,
+  CppTryStatement,
   CppWhileStatement,
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
@@ -83,6 +84,8 @@ import {
   NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
+  NodeThrowStatement,
+  NodeTryStatement,
   NodeWhileStatement,
 } from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
@@ -239,8 +242,8 @@ export function renderMainCpp(pathIds: readonly string[]) {
           `${CppNode.toCppNamespaceName(id)}::${getSscTopLevelStatementsInitFunctionName(id)}();`,
       ),
     );
-    mainBlock.block(' catch (const std::string& message)', () => [
-      'ssc__core__fn__write_stderr(message + "\\n");',
+    mainBlock.block(' catch (const ssc__core__type__union& value)', () => [
+      'ssc__core__fn__report_uncaught(value);',
       'return 1;',
     ]);
 
@@ -485,6 +488,20 @@ function lowerStatement(node: AbstractStatement, context: LowerContext): CppStat
     return [new CppContinueStatement()];
   }
 
+  if (node instanceof NodeThrowStatement) {
+    const value = new CppUnknownExpression(lowerValueAs(node.expression, 'union', context));
+
+    return [
+      new CppExpressionStatement(
+        new CppCoreFunctionCall('ssc__core__fn__throw_value', [], [value]),
+      ),
+    ];
+  }
+
+  if (node instanceof NodeTryStatement) {
+    return [lowerTryStatement(node, context)];
+  }
+
   throw new Error(`not implemented statement: ${node.getText()}`);
 }
 
@@ -554,6 +571,33 @@ function lowerForStatement(node: NodeForStatement, context: LowerContext) {
     ...declarations.map((d) => new CppDeclarationStatement(d)),
     new CppForStatement(undefined, condition, incrementor, statements),
   ]);
+}
+
+function lowerTryStatement(node: NodeTryStatement, context: LowerContext) {
+  const tryStatements = node.tryBlock.statements.flatMap((s) => lowerStatement(s, context));
+  const identifier = node.catchBindingName?.identifier;
+  const exception = new CppUnknownExpression(CppTryStatement.exceptionName);
+  const declarations: CppStatement[] = [];
+
+  if (identifier && isBoxedVariable(identifier, context)) {
+    const box = new CppCoreFunctionCall('ssc__core__fn__box', [], [exception]);
+
+    declarations.push(
+      new CppDeclarationStatement(
+        new CppUnknownDeclaration(
+          `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ${box.code()}`,
+        ),
+      ),
+    );
+  } else if (identifier) {
+    declarations.push(
+      new CppDeclarationStatement(declareVariable(identifier, context, 'local', false, exception)),
+    );
+  }
+
+  const catchStatements = node.catchBlock.statements.flatMap((s) => lowerStatement(s, context));
+
+  return new CppTryStatement(tryStatements, [...declarations, ...catchStatements]);
 }
 
 function lowerWhileStatement(node: NodeWhileStatement, context: LowerContext) {
@@ -2823,6 +2867,10 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
 
   if (isTypeFlagMatch(type, ts.TypeFlags.BooleanLike)) {
     return 'boolean';
+  }
+
+  if (isTypeFlagMatch(type, ts.TypeFlags.Unknown)) {
+    return 'union';
   }
 
   if (isTypeFlagMatch(type, ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) {
