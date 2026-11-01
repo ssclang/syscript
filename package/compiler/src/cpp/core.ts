@@ -27,6 +27,16 @@ export const cppCoreFunctionNames = [
   'ssc__core__fn__string_concat',
   'ssc__core__fn__string_compare',
   'ssc__core__fn__string_length',
+  'ssc__core__fn__string_to_bstring',
+  'ssc__core__fn__string_to_u8_array',
+  'ssc__core__fn__u8_array_to_string',
+  'ssc__core__fn__u16_array_to_string',
+  'ssc__core__fn__bstring_concat',
+  'ssc__core__fn__bstring_compare',
+  'ssc__core__fn__bstring_length',
+  'ssc__core__fn__bstring_to_string',
+  'ssc__core__fn__bstring_to_u8_array',
+  'ssc__core__fn__u8_array_to_bstring',
   'ssc__core__fn__to_string',
 
   // region equality and truthiness

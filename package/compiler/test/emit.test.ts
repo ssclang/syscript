@@ -319,6 +319,47 @@ test.each([
   await expect(runSource(source)).rejects.toThrow(message);
 });
 
+test('bstring.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'bstring.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '4 8 한👍a! 9',
+      'true true true false',
+      '8 8 true',
+      '👍 👍 a',
+      '1 \uFFFDx',
+      '한👍a 한👍a',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test.each([
+  ['invalid UTF-8', 'string([u8(0xff)]);', 'RangeError: The bytes are not valid UTF-8'],
+  [
+    'a lone surrogate',
+    "const t: string = '\\uD800';\nbstring(t);",
+    'RangeError: A lone surrogate can not be encoded as UTF-8',
+  ],
+  [
+    'bytes of a lone surrogate',
+    "const t: string = '\\uDC00';\nt.bytes();",
+    'RangeError: A lone surrogate can not be encoded as UTF-8',
+  ],
+])('string conversion rejects %s at run time', async (_, source, message) => {
+  expect(await runSource(`${source}\nexit(i32(0));`)).toEqual({
+    status: 1,
+    stderr: `${message}\n`,
+  });
+});
+
+test('bstring rejects a lone surrogate literal', async () => {
+  await expect(runSource("const b = bstring('\\uD800');")).rejects.toThrow(
+    "'\\uD800' has a lone surrogate that can not be a bstring",
+  );
+});
+
 test('number-output.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'number-output.ts'))).toEqual({
     status: 0,
@@ -618,6 +659,7 @@ test.each([
   ['a literal out of range', 'const v: u8 = u8(300);', "'300' can not be converted to u8"],
   ['an invalid code point literal', 'const c = char(0xd800);', '0xd800 is an invalid code point'],
   ['a string literal of two code points', "const c = char('AB');", "'AB' is an invalid code point"],
+  ['a lone surrogate literal', "const c = char('\\uD800');", "'\\uD800' is an invalid code point"],
 ])('a constructor rejects %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
 });

@@ -9,21 +9,49 @@ function generateId(): number {
   return ++nodeIdCounter;
 }
 
+function escapeChar(chars: readonly string[], index: number) {
+  const c = chars[index] ?? '';
+  const maybeTrigraphStart =
+    c === '?' && chars[index + 1] === '?' && chars[index + 2] !== undefined;
+
+  if (c === '"' || c === '\\' || c === '\n' || c === '\r' || c === '\0' || maybeTrigraphStart) {
+    return `\\${c.charCodeAt(0).toString(8).padStart(3, '0')}`;
+  }
+
+  return c;
+}
+
 function escapeStringLiteral(value: string) {
   const chars = Array.from(value);
 
-  return chars
-    .map((c, index) => {
-      const maybeTrigraphStart =
-        c === '?' && chars[index + 1] === '?' && chars[index + 2] !== undefined;
+  return chars.map((_, index) => escapeChar(chars, index)).join('');
+}
 
-      if (c === '"' || c === '\\' || c === '\n' || c === '\r' || c === '\0' || maybeTrigraphStart) {
-        return `\\${c.charCodeAt(0).toString(8).padStart(3, '0')}`;
-      }
+function escapeUtf16StringLiteral(value: string) {
+  const chars = Array.from(value);
+  let text = '';
+  let isAfterHexEscape = false;
 
-      return c;
-    })
-    .join('');
+  chars.forEach((c, index) => {
+    const code = c.charCodeAt(0);
+
+    if (c.length === 1 && code >= 0xd800 && code <= 0xdfff) {
+      text += `\\x${code.toString(16)}`;
+      isAfterHexEscape = true;
+      return;
+    }
+
+    const escaped = escapeChar(chars, index);
+
+    if (isAfterHexEscape && /^[0-9a-fA-F]/.test(escaped)) {
+      text += '" u"';
+    }
+
+    text += escaped;
+    isAfterHexEscape = false;
+  });
+
+  return text;
 }
 
 export abstract class CppNode {
@@ -282,7 +310,20 @@ export class CppStringLiteral extends CppExpression {
   }
 
   code() {
-    return `ssc__core__fn__string_literal<u8"${escapeStringLiteral(this.value)}">()`;
+    return `ssc__core__fn__string_literal<u"${escapeUtf16StringLiteral(this.value)}">()`;
+  }
+}
+
+export class CppBStringLiteral extends CppExpression {
+  readonly value: string;
+
+  constructor(value: string) {
+    super();
+    this.value = value;
+  }
+
+  code() {
+    return `ssc__core__fn__bstring_literal<u8"${escapeStringLiteral(this.value)}">()`;
   }
 }
 

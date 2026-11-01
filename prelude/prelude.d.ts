@@ -56,16 +56,19 @@ declare global {
   function f64(value: SscNumberType | string): f64;
   function number(value: SscNumberType | string): number;
 
+  function bstring(value: string | bstring | u8[]): bstring;
+  function string(value: string | bstring | u8[] | u16[]): string;
+
   function addWrap<T extends SscIntegerType>(left: T, right: T): T;
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;
   function mulWrap<T extends SscIntegerType>(left: T, right: T): T;
 
   const process: {
     readonly stdout: {
-      write(text: string): void;
+      write(text: string | bstring): void;
     };
     readonly stderr: {
-      write(text: string): void;
+      write(text: string | bstring): void;
     };
   };
 
@@ -82,21 +85,21 @@ declare global {
 
   // js built-in
   interface Array<T> {
-    readonly length: u64;
+    readonly length: number;
 
     [index: number]: T;
 
-    push(...values: T[]): u64;
+    push(...values: T[]): number;
     pop(): T | undefined;
 
-    forEach(callback: (value: T, index: u64, array: T[]) => void): void;
-    map<U>(callback: (value: T, index: u64, array: T[]) => U): U[];
-    filter(callback: (value: T, index: u64, array: T[]) => boolean): T[];
-    reduce<U>(callback: (accumulator: U, value: T, index: u64, array: T[]) => U, initial: U): U;
-    find(callback: (value: T, index: u64, array: T[]) => boolean): T | undefined;
-    some(callback: (value: T, index: u64, array: T[]) => boolean): boolean;
-    every(callback: (value: T, index: u64, array: T[]) => boolean): boolean;
-    indexOf(value: T): i64;
+    forEach(callback: (value: T, index: number, array: T[]) => void): void;
+    map<U>(callback: (value: T, index: number, array: T[]) => U): U[];
+    filter(callback: (value: T, index: number, array: T[]) => boolean): T[];
+    reduce<U>(callback: (accumulator: U, value: T, index: number, array: T[]) => U, initial: U): U;
+    find(callback: (value: T, index: number, array: T[]) => boolean): T | undefined;
+    some(callback: (value: T, index: number, array: T[]) => boolean): boolean;
+    every(callback: (value: T, index: number, array: T[]) => boolean): boolean;
+    indexOf(value: T): number;
   }
   interface Boolean {}
   interface CallableFunction {}
@@ -106,7 +109,13 @@ declare global {
   interface Number {}
   interface Object {}
   interface RegExp {}
-  interface String {
-    readonly length: u64;
+
+  interface SscString<S, I> {
+    readonly length: I;
+    bytes(): u8[];
   }
+  interface bstring extends SscString<bstring, u64> {
+    readonly [ssc]: 'bstring';
+  }
+  interface String extends SscString<string, number> {}
 }

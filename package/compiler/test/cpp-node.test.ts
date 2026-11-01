@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { CppCStringLiteral, CppStringLiteral } from '~/cpp/node.js';
+import { CppBStringLiteral, CppCStringLiteral, CppStringLiteral } from '~/cpp/node.js';
 
 /**
  * 문자열 리터럴 안에 그대로 두면 컴파일 에러나 경고가 나는 문자만 8진수로 바꾼다.
@@ -30,7 +30,20 @@ const cases = {
 
 test.each(Object.entries(cases))('%j', (value, escaped) => {
   expect(new CppCStringLiteral(value).code()).toBe(`"${escaped}"`);
-  expect(new CppStringLiteral(value).code()).toBe(
-    `ssc__core__fn__string_literal<u8"${escaped}">()`,
+  expect(new CppBStringLiteral(value).code()).toBe(
+    `ssc__core__fn__bstring_literal<u8"${escaped}">()`,
   );
+  expect(new CppStringLiteral(value).code()).toBe(`ssc__core__fn__string_literal<u"${escaped}">()`);
+});
+
+const loneSurrogateCases = {
+  '\uD800': '\\xd800',
+  '\uDC00z': '\\xdc00z',
+  '\uD800a': '\\xd800" u"a',
+  '\uD8009': '\\xd800" u"9',
+  'a\uDFFF\uD800': 'a\\xdfff\\xd800',
+} as const satisfies Record<string, string>;
+
+test.each(Object.entries(loneSurrogateCases))('lone surrogate %j', (value, escaped) => {
+  expect(new CppStringLiteral(value).code()).toBe(`ssc__core__fn__string_literal<u"${escaped}">()`);
 });

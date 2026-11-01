@@ -72,6 +72,9 @@ path.json,  setting.json, config.json 등
 │ char            │ Unicode scalar value(0 ~ 0xD7FF, 0xE000 ~ 0x10FFFF)인 부호 없는 정수 브랜드. u32와       │
 │                 │ 같게 처리(C++에서 __UINT32_TYPE__ 별칭)하고 출력은 숫자                                  │
 ├─────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
+│ 문자열          │ string은 JS 문자열(UTF-16, length: number). bstring은 UTF-8이 보장되는 바이트(8비트)     │
+│                 │ 단위 문자열(length: u64, 끝 NUL 보장). 서로 다른 타입이고 변환은 생성자로만              │
+├─────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
 │ 생성자          │ number | string을 받음. 리터럴은 컴파일 시점 범위 검사. 손실 없는 변환은 그대로, 손실    │
 │                 │ 가능한 변환은 실행 중 정확히 표현되는지 검사 후 RangeError. char()는 실행 중             │
 │                 │ ssc__core__fn__char가 검사하고 리터럴은 컴파일 시점에도 검사                             │
@@ -84,12 +87,20 @@ path.json,  setting.json, config.json 등
 - 다만 흔한 JS 코드는 그대로 동작하게 호환성을 높여 감(로드맵): 리터럴과 number는 JS와 같게 동작, number
   배열 인덱스 지원. 이후 string도 JS처럼 처리하고 바이트 단위로 다루는 메서드를 따로 추가
 - TS는 문법, 타입 추론, 좁히기, LSP, 린터 등 생태계를 위해 유지
-- fork 패치: 생성자로 대응할 수 있는 편의 기능은 패치하지 않음. 남은 것은 같은 숫자 타입끼리 연산의 결과 타입
-  (i32 + i32 → i32, 섞이면 오류)뿐. 순정 TS에서는 산술 결과가 number가 됨(확인). 리터럴과 number는 number라는
-  하나의 숫자 종류로 취급. f32, f64 비트 연산과 부호 없는 타입 단항 -는 오류. 숫자 취급 훅 2개
-  (checkArithmeticOperandType, isTypeAssignableToKindEx)는 삭제(852줄)
-- 우리 검사 층: TS보다 더 막는 규칙은 패치 대신 컴파일러에서 TS 타입 정보로 검사(값이 다른 타입 자리로 옮겨 가는
-  lowerValue 지점에 모음). 필요하면 LSP 진단으로도 노출(TS 언어 서비스 플러그인 또는 fork LSP의 작은 훅)
+- fork 패치: 생성자로 대응할 수 있는 편의 기능은 패치하지 않음. 패치는 세 가지
+  - 같은 숫자 타입끼리 연산의 결과 타입(i32 + i32 → i32, 섞이면 오류). 순정 TS에서는 산술 결과가 number가 됨(확인).
+    리터럴과 number(NumberLike 전체: 숫자 enum 포함)는 number라는 하나의 숫자 종류로 취급. f32, f64 비트 연산과
+    부호 없는 타입 단항 -는 오류. 숫자 취급 훅 2개(checkArithmeticOperandType, isTypeAssignableToKindEx)는 삭제
+  - 브랜드 숫자 → number(NumberLike, 브랜드 없이 number를 품은 교차 타입 포함) 막기. 대입·subtype·비교 관계
+    모두(relater isRelatedToEx). 배열 원소, 객체 속성, union, 제네릭 제약까지 재귀로 막히고 `===`, `as`, switch
+    case도 막힘(`1 as i32` 대신 i32(1)). number → 브랜드는 순정 TS가 막음. TS 내부의 "숫자인가" 판정
+    (isTypeAssignableTo(x, number 또는 number | bigint))은 입구에서 예외로 통과시켜 산술, 비교, 인덱스는 그대로.
+    대상이 교차 타입이면 멤버별 비교는 건너뛰고 교차 타입 전체로 판정(i32 & {}는 통과)
+  - bstring + bstring → bstring(string과 섞이면 오류). 문자열 분기보다 먼저 봄
+  (932줄 + bstring 976줄)
+- 우리 검사 층: 처음에는 TS보다 더 막는 규칙을 컴파일러(lowerValue)에 두기로 했으나, 컴파일러에 의존하면 에디터에서
+  보이지 않아 의미가 없음. 막을 거면 fork에서 전부 막고 컴파일러는 정상 코드만 받음(필요하면 나중에 다시 검사).
+  TS가 막아서 이제 실행되지 않는 컴파일러 검사(as 리터럴 변환, 숫자 비교 검사, 브랜드 → number 암묵 변환)는 남아 있음
 - scriptc와 대비: scriptc는 JS 호환이 목표라 막지 못하고 복사, 경고, 동적 저장소로 처리함(divergences). 우리는 막음
 
 결정
@@ -135,9 +146,6 @@ path.json,  setting.json, config.json 등
 - 복합 대입(a += b)은 지금 a = a + b로 내림(대상이 변수뿐이라 같음). 속성, 원소 대상을 지원할 때 C++ op= 로 내려
   대상을 한 번만 평가(number 구조체에는 op= 연산자가 이미 있음)
 - console.log(-0)은 node에서 -0이지만 지금은 0(to_string과 inspect가 같은 함수). JS 호환 100%면 inspect에서 구분
-- char(string)은 첫 바이트로 길이만 보고 연속 바이트와 과잉 표현은 검사하지 않음(리터럴과 이어 붙이기로만 문자열을
-  만드는 지금은 잘못된 UTF-8이 없음). 바이트 단위 자르기, 외부 입력, FFI처럼 문자열을 만드는 경로가 생기면 그
-  경로에서 검증하거나 여기서 완전 검증(Unicode 표 3-7)
 - prelude의 requires type_id 범위 조건(숫자 17~24, 32~34)이 풀어 쓰여 있음. C++20 concept
   (ssc__core__concept__number 등)로 이름을 붙여 정리(보류)
 - union끼리 넓히기((i32 | string)[] → (i32 | string | undefined)[]): 메모리는 안전(union 칸 공유, 잘못 읽으면
@@ -154,17 +162,32 @@ path.json,  setting.json, config.json 등
 3. 아레나 스코프 관리 → 객체별 RC로 전환하며 필요 없어짐
 
 [문자열]
-(메모리 모델을 객체별 RC로 바꿈. 아래의 아레나 전제 근거는 다시 봐야 함. 특히 StringView를 따로 둔 이유인
-"원본 아레나 전체를 붙잡는 누수"는 RC에서는 원본 문자열 하나만 붙잡는 문제로 바뀜)
-- 인코딩은 UTF-8. `.length`는 바이트 길이
-- `str[i]`는 선언하지 않아 막힘. noLib라 prelude에 선언한 멤버만 존재
-- `for (const ch of str)`는 코드 포인트 하나짜리 string을 돌려주는 iterator
-- `str.chars()`는 char(코드 포인트) iterator, `str.bytes()`는 u8 iterator
-- 여러 바이트를 묶어 읽는 view API(u16/u32/u64, 엔디언 지정)는 나중에 byte view 위에 둠
-- string은 유효성을 보장하지 않음. chars()와 기본 순회는 순회하면서 디코딩하고, 잘못된 바이트를 만나면
-  `TypeError: The encoded data was not valid for encoding utf-8`
-- `str.isWellFormed()`, `str.toWellFormed()` 제공
+- 두 타입으로 나눔(number와 f64처럼). JS 코드는 string, 저수준 작업은 bstring
+  - string: JS 문자열. `{header, length, u16 units[]}`(UTF-16). length는 UTF-16 단위 수(number), 대소 비교는 UTF-16
+    코드 유닛 순서(JS와 같음), 짝 없는 서로게이트도 담음. 메모리가 문제가 되면 V8처럼 1바이트/2바이트 이중 표현
+  - bstring: UTF-8이 보장되는 바이트(8비트) 단위 문자열. `{header, length, bytes..., NUL}`. length는 바이트 수(u64),
+    끝 NUL 보장이라 C에 복사 없이 넘김. Rust String처럼 불변이고 입력 경계(생성자)에서만 O(n) 검증, 리터럴과
+    이어 붙이기는 비용 없음, 위치를 받는 연산(slice 등)은 문자 경계를 O(1)로 검사. Go처럼 보장 없는 방식은 안전성
+    때문에 채택하지 않음. 이름은 cstring(C 문자열은 길이가 없음), u8string(C++ u8string은 검증하지 않음) 대신 bstring
+  - bstring은 string과 교차하지 않는 별도 인터페이스. 교차 브랜드로 하면 String 메소드가 오버로드로 섞이고
+    (bstring 메소드에 string이 들어감) bstring → string 대입도 열려서 막을 패치가 둘 더 필요함. 별도 타입이면 서로
+    대입·비교가 TS 기본 규칙으로 막히고, fork 패치는 `+`(bstring + bstring → bstring, string과 섞이면 오류) 하나
+  - 메소드 시그니처는 `SscString<S, I>` 하나로 공유(`String extends SscString<string, number>`,
+    `bstring extends SscString<bstring, u64>`). 전역 String은 제네릭으로 선언할 수 없음(TS2317)
+- 변환: `bstring(string | bstring | u8[])`, `string(string | bstring | u8[] | u16[])`. 짝 없는 서로게이트를
+  UTF-8로 바꾸거나 잘못된 UTF-8을 읽으면 RangeError. 문자열 리터럴 인자는 컴파일 시점에 변환하고 검사
+- `bytes(): u8[]`(복사). string은 짝 없는 서로게이트면 RangeError(bytes()는 JS에 없는 메소드라 안전한 쪽).
+  U+FFFD로 바꾸려면 `toWellFormed().bytes()`로 명시(toWellFormed는 메소드를 늘릴 때 추가)
+- 출력(`process.stdout.write`, console.log)은 두 타입 모두 받음. bstring은 바이트 그대로, string은 UTF-8로 인코딩
+  (출력 경로는 짝 없는 서로게이트를 U+FFFD로, node와 같음). 함수 하나에서 서술자로 분기해 union도 처리
+- 컴파일러는 문자열 리터럴 값을 AST 노드에서만 읽음(getStringLiteralValue). tsgo 체커가 넘기는 리터럴 타입 값은
+  짝 없는 서로게이트가 U+FFFD로 바뀌어 옴
 - `str + c`(char)는 다른 숫자처럼 숫자로 이어 붙음(char는 u32와 같게 처리)
+- 보류: typeof bstring(정수 타입과 함께 정함), 단항 `+bstring`(나중에 숫자 변환으로 지원 가능), bstring의
+  inspect 표시(지금은 string과 같은 'abc'), 인덱싱(`s[i]`, charCodeAt), for...of와 iterator, bytes()를 복사 대신
+  뷰나 iterator로, 여러 바이트를 묶어 읽는 view API(u16/u32/u64, 엔디언 지정)
+(아래는 아레나 시절의 bstring 메모리 메모. 메모리 모델을 객체별 RC로 바꿨으므로 근거는 다시 봐야 함. 특히
+StringView를 따로 둔 이유인 "원본 아레나 전체를 붙잡는 누수"는 RC에서는 원본 문자열 하나만 붙잡는 문제로 바뀜)
 - 메모리 표현: `{length, bytes..., NUL}`을 가리키는 8바이트 포인터
   - 다른 참조와 같은 8바이트라 union 값 칸, write barrier, 아레나 RC를 그대로 씀
   - 항상 NUL로 끝나 C에 바이트 시작 위치를 그대로 넘김
@@ -177,9 +200,6 @@ path.json,  setting.json, config.json 등
   - StringView의 멤버, string으로 되돌리는 방법(복사), 인자 형태는 아직 정하지 않음
 - 리터럴 TU 간 병합(최적화): 지금은 모듈 안에서만 같은 값을 한 번 만듦. 필요하면 `-fmerge-all-constants`로
   링크 시점에 합침. 문자열은 주소가 아니라 내용으로 비교하므로 C의 "다른 객체는 다른 주소" 규칙을 어겨도 됨
-- 짝 없는 서로게이트가 있는 리터럴(`'\uD800'`): UTF-8로 인코딩할 수 없어 지금은
-  `not implemented string with a lone surrogate`로 막음. 영구 거부(Rust, Go와 같음)와 WTF-8로 담기 중
-  정하고 에러 메시지를 맞춰야 함. 거부 추천
   - 탈출하지 않는 부분 문자열은 컴파일러가 내부적으로 `{ptr, len}` 뷰로 복사를 생략할 수 있음(최적화)
   - `s += x`에서 s가 아레나의 마지막 할당이면 bump를 늘려 제자리에서 이어 붙일 수 있음(최적화)
   - 채택하지 않음: `{ptr, len}` 16바이트 값(Go, Zig, Rust &str 방식). 부분 문자열은 복사가 없지만 원본
@@ -199,9 +219,10 @@ path.json,  setting.json, config.json 등
 - 읽기 `a[i]`: `T | undefined`(`noUncheckedIndexedAccess` 강제). 범위 밖이면 `undefined`
 - 쓰기 `a[i] = x`: `0 <= i < length`만 허용, 그 밖은 `RangeError`. `i === length`도 오류(끝에 추가는 `push`로만).
   JS는 길이를 늘리고 빈칸(hole)을 만들지만 `Array<i32>`는 빈칸을 표현할 수 없음. Rust, Go, Swift, Java도 오류
-- 인덱스: `[index: u64]: T`. 일반 대입 규칙을 그대로 따라 u64에 손실 없이 들어가는 타입(u8~u64, 범위 안 리터럴)만
-  받음. `a[1.5]`, `a[-1]`, i32·f64 변수는 TS 오류이고 `u64(i)` 생성자로 명시적으로 바꿈(음수는 생성자가 오류)
-- 첫 단계: `T[]` 타입, 리터럴, `length`(u64), 인덱스 읽기·쓰기, `push`, `pop`, `console.log` 출력
+- API의 숫자 타입은 JS와 같은 number(length, push 반환, 콜백 인덱스, indexOf). C++ 저장은 u64 길이 그대로이고
+  꺼낼 때 number로 바꿈. 인덱스는 u64와 number(실행 중 정수·범위 확인). 시스템용 배열(BArray 등, length: u64)은
+  필요해지면 SscString처럼 공통 제네릭 인터페이스로 추가
+- 첫 단계: `T[]` 타입, 리터럴, `length`, 인덱스 읽기·쓰기, `push`, `pop`, `console.log` 출력
 - 콜백 메서드(`forEach`, `map`, `filter`, `reduce`, `find`, `some`, `every`, `indexOf`)는 지금 prelude C++로 구현.
   제네릭이 생기면 TS 표준 라이브러리로 옮김. C++에는 할당, `length`, 원소 읽기·쓰기, `push`/`pop`, `call` 같은
   기본 연산만 남김

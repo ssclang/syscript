@@ -28,6 +28,7 @@ import {
   CppReturnStatement,
   CppStatement,
   CppStaticCast,
+  CppBStringLiteral,
   CppStringLiteral,
   CppUnaryExpression,
   CppUndefinedLiteral,
@@ -1012,12 +1013,17 @@ function lowerMethodCallExpression(
 
     const functionName =
       expression.name === 'stdout' ? 'ssc__core__fn__write_stdout' : 'ssc__core__fn__write_stderr';
+    const textType = text.getType();
+    const value =
+      isStringType(textType) || isBStringType(node.app, textType) ?
+        lowerExpression(text, context)
+      : new CppCoreFunctionCall(
+          'ssc__core__fn__union_to_ref',
+          [],
+          [new CppUnknownExpression(lowerExpression(text, context))],
+        ).code();
 
-    return new CppCoreFunctionCall(
-      functionName,
-      [],
-      [new CppUnknownExpression(lowerString(text, context))],
-    ).code();
+    return new CppCoreFunctionCall(functionName, [], [new CppUnknownExpression(value)]).code();
   }
 
   if (
@@ -1033,6 +1039,18 @@ function lowerMethodCallExpression(
     return new CppCoreFunctionCall(functionName, [], args).code();
   }
 
+  if (callee.name === 'bytes' && isStringType(expression.getType())) {
+    const args = [new CppUnknownExpression(lowerExpression(expression, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__string_to_u8_array', [], args).code();
+  }
+
+  if (callee.name === 'bytes' && isBStringType(node.app, expression.getType())) {
+    const args = [new CppUnknownExpression(lowerExpression(expression, context))];
+
+    return new CppCoreFunctionCall('ssc__core__fn__bstring_to_u8_array', [], args).code();
+  }
+
   if (expression.app.checker.isArrayType(expression.getType())) {
     const elementType = getArrayElementSscTypeName(expression);
     const array = new CppUnknownExpression(lowerExpression(expression, context));
@@ -1042,7 +1060,10 @@ function lowerMethodCallExpression(
     if (callee.name === 'push') {
       const values = node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context)));
 
-      return callArray('ssc__core__fn__array_push', values);
+      return new CppStaticCast(
+        'number',
+        new CppUnknownExpression(callArray('ssc__core__fn__array_push', values)),
+      ).code();
     }
 
     if (callee.name === 'pop') {
@@ -1097,7 +1118,10 @@ function lowerMethodCallExpression(
     }
 
     if (callee.name === 'indexOf') {
-      return callArray('ssc__core__fn__array_index_of', [argument]);
+      return new CppStaticCast(
+        'number',
+        new CppUnknownExpression(callArray('ssc__core__fn__array_index_of', [argument])),
+      ).code();
     }
   }
 
@@ -1210,8 +1234,10 @@ function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerCont
     || name === 'f64'
     || name === 'number'
   ) {
-    if (argument instanceof NodeStringLiteral) {
-      return lowerNumberText(argument, name);
+    const text = getStringLiteralValue(argument);
+
+    if (text !== undefined) {
+      return lowerNumberText(argument, text, name);
     }
 
     assert(
@@ -1238,10 +1264,13 @@ function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerCont
 
   if (name === 'char') {
     const argumentType = argument.getType();
+    const literal =
+      getStringLiteralValue(argument)
+      ?? (argumentType.isNumberLiteralType() ? argumentType.value : undefined);
 
-    if (argumentType.isStringLiteralType() || argumentType.isNumberLiteralType()) {
+    if (literal !== undefined) {
       assert(
-        parseSafeCodePoint(argumentType.value) !== undefined,
+        parseSafeCodePoint(literal) !== undefined,
         `${argument.location()}: ${argument.getText()} is an invalid code point`,
       );
     }
@@ -1251,6 +1280,63 @@ function lowerPreludeCallExpression(node: NodeCallExpression, context: LowerCont
       [],
       [new CppUnknownExpression(lowerExpression(argument, context))],
     ).code();
+  }
+
+  if (name === 'bstring') {
+    const argumentType = argument.getType();
+    const text = getStringLiteralValue(argument);
+
+    if (text !== undefined) {
+      assert(
+        text.isWellFormed(),
+        `${argument.location()}: ${argument.getText()} has a lone surrogate that can not be a bstring`,
+      );
+
+      return new CppBStringLiteral(text).code();
+    }
+
+    const value = new CppUnknownExpression(lowerExpression(argument, context));
+
+    if (isBStringType(node.app, argumentType)) {
+      return value.code();
+    }
+
+    if (isStringType(argumentType)) {
+      return new CppCoreFunctionCall('ssc__core__fn__string_to_bstring', [], [value]).code();
+    }
+
+    assert(
+      getArrayElementSscTypeName(argument) === 'u8',
+      `${argument.location()}: not implemented bstring argument: ${argument.getText()}`,
+    );
+
+    return new CppCoreFunctionCall('ssc__core__fn__u8_array_to_bstring', [], [value]).code();
+  }
+
+  if (name === 'string') {
+    const argumentType = argument.getType();
+    const value = new CppUnknownExpression(lowerExpression(argument, context));
+
+    if (isStringType(argumentType)) {
+      return value.code();
+    }
+
+    if (isBStringType(node.app, argumentType)) {
+      return new CppCoreFunctionCall('ssc__core__fn__bstring_to_string', [], [value]).code();
+    }
+
+    const elementType = getArrayElementSscTypeName(argument);
+
+    if (elementType === 'u8') {
+      return new CppCoreFunctionCall('ssc__core__fn__u8_array_to_string', [], [value]).code();
+    }
+
+    assert(
+      elementType === 'u16',
+      `${argument.location()}: not implemented string argument: ${argument.getText()}`,
+    );
+
+    return new CppCoreFunctionCall('ssc__core__fn__u16_array_to_string', [], [value]).code();
   }
 
   if (name === 'addWrap' || name === 'subWrap' || name === 'mulWrap') {
@@ -1346,13 +1432,13 @@ function lowerPostfixUnaryExpression(node: NodePostfixUnaryExpression, context: 
   return lowerUpdateExpression(node, context);
 }
 
-function lowerNumberText(node: NodeStringLiteral, type: SscNumberType) {
-  const value = new BigNumber(node.value);
+function lowerNumberText(node: AbstractNode<ast.Expression>, text: string, type: SscNumberType) {
+  const value = new BigNumber(text);
 
-  assert(!value.isNaN(), `${node.location()}: '${node.value}' is not a number`);
+  assert(!value.isNaN(), `${node.location()}: '${text}' is not a number`);
   assert(
     isLiteralInRange(value, type),
-    `${node.location()}: '${node.value}' can not be converted to ${type}`,
+    `${node.location()}: '${text}' can not be converted to ${type}`,
   );
 
   return new CppNumericLiteral(type, value.toFixed()).code();
@@ -1391,6 +1477,18 @@ function getEffectiveNumericLiteralValue(node: AbstractNode<ast.Expression>) {
   return node.operator === ast.SyntaxKind.MinusToken ? value.negated() : value;
 }
 
+function getStringLiteralValue(node: AbstractNode<ast.Expression>): string | undefined {
+  if (node instanceof NodeParenthesizedExpression) {
+    return getStringLiteralValue(node.expression);
+  }
+
+  if (node instanceof NodeAsExpression && node.isConst) {
+    return getStringLiteralValue(node.expression);
+  }
+
+  return node instanceof NodeStringLiteral ? node.value : undefined;
+}
+
 function isEffectiveNumericLiteral(node: AbstractNode<ast.Expression>) {
   if (node instanceof NodeNumericLiteral) {
     return true;
@@ -1420,6 +1518,21 @@ function lowerCompoundAssignmentExpression(node: NodeBinaryExpression, context: 
       [
         new CppUnknownExpression(lowerExpression(node.left, context)),
         new CppUnknownExpression(lowerString(node.right, context)),
+      ],
+    );
+
+    return new CppBinaryExpression('=', new CppUnknownExpression(target), concat).code();
+  }
+
+  if (isBStringType(node.app, node.left.getType())) {
+    const target = lowerVariableReference(node.left, context);
+
+    const concat = new CppCoreFunctionCall(
+      'ssc__core__fn__bstring_concat',
+      [],
+      [
+        new CppUnknownExpression(lowerExpression(node.left, context)),
+        new CppUnknownExpression(lowerExpression(node.right, context)),
       ],
     );
 
@@ -1578,6 +1691,16 @@ function lowerArithmeticExpression(node: NodeBinaryExpression, context: LowerCon
 
     return new CppCoreFunctionCall('ssc__core__fn__string_concat', [], args).code();
   }
+
+  if (isBStringType(node.app, node.getType())) {
+    const args = [
+      new CppUnknownExpression(lowerExpression(node.left, context)),
+      new CppUnknownExpression(lowerExpression(node.right, context)),
+    ];
+
+    return new CppCoreFunctionCall('ssc__core__fn__bstring_concat', [], args).code();
+  }
+
   const type = getSscNumberType(node);
   const operandType = getOperandNumberType(node);
 
@@ -1847,10 +1970,17 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     return new CppCoreFunctionCall('ssc__core__fn__string_length', [], args).code();
   }
 
-  if (node.app.checker.isArrayType(node.expression.getType()) && node.name === 'length') {
+  if (isBStringType(node.app, node.expression.getType()) && node.name === 'length') {
     const args = [new CppUnknownExpression(lowerExpression(node.expression, context))];
 
-    return new CppCoreFunctionCall('ssc__core__fn__array_length', [], args).code();
+    return new CppCoreFunctionCall('ssc__core__fn__bstring_length', [], args).code();
+  }
+
+  if (node.app.checker.isArrayType(node.expression.getType()) && node.name === 'length') {
+    const args = [new CppUnknownExpression(lowerExpression(node.expression, context))];
+    const length = new CppCoreFunctionCall('ssc__core__fn__array_length', [], args);
+
+    return new CppStaticCast('number', length).code();
   }
 
   if (isObjectType(node.app, node.expression.getType())) {
@@ -2038,7 +2168,12 @@ function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerC
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {
-  if (isStringType(type) || app.checker.isArrayType(type) || isFunctionType(app, type)) {
+  if (
+    isStringType(type)
+    || isBStringType(app, type)
+    || app.checker.isArrayType(type)
+    || isFunctionType(app, type)
+  ) {
     return false;
   }
 
@@ -2256,12 +2391,18 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
     return equality;
   }
 
-  if (isStringType(node.left.getType()) && isStringType(node.right.getType())) {
+  if (
+    (isStringType(node.left.getType()) && isStringType(node.right.getType()))
+    || (isBStringType(node.app, node.left.getType())
+      && isBStringType(node.app, node.right.getType()))
+  ) {
     const left = lowerExpression(node.left, context);
     const right = lowerExpression(node.right, context);
 
     const compare = new CppCoreFunctionCall(
-      'ssc__core__fn__string_compare',
+      isStringType(node.left.getType()) ?
+        'ssc__core__fn__string_compare'
+      : 'ssc__core__fn__bstring_compare',
       [],
       [new CppUnknownExpression(left), new CppUnknownExpression(right)],
     );
@@ -2673,6 +2814,21 @@ function isStringType(type: ts.Type) {
   return isTypeFlagMatch(type, ts.TypeFlags.StringLike);
 }
 
+function isBStringType(app: AppSourceFile['app'], type: ts.Type) {
+  const symbol = type.getSymbol();
+
+  if (symbol?.name !== 'bstring') {
+    return false;
+  }
+
+  const declarationFile = symbol.declarations[0]?.resolve()?.getSourceFile();
+
+  return (
+    !!declarationFile
+    && app.parser.tsPathToRealPath(declarationFile.fileName) === app.preludeSourceFile.realPath
+  );
+}
+
 function isFunctionType(app: AppSourceFile['app'], type: ts.Type) {
   return app.checker.getSignaturesOfType(type, ts.SignatureKind.Call).length !== 0;
 }
@@ -2698,7 +2854,7 @@ function getSscTypeName(app: AppSourceFile['app'], type: ts.Type): string {
     return 'number';
   }
 
-  if (isStringType(type)) {
+  if (isStringType(type) || isBStringType(app, type)) {
     return 'ref';
   }
 

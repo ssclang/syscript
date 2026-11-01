@@ -1,6 +1,6 @@
 declare function exit(code: i32): void;
 
-function length(s: string): u64 {
+function length(s: string): number {
   return s.length;
 }
 
@@ -37,7 +37,7 @@ function orEmpty(s: string | undefined): string {
 }
 
 function kind(v: string | i32): i32 {
-  if (typeof v === 'string' && v.length === u64(2)) {
+  if (typeof v === 'string' && v.length === 2) {
     return i32(1);
   }
 
@@ -68,14 +68,14 @@ function truthy(s: string): i32 {
 }
 
 const top: string = 'abc';
-const topLength: u64 = top.length;
+const topLength: number = top.length;
 let result: i32 = i32(0);
 
-if (length('hello') === u64(5) && length('한글') === u64(6) && length('👍') === u64(4) && length('') === u64(0)) {
+if (length('hello') === 5 && length('한글') === 2 && length('👍') === 2 && length('') === 0) {
   result += i32(1);
 }
 
-if (topLength === u64(3)) {
+if (topLength === 3) {
   result += i32(2);
 }
 
@@ -83,7 +83,7 @@ if (equals('abc', 'abc') && equals('', '') && !equals('abc', 'abd') && !equals('
   result += i32(4);
 }
 
-if (less('a', 'b') && less('ab', 'abc') && less('', 'a') && less('B', 'a') && !less('a', 'a') && lessOrEqual('a', 'a') && greater('한', 'z') && greaterOrEqual('b', 'a') && !greaterOrEqual('a', 'b') && less('￿', '😀')) {
+if (less('a', 'b') && less('ab', 'abc') && less('', 'a') && less('B', 'a') && !less('a', 'a') && lessOrEqual('a', 'a') && greater('한', 'z') && greaterOrEqual('b', 'a') && !greaterOrEqual('a', 'b') && !less('￿', '😀')) {
   result += i32(8);
 }
 

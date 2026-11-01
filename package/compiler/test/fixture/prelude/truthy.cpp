@@ -10,9 +10,9 @@ static const ssc__core__struct__shape plainShape{};
 static const ssc__core__struct__descriptor plainDescriptor{&plainShape};
 
 static ssc__core__struct__object_header* makeString(ssc__core__type__u64 length) {
-  auto* data = static_cast<ssc__core__struct__string*>(malloc(sizeof(ssc__core__struct__string) + length));
+  auto* data = static_cast<ssc__core__struct__bstring*>(malloc(sizeof(ssc__core__struct__bstring) + length));
   data->ssc__core__member__object_header.ssc__core__member__rc = 1;
-  data->ssc__core__member__object_header.ssc__core__member__descriptor_pointer = &ssc__core__var__string_descriptor;
+  data->ssc__core__member__object_header.ssc__core__member__descriptor_pointer = &ssc__core__var__bstring_descriptor;
   data->ssc__core__member__length = length;
   __builtin_memset(data->ssc__core__member__bytes, 'a', length);
   return &data->ssc__core__member__object_header;

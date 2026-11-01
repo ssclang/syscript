@@ -173,10 +173,16 @@ export struct ssc__core__struct__descriptor {
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__keys;
 };
 
-export struct ssc__core__struct__string {
+export struct ssc__core__struct__bstring {
   ssc__core__struct__object_header ssc__core__member__object_header;
   ssc__core__type__u64 ssc__core__member__length;
   ssc__core__type__u8 ssc__core__member__bytes[];
+};
+
+export struct ssc__core__struct__string {
+  ssc__core__struct__object_header ssc__core__member__object_header;
+  ssc__core__type__u64 ssc__core__member__length;
+  ssc__core__type__u16 ssc__core__member__units[];
 };
 
 export class [[clang::trivial_abi]] ssc__core__type__ref {
@@ -384,6 +390,7 @@ static_assert(sizeof(ssc__core__type__u64) == 8);
 static_assert(sizeof(ssc__core__type__f32) == 4);
 static_assert(sizeof(ssc__core__type__f64) == 8);
 static_assert(sizeof(ssc__core__type__number) == 8);
+static_assert(sizeof(ssc__core__struct__bstring) == 24);
 static_assert(sizeof(ssc__core__struct__string) == 24);
 static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
@@ -394,17 +401,36 @@ static_assert(sizeof(ssc__core__struct__descriptor) == 48);
 export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
 export inline constexpr ssc__core__type__null ssc__core__var__null{};
 
+export inline constexpr ssc__core__struct__shape ssc__core__var__bstring_shape{};
+export inline constexpr ssc__core__struct__descriptor ssc__core__var__bstring_descriptor{__builtin_addressof(ssc__core__var__bstring_shape)};
+
+export template <ssc__core__type__u64 Size> struct ssc__core__struct__bstring_literal {
+  ssc__core__struct__object_header ssc__core__member__object_header;
+  ssc__core__type__u64 ssc__core__member__length;
+  ssc__core__type__u8 ssc__core__member__bytes[Size];
+
+  consteval ssc__core__struct__bstring_literal(const char8_t (&bytes)[Size]) noexcept : ssc__core__member__object_header{0, __builtin_addressof(ssc__core__var__bstring_descriptor)}, ssc__core__member__length(Size - 1), ssc__core__member__bytes{} {
+    for (ssc__core__type__u64 index = 0; index < Size; index++) {
+      ssc__core__member__bytes[index] = bytes[index];
+    }
+  }
+};
+
+export template <ssc__core__struct__bstring_literal Text> inline ssc__core__type__ref ssc__core__fn__bstring_literal() noexcept {
+  return ssc__core__type__ref(const_cast<ssc__core__struct__object_header*>(__builtin_addressof(Text.ssc__core__member__object_header)));
+}
+
 export inline constexpr ssc__core__struct__shape ssc__core__var__string_shape{};
 export inline constexpr ssc__core__struct__descriptor ssc__core__var__string_descriptor{__builtin_addressof(ssc__core__var__string_shape)};
 
 export template <ssc__core__type__u64 Size> struct ssc__core__struct__string_literal {
   ssc__core__struct__object_header ssc__core__member__object_header;
   ssc__core__type__u64 ssc__core__member__length;
-  ssc__core__type__u8 ssc__core__member__bytes[Size];
+  ssc__core__type__u16 ssc__core__member__units[Size];
 
-  consteval ssc__core__struct__string_literal(const char8_t (&bytes)[Size]) noexcept : ssc__core__member__object_header{0, __builtin_addressof(ssc__core__var__string_descriptor)}, ssc__core__member__length(Size - 1), ssc__core__member__bytes{} {
+  consteval ssc__core__struct__string_literal(const char16_t (&units)[Size]) noexcept : ssc__core__member__object_header{0, __builtin_addressof(ssc__core__var__string_descriptor)}, ssc__core__member__length(Size - 1), ssc__core__member__units{} {
     for (ssc__core__type__u64 index = 0; index < Size; index++) {
-      ssc__core__member__bytes[index] = bytes[index];
+      ssc__core__member__units[index] = units[index];
     }
   }
 };
@@ -453,7 +479,7 @@ inline void ssc__core__fn__closure_destroy(ssc__core__struct__object_header* obj
 }
 
 inline ssc__core__type__ref ssc__core__fn__closure_to_string(const ssc__core__type__ref&) {
-  return ssc__core__fn__string_literal<u8"[Function]">();
+  return ssc__core__fn__string_literal<u"[Function]">();
 }
 
 inline constexpr ssc__core__struct__shape ssc__core__var__closure_shape{};
@@ -496,17 +522,17 @@ export inline ssc__core__type__union ssc__core__fn__call(const ssc__core__type__
   return ssc__core__fn__call_span(function, {arguments.size(), arguments.begin()});
 }
 
-inline const ssc__core__struct__string* ssc__core__fn__get_string_pointer(const ssc__core__type__ref& string) noexcept {
-  return reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
+inline const ssc__core__struct__bstring* ssc__core__fn__get_bstring_pointer(const ssc__core__type__ref& string) noexcept {
+  return reinterpret_cast<const ssc__core__struct__bstring*>(string.ssc__core__member__get_object_header_pointer());
 }
 
-export inline ssc__core__type__u64 ssc__core__fn__string_length(const ssc__core__type__ref& string) noexcept {
-  return ssc__core__fn__get_string_pointer(string)->ssc__core__member__length;
+export inline ssc__core__type__u64 ssc__core__fn__bstring_length(const ssc__core__type__ref& string) noexcept {
+  return ssc__core__fn__get_bstring_pointer(string)->ssc__core__member__length;
 }
 
-export inline ssc__core__type__i32 ssc__core__fn__string_compare(const ssc__core__type__ref& left, const ssc__core__type__ref& right) noexcept {
-  const ssc__core__struct__string* left_pointer = ssc__core__fn__get_string_pointer(left);
-  const ssc__core__struct__string* right_pointer = ssc__core__fn__get_string_pointer(right);
+export inline ssc__core__type__i32 ssc__core__fn__bstring_compare(const ssc__core__type__ref& left, const ssc__core__type__ref& right) noexcept {
+  const ssc__core__struct__bstring* left_pointer = ssc__core__fn__get_bstring_pointer(left);
+  const ssc__core__struct__bstring* right_pointer = ssc__core__fn__get_bstring_pointer(right);
   const ssc__core__type__u64 left_length = left_pointer->ssc__core__member__length;
   const ssc__core__type__u64 right_length = right_pointer->ssc__core__member__length;
   const ssc__core__type__i32 result = __builtin_memcmp(left_pointer->ssc__core__member__bytes, right_pointer->ssc__core__member__bytes, left_length < right_length ? left_length : right_length);
@@ -522,7 +548,7 @@ export inline ssc__core__type__i32 ssc__core__fn__string_compare(const ssc__core
   return left_length < right_length ? -1 : 1;
 }
 
-inline ssc__core__type__boolean ssc__core__fn__string_bytes_equals(const ssc__core__struct__string* left_pointer, const ssc__core__struct__string* right_pointer) noexcept {
+inline ssc__core__type__boolean ssc__core__fn__bstring_bytes_equals(const ssc__core__struct__bstring* left_pointer, const ssc__core__struct__bstring* right_pointer) noexcept {
   if (left_pointer->ssc__core__member__length != right_pointer->ssc__core__member__length) {
     return false;
   }
@@ -530,8 +556,84 @@ inline ssc__core__type__boolean ssc__core__fn__string_bytes_equals(const ssc__co
   return __builtin_memcmp(left_pointer->ssc__core__member__bytes, right_pointer->ssc__core__member__bytes, left_pointer->ssc__core__member__length) == 0;
 }
 
+inline ssc__core__type__ref ssc__core__fn__allocate_bstring(ssc__core__type__u64 length) {
+  void* pointer = malloc(sizeof(ssc__core__struct__bstring) + length + 1);
+
+  if (!pointer) [[unlikely]] {
+    __builtin_trap();
+  }
+
+  ssc__core__struct__bstring* string_pointer = static_cast<ssc__core__struct__bstring*>(pointer);
+  string_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__bstring_descriptor)};
+  string_pointer->ssc__core__member__length = length;
+  string_pointer->ssc__core__member__bytes[length] = 0;
+
+  return ssc__core__type__ref(__builtin_addressof(string_pointer->ssc__core__member__object_header));
+}
+
+export inline ssc__core__type__ref ssc__core__fn__bstring_concat(const ssc__core__type__ref& left, const ssc__core__type__ref& right) {
+  const ssc__core__struct__bstring* left_pointer = ssc__core__fn__get_bstring_pointer(left);
+  const ssc__core__struct__bstring* right_pointer = ssc__core__fn__get_bstring_pointer(right);
+  const ssc__core__type__u64 left_length = left_pointer->ssc__core__member__length;
+  const ssc__core__type__u64 right_length = right_pointer->ssc__core__member__length;
+  ssc__core__type__ref result = ssc__core__fn__allocate_bstring(left_length + right_length);
+  ssc__core__struct__bstring* result_pointer = reinterpret_cast<ssc__core__struct__bstring*>(result.ssc__core__member__get_object_header_pointer());
+
+  __builtin_memcpy(result_pointer->ssc__core__member__bytes, left_pointer->ssc__core__member__bytes, left_length);
+  __builtin_memcpy(result_pointer->ssc__core__member__bytes + left_length, right_pointer->ssc__core__member__bytes, right_length);
+
+  return result;
+}
+
+inline ssc__core__type__ref ssc__core__fn__bstring_from_bytes(const char* pointer, ssc__core__type__u64 length) {
+  ssc__core__type__ref result = ssc__core__fn__allocate_bstring(length);
+
+  __builtin_memcpy(reinterpret_cast<ssc__core__struct__bstring*>(result.ssc__core__member__get_object_header_pointer())->ssc__core__member__bytes, pointer, length);
+
+  return result;
+}
+
+inline const ssc__core__struct__string* ssc__core__fn__get_string_pointer(const ssc__core__type__ref& string) noexcept {
+  return reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
+}
+
+export inline ssc__core__type__number ssc__core__fn__string_length(const ssc__core__type__ref& string) noexcept {
+  return ssc__core__type__number(static_cast<ssc__core__type__f64>(ssc__core__fn__get_string_pointer(string)->ssc__core__member__length));
+}
+
+export inline ssc__core__type__i32 ssc__core__fn__string_compare(const ssc__core__type__ref& left, const ssc__core__type__ref& right) noexcept {
+  const ssc__core__struct__string* left_pointer = ssc__core__fn__get_string_pointer(left);
+  const ssc__core__struct__string* right_pointer = ssc__core__fn__get_string_pointer(right);
+  const ssc__core__type__u64 left_length = left_pointer->ssc__core__member__length;
+  const ssc__core__type__u64 right_length = right_pointer->ssc__core__member__length;
+  const ssc__core__type__u64 length = left_length < right_length ? left_length : right_length;
+
+  for (ssc__core__type__u64 index = 0; index < length; index++) {
+    const ssc__core__type__u16 left_unit = left_pointer->ssc__core__member__units[index];
+    const ssc__core__type__u16 right_unit = right_pointer->ssc__core__member__units[index];
+
+    if (left_unit != right_unit) {
+      return left_unit < right_unit ? -1 : 1;
+    }
+  }
+
+  if (left_length == right_length) {
+    return 0;
+  }
+
+  return left_length < right_length ? -1 : 1;
+}
+
+inline ssc__core__type__boolean ssc__core__fn__string_units_equals(const ssc__core__struct__string* left_pointer, const ssc__core__struct__string* right_pointer) noexcept {
+  if (left_pointer->ssc__core__member__length != right_pointer->ssc__core__member__length) {
+    return false;
+  }
+
+  return __builtin_memcmp(left_pointer->ssc__core__member__units, right_pointer->ssc__core__member__units, left_pointer->ssc__core__member__length * sizeof(ssc__core__type__u16)) == 0;
+}
+
 inline ssc__core__type__ref ssc__core__fn__allocate_string(ssc__core__type__u64 length) {
-  void* pointer = malloc(sizeof(ssc__core__struct__string) + length + 1);
+  void* pointer = malloc(sizeof(ssc__core__struct__string) + length * sizeof(ssc__core__type__u16));
 
   if (!pointer) [[unlikely]] {
     __builtin_trap();
@@ -540,9 +642,16 @@ inline ssc__core__type__ref ssc__core__fn__allocate_string(ssc__core__type__u64 
   ssc__core__struct__string* string_pointer = static_cast<ssc__core__struct__string*>(pointer);
   string_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__string_descriptor)};
   string_pointer->ssc__core__member__length = length;
-  string_pointer->ssc__core__member__bytes[length] = 0;
 
   return ssc__core__type__ref(__builtin_addressof(string_pointer->ssc__core__member__object_header));
+}
+
+inline ssc__core__type__ref ssc__core__fn__string_from_units(const ssc__core__type__u16* units, ssc__core__type__u64 length) {
+  ssc__core__type__ref result = ssc__core__fn__allocate_string(length);
+
+  __builtin_memcpy(reinterpret_cast<ssc__core__struct__string*>(result.ssc__core__member__get_object_header_pointer())->ssc__core__member__units, units, length * sizeof(ssc__core__type__u16));
+
+  return result;
 }
 
 export inline ssc__core__type__ref ssc__core__fn__string_concat(const ssc__core__type__ref& left, const ssc__core__type__ref& right) {
@@ -553,30 +662,206 @@ export inline ssc__core__type__ref ssc__core__fn__string_concat(const ssc__core_
   ssc__core__type__ref result = ssc__core__fn__allocate_string(left_length + right_length);
   ssc__core__struct__string* result_pointer = reinterpret_cast<ssc__core__struct__string*>(result.ssc__core__member__get_object_header_pointer());
 
-  __builtin_memcpy(result_pointer->ssc__core__member__bytes, left_pointer->ssc__core__member__bytes, left_length);
-  __builtin_memcpy(result_pointer->ssc__core__member__bytes + left_length, right_pointer->ssc__core__member__bytes, right_length);
+  __builtin_memcpy(result_pointer->ssc__core__member__units, left_pointer->ssc__core__member__units, left_length * sizeof(ssc__core__type__u16));
+  __builtin_memcpy(result_pointer->ssc__core__member__units + left_length, right_pointer->ssc__core__member__units, right_length * sizeof(ssc__core__type__u16));
 
   return result;
 }
 
-inline ssc__core__type__ref ssc__core__fn__string_from_bytes(const char* pointer, ssc__core__type__u64 length) {
-  ssc__core__type__ref result = ssc__core__fn__allocate_string(length);
+template <typename Visitor> inline ssc__core__type__boolean ssc__core__fn__visit_utf8(const ssc__core__type__u8* bytes, ssc__core__type__u64 length, Visitor&& visitor) {
+  ssc__core__type__u64 index = 0;
 
-  __builtin_memcpy(reinterpret_cast<ssc__core__struct__string*>(result.ssc__core__member__get_object_header_pointer())->ssc__core__member__bytes, pointer, length);
+  while (index < length) {
+    const ssc__core__type__u8 lead = bytes[index];
+
+    if (lead < 0x80) {
+      visitor(static_cast<ssc__core__type__u32>(lead));
+      index++;
+      continue;
+    }
+
+    ssc__core__type__u64 size = 0;
+    ssc__core__type__u8 second_minimum = 0x80;
+    ssc__core__type__u8 second_maximum = 0xBF;
+
+    if (0xC2 <= lead && lead <= 0xDF) {
+      size = 2;
+    } else if (0xE0 <= lead && lead <= 0xEF) {
+      size = 3;
+      second_minimum = lead == 0xE0 ? 0xA0 : 0x80;
+      second_maximum = lead == 0xED ? 0x9F : 0xBF;
+    } else if (0xF0 <= lead && lead <= 0xF4) {
+      size = 4;
+      second_minimum = lead == 0xF0 ? 0x90 : 0x80;
+      second_maximum = lead == 0xF4 ? 0x8F : 0xBF;
+    } else {
+      return false;
+    }
+
+    if (length - index < size || bytes[index + 1] < second_minimum || second_maximum < bytes[index + 1]) {
+      return false;
+    }
+
+    ssc__core__type__u32 code_point = lead & (0x7F >> size);
+
+    for (ssc__core__type__u64 offset = 1; offset < size; offset++) {
+      const ssc__core__type__u8 byte = bytes[index + offset];
+
+      if ((byte & 0xC0) != 0x80) {
+        return false;
+      }
+
+      code_point = (code_point << 6) | (byte & 0x3F);
+    }
+
+    visitor(code_point);
+    index += size;
+  }
+
+  return true;
+}
+
+inline ssc__core__type__boolean ssc__core__fn__is_utf8(const ssc__core__type__u8* bytes, ssc__core__type__u64 length) noexcept {
+  return ssc__core__fn__visit_utf8(bytes, length, [](ssc__core__type__u32) {});
+}
+
+inline ssc__core__type__boolean ssc__core__fn__utf8_to_utf16(const ssc__core__type__u8* bytes, ssc__core__type__u64 length, std::u16string& units) {
+  return ssc__core__fn__visit_utf8(bytes, length, [&](ssc__core__type__u32 code_point) {
+    if (code_point < 0x10000) {
+      units.push_back(static_cast<char16_t>(code_point));
+    } else {
+      units.push_back(static_cast<char16_t>(0xD800 + ((code_point - 0x10000) >> 10)));
+      units.push_back(static_cast<char16_t>(0xDC00 + ((code_point - 0x10000) & 0x3FF)));
+    }
+  });
+}
+
+inline ssc__core__type__boolean ssc__core__fn__utf16_to_utf8(const ssc__core__type__u16* units, ssc__core__type__u64 length, std::string& bytes, ssc__core__type__boolean is_replacing) {
+  for (ssc__core__type__u64 index = 0; index < length; index++) {
+    ssc__core__type__u32 code_point = units[index];
+
+    if (0xD800 <= code_point && code_point <= 0xDBFF && index + 1 < length && 0xDC00 <= units[index + 1] && units[index + 1] <= 0xDFFF) {
+      code_point = 0x10000 + ((code_point - 0xD800) << 10) + (units[index + 1] - 0xDC00);
+      index++;
+    } else if (0xD800 <= code_point && code_point <= 0xDFFF) {
+      if (!is_replacing) {
+        return false;
+      }
+
+      code_point = 0xFFFD;
+    }
+
+    if (code_point < 0x80) {
+      bytes.push_back(static_cast<char>(code_point));
+    } else if (code_point < 0x800) {
+      bytes.push_back(static_cast<char>(0xC0 | (code_point >> 6)));
+      bytes.push_back(static_cast<char>(0x80 | (code_point & 0x3F)));
+    } else if (code_point < 0x10000) {
+      bytes.push_back(static_cast<char>(0xE0 | (code_point >> 12)));
+      bytes.push_back(static_cast<char>(0x80 | ((code_point >> 6) & 0x3F)));
+      bytes.push_back(static_cast<char>(0x80 | (code_point & 0x3F)));
+    } else {
+      bytes.push_back(static_cast<char>(0xF0 | (code_point >> 18)));
+      bytes.push_back(static_cast<char>(0x80 | ((code_point >> 12) & 0x3F)));
+      bytes.push_back(static_cast<char>(0x80 | ((code_point >> 6) & 0x3F)));
+      bytes.push_back(static_cast<char>(0x80 | (code_point & 0x3F)));
+    }
+  }
+
+  return true;
+}
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_lone_surrogate_error() {
+  throw std::string("RangeError: A lone surrogate can not be encoded as UTF-8");
+}
+
+[[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_utf8_error() {
+  throw std::string("RangeError: The bytes are not valid UTF-8");
+}
+
+inline std::string ssc__core__fn__string_to_utf8(const ssc__core__type__ref& string) {
+  const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
+  std::string bytes;
+
+  if (!ssc__core__fn__utf16_to_utf8(string_pointer->ssc__core__member__units, string_pointer->ssc__core__member__length, bytes, false)) [[unlikely]] {
+    ssc__core__fn__throw_lone_surrogate_error();
+  }
+
+  return bytes;
+}
+
+inline ssc__core__type__ref ssc__core__fn__utf8_to_string(const ssc__core__type__u8* bytes, ssc__core__type__u64 length) {
+  std::u16string units;
+
+  if (!ssc__core__fn__utf8_to_utf16(bytes, length, units)) [[unlikely]] {
+    ssc__core__fn__throw_utf8_error();
+  }
+
+  return ssc__core__fn__string_from_units(reinterpret_cast<const ssc__core__type__u16*>(units.data()), units.size());
+}
+
+export inline ssc__core__type__ref ssc__core__fn__string_to_bstring(const ssc__core__type__ref& string) {
+  const std::string bytes = ssc__core__fn__string_to_utf8(string);
+
+  return ssc__core__fn__bstring_from_bytes(bytes.data(), bytes.size());
+}
+
+export inline ssc__core__type__ref ssc__core__fn__bstring_to_string(const ssc__core__type__ref& bstring) {
+  const ssc__core__struct__bstring* bstring_pointer = ssc__core__fn__get_bstring_pointer(bstring);
+
+  return ssc__core__fn__utf8_to_string(bstring_pointer->ssc__core__member__bytes, bstring_pointer->ssc__core__member__length);
+}
+
+inline ssc__core__type__ref ssc__core__fn__ascii_to_string(const char* bytes, ssc__core__type__u64 length) {
+  ssc__core__type__ref result = ssc__core__fn__allocate_string(length);
+  ssc__core__struct__string* string_pointer = reinterpret_cast<ssc__core__struct__string*>(result.ssc__core__member__get_object_header_pointer());
+
+  for (ssc__core__type__u64 index = 0; index < length; index++) {
+    string_pointer->ssc__core__member__units[index] = static_cast<ssc__core__type__u8>(bytes[index]);
+  }
 
   return result;
+}
+
+inline ssc__core__type__boolean ssc__core__fn__is_string(const ssc__core__type__ref& value) noexcept {
+  return value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor);
+}
+
+inline ssc__core__type__boolean ssc__core__fn__is_bstring(const ssc__core__type__ref& value) noexcept {
+  return value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__bstring_descriptor);
+}
+
+inline void ssc__core__fn__append_text(std::string& buffer, const ssc__core__type__ref& text) {
+  if (ssc__core__fn__is_bstring(text)) {
+    const ssc__core__struct__bstring* bstring_pointer = ssc__core__fn__get_bstring_pointer(text);
+
+    buffer.append(reinterpret_cast<const char*>(bstring_pointer->ssc__core__member__bytes), bstring_pointer->ssc__core__member__length);
+    return;
+  }
+
+  const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(text);
+
+  ssc__core__fn__utf16_to_utf8(string_pointer->ssc__core__member__units, string_pointer->ssc__core__member__length, buffer, true);
+}
+
+inline std::string ssc__core__fn__text_to_utf8(const ssc__core__type__ref& text) {
+  std::string buffer;
+
+  ssc__core__fn__append_text(buffer, text);
+
+  return buffer;
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__undefined) noexcept {
-  return ssc__core__fn__string_literal<u8"undefined">();
+  return ssc__core__fn__string_literal<u"undefined">();
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__null) noexcept {
-  return ssc__core__fn__string_literal<u8"null">();
+  return ssc__core__fn__string_literal<u"null">();
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__boolean value) noexcept {
-  return value ? ssc__core__fn__string_literal<u8"true">() : ssc__core__fn__string_literal<u8"false">();
+  return value ? ssc__core__fn__string_literal<u"true">() : ssc__core__fn__string_literal<u"false">();
 }
 
 export template <typename Type>
@@ -585,43 +870,43 @@ inline ssc__core__type__ref ssc__core__fn__to_string(Type value) {
   char buffer[24];
   const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), value);
 
-  return ssc__core__fn__string_from_bytes(buffer, result.ptr - buffer);
+  return ssc__core__fn__ascii_to_string(buffer, result.ptr - buffer);
 }
 
 export template <typename Type>
   requires(__is_same(Type, ssc__core__type__f32) || __is_same(Type, ssc__core__type__f64))
 inline ssc__core__type__ref ssc__core__fn__to_string(Type value) {
   if (__builtin_isnan(value)) {
-    return ssc__core__fn__string_literal<u8"NaN">();
+    return ssc__core__fn__string_literal<u"NaN">();
   }
 
   if (__builtin_isinf(value)) {
-    return value < 0 ? ssc__core__fn__string_literal<u8"-Infinity">() : ssc__core__fn__string_literal<u8"Infinity">();
+    return value < 0 ? ssc__core__fn__string_literal<u"-Infinity">() : ssc__core__fn__string_literal<u"Infinity">();
   }
 
   if (value == 0) {
-    return ssc__core__fn__string_literal<u8"0">();
+    return ssc__core__fn__string_literal<u"0">();
   }
 
   char buffer[32];
   const std::to_chars_result result = std::to_chars(buffer, buffer + sizeof(buffer), value);
 
-  return ssc__core__fn__string_from_bytes(buffer, result.ptr - buffer);
+  return ssc__core__fn__ascii_to_string(buffer, result.ptr - buffer);
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__number number) {
   const ssc__core__type__f64 value = static_cast<ssc__core__type__f64>(number);
 
   if (__builtin_isnan(value)) {
-    return ssc__core__fn__string_literal<u8"NaN">();
+    return ssc__core__fn__string_literal<u"NaN">();
   }
 
   if (__builtin_isinf(value)) {
-    return value < 0 ? ssc__core__fn__string_literal<u8"-Infinity">() : ssc__core__fn__string_literal<u8"Infinity">();
+    return value < 0 ? ssc__core__fn__string_literal<u"-Infinity">() : ssc__core__fn__string_literal<u"Infinity">();
   }
 
   if (value == 0) {
-    return ssc__core__fn__string_literal<u8"0">();
+    return ssc__core__fn__string_literal<u"0">();
   }
 
   char scientific[32];
@@ -664,16 +949,16 @@ export inline ssc__core__type__ref ssc__core__fn__to_string(ssc__core__type__num
     buffer += std::to_string(point - 1 < 0 ? 1 - point : point - 1);
   }
 
-  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
-}
-
-inline ssc__core__type__boolean ssc__core__fn__is_string(const ssc__core__type__ref& value) noexcept {
-  return value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor);
+  return ssc__core__fn__ascii_to_string(buffer.data(), buffer.size());
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__type__ref& value) {
   if (ssc__core__fn__is_string(value)) {
     return value;
+  }
+
+  if (ssc__core__fn__is_bstring(value)) {
+    return ssc__core__fn__bstring_to_string(value);
   }
 
   const ssc__core__struct__descriptor* descriptor_pointer = value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer;
@@ -682,7 +967,7 @@ export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__typ
     return descriptor_pointer->ssc__core__member__to_string_pointer(value);
   }
 
-  return ssc__core__fn__string_literal<u8"[object Object]">();
+  return ssc__core__fn__string_literal<u"[object Object]">();
 }
 
 export inline ssc__core__type__ref ssc__core__fn__to_string(const ssc__core__type__union& value) {
@@ -767,11 +1052,17 @@ export inline ssc__core__type__boolean ssc__core__fn__truthy_number(ssc__core__t
 }
 
 inline ssc__core__type__boolean ssc__core__fn__truthy_object(const ssc__core__struct__object_header* object_header_pointer) noexcept {
-  if (object_header_pointer->ssc__core__member__descriptor_pointer != __builtin_addressof(ssc__core__var__string_descriptor)) {
-    return true;
+  const ssc__core__struct__descriptor* descriptor_pointer = object_header_pointer->ssc__core__member__descriptor_pointer;
+
+  if (descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor)) {
+    return reinterpret_cast<const ssc__core__struct__string*>(object_header_pointer)->ssc__core__member__length != 0;
   }
 
-  return reinterpret_cast<const ssc__core__struct__string*>(object_header_pointer)->ssc__core__member__length != 0;
+  if (descriptor_pointer == __builtin_addressof(ssc__core__var__bstring_descriptor)) {
+    return reinterpret_cast<const ssc__core__struct__bstring*>(object_header_pointer)->ssc__core__member__length != 0;
+  }
+
+  return true;
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__truthy_ref(const ssc__core__type__ref& value) noexcept {
@@ -869,6 +1160,13 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_string(const ssc_
   return value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor);
 }
 
+export inline ssc__core__type__boolean ssc__core__fn__union_is_bstring(const ssc__core__type__union& value) noexcept {
+  if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__ref>) {
+    return false;
+  }
+  return value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer == __builtin_addressof(ssc__core__var__bstring_descriptor);
+}
+
 export inline ssc__core__type__boolean ssc__core__fn__union_is_function(const ssc__core__type__union& value) noexcept {
   if (value.ssc__core__member__type_id != ssc__core__var__type_id<ssc__core__type__ref>) {
     return false;
@@ -880,7 +1178,7 @@ export inline ssc__core__type__boolean ssc__core__fn__union_is_object(const ssc_
   if (ssc__core__fn__union_is_null(value)) {
     return true;
   }
-  return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && !ssc__core__fn__union_is_string(value) && !ssc__core__fn__union_is_function(value);
+  return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && !ssc__core__fn__union_is_string(value) && !ssc__core__fn__union_is_bstring(value) && !ssc__core__fn__union_is_function(value);
 }
 
 template <typename Left, typename Right> inline constexpr ssc__core__type__boolean ssc__core__fn__integer_equals(Left left, Right right) noexcept {
@@ -995,13 +1293,21 @@ inline ssc__core__type__boolean ssc__core__fn__object_equals(const ssc__core__st
     return true;
   }
 
-  const ssc__core__struct__descriptor* string_descriptor_pointer = __builtin_addressof(ssc__core__var__string_descriptor);
+  const ssc__core__struct__descriptor* descriptor_pointer = left_pointer->ssc__core__member__descriptor_pointer;
 
-  if (left_pointer->ssc__core__member__descriptor_pointer != string_descriptor_pointer || right_pointer->ssc__core__member__descriptor_pointer != string_descriptor_pointer) {
+  if (descriptor_pointer != right_pointer->ssc__core__member__descriptor_pointer) {
     return false;
   }
 
-  return ssc__core__fn__string_bytes_equals(reinterpret_cast<const ssc__core__struct__string*>(left_pointer), reinterpret_cast<const ssc__core__struct__string*>(right_pointer));
+  if (descriptor_pointer == __builtin_addressof(ssc__core__var__bstring_descriptor)) {
+    return ssc__core__fn__bstring_bytes_equals(reinterpret_cast<const ssc__core__struct__bstring*>(left_pointer), reinterpret_cast<const ssc__core__struct__bstring*>(right_pointer));
+  }
+
+  if (descriptor_pointer == __builtin_addressof(ssc__core__var__string_descriptor)) {
+    return ssc__core__fn__string_units_equals(reinterpret_cast<const ssc__core__struct__string*>(left_pointer), reinterpret_cast<const ssc__core__struct__string*>(right_pointer));
+  }
+
+  return false;
 }
 
 export inline ssc__core__type__boolean ssc__core__fn__strict_equals(const ssc__core__type__union& left, const ssc__core__type__ref& right) noexcept {
@@ -1103,26 +1409,26 @@ inline constexpr ssc__core__type__boolean ssc__core__fn__strict_equals(const Lef
 
 export inline ssc__core__type__ref ssc__core__fn__typeof(const ssc__core__type__union& value) noexcept {
   if (ssc__core__fn__union_is_undefined(value)) {
-    return ssc__core__fn__string_literal<u8"undefined">();
+    return ssc__core__fn__string_literal<u"undefined">();
   }
 
   if (ssc__core__fn__union_is_boolean(value)) {
-    return ssc__core__fn__string_literal<u8"boolean">();
+    return ssc__core__fn__string_literal<u"boolean">();
   }
 
   if (ssc__core__fn__union_is_number(value)) {
-    return ssc__core__fn__string_literal<u8"number">();
+    return ssc__core__fn__string_literal<u"number">();
   }
 
-  if (ssc__core__fn__union_is_string(value)) {
-    return ssc__core__fn__string_literal<u8"string">();
+  if (ssc__core__fn__union_is_string(value) || ssc__core__fn__union_is_bstring(value)) {
+    return ssc__core__fn__string_literal<u"string">();
   }
 
   if (ssc__core__fn__union_is_function(value)) {
-    return ssc__core__fn__string_literal<u8"function">();
+    return ssc__core__fn__string_literal<u"function">();
   }
 
-  return ssc__core__fn__string_literal<u8"object">();
+  return ssc__core__fn__string_literal<u"object">();
 }
 
 inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 type_id) {
@@ -1175,7 +1481,7 @@ inline std::string ssc__core__fn__get_display_type_name(ssc__core__type__u64 typ
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_union_type_error(const ssc__core__type__union& value, const char* type_name_pointer) {
-  const std::string display_type_name = ssc__core__fn__union_is_string(value) ? "string" : ssc__core__fn__get_display_type_name(value.ssc__core__member__type_id);
+  const std::string display_type_name = ssc__core__fn__union_is_string(value) || ssc__core__fn__union_is_bstring(value) ? "string" : ssc__core__fn__get_display_type_name(value.ssc__core__member__type_id);
   throw std::string("TypeError: Type '") + display_type_name + "' is not assignable to type '" + type_name_pointer + "'";
 }
 
@@ -1296,24 +1602,18 @@ inline ssc__core__type__union ssc__core__fn__union_as_union(const ssc__core__typ
   return value;
 }
 
-inline void ssc__core__fn__append_string(std::string& buffer, const ssc__core__type__ref& string) {
-  const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
-
-  buffer.append(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
-}
-
 template <typename Type> inline ssc__core__type__ref ssc__core__fn__inspect(const Type& value) {
   return ssc__core__fn__to_string(value);
 }
 
 inline ssc__core__type__ref ssc__core__fn__inspect(const ssc__core__type__ref& value) {
-  if (ssc__core__fn__is_string(value)) {
+  if (ssc__core__fn__is_string(value) || ssc__core__fn__is_bstring(value)) {
     std::string buffer = "'";
 
-    ssc__core__fn__append_string(buffer, value);
+    ssc__core__fn__append_text(buffer, value);
     buffer.push_back('\'');
 
-    return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+    return ssc__core__fn__utf8_to_string(reinterpret_cast<const ssc__core__type__u8*>(buffer.data()), buffer.size());
   }
 
   const ssc__core__struct__descriptor* descriptor_pointer = value.ssc__core__member__get_object_header_pointer()->ssc__core__member__descriptor_pointer;
@@ -1338,11 +1638,11 @@ template <typename Type> inline ssc__core__type__ref ssc__core__fn__console_stri
 }
 
 inline ssc__core__type__ref ssc__core__fn__console_string(const ssc__core__type__ref& value) {
-  return ssc__core__fn__is_string(value) ? value : ssc__core__fn__inspect(value);
+  return ssc__core__fn__is_string(value) || ssc__core__fn__is_bstring(value) ? value : ssc__core__fn__inspect(value);
 }
 
 inline ssc__core__type__ref ssc__core__fn__console_string(const ssc__core__type__union& value) {
-  return ssc__core__fn__union_is_string(value) ? ssc__core__fn__union_to_ref(value) : ssc__core__fn__inspect(value);
+  return ssc__core__fn__union_is_string(value) || ssc__core__fn__union_is_bstring(value) ? ssc__core__fn__union_to_ref(value) : ssc__core__fn__inspect(value);
 }
 
 export inline constexpr ssc__core__type__u64 ssc__core__var__union_kind = 4;
@@ -1464,7 +1764,7 @@ export inline ssc__core__type__ref ssc__core__fn__object_inspect(const ssc__core
   const ssc__core__struct__span<ssc__core__struct__field> fields = descriptor_pointer->ssc__core__member__shape_pointer->ssc__core__member__fields;
 
   if (descriptor_pointer->ssc__core__member__keys.ssc__core__member__length == 0) {
-    return ssc__core__fn__string_literal<u8"{}">();
+    return ssc__core__fn__string_literal<u"{}">();
   }
 
   std::string buffer = "{ ";
@@ -1480,12 +1780,12 @@ export inline ssc__core__type__ref ssc__core__fn__object_inspect(const ssc__core
     is_first = false;
     buffer.append(field.ssc__core__member__name);
     buffer.append(": ");
-    ssc__core__fn__append_string(buffer, ssc__core__fn__inspect_field(reinterpret_cast<const char*>(object_header_pointer) + field.ssc__core__member__offset, field.ssc__core__member__kind));
+    ssc__core__fn__append_text(buffer, ssc__core__fn__inspect_field(reinterpret_cast<const char*>(object_header_pointer) + field.ssc__core__member__offset, field.ssc__core__member__kind));
   }
 
   buffer.append(" }");
 
-  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+  return ssc__core__fn__utf8_to_string(reinterpret_cast<const ssc__core__type__u8*>(buffer.data()), buffer.size());
 }
 
 export template <typename Element> struct ssc__core__struct__array {
@@ -1530,17 +1830,17 @@ template <typename Element> inline ssc__core__type__ref ssc__core__fn__array_to_
       }
     }
 
-    ssc__core__fn__append_string(buffer, ssc__core__fn__to_string(element));
+    ssc__core__fn__append_text(buffer, ssc__core__fn__to_string(element));
   }
 
-  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+  return ssc__core__fn__utf8_to_string(reinterpret_cast<const ssc__core__type__u8*>(buffer.data()), buffer.size());
 }
 
 template <typename Element> inline ssc__core__type__ref ssc__core__fn__array_inspect(const ssc__core__type__ref& array) {
   const ssc__core__struct__array<Element>* array_pointer = ssc__core__fn__get_array_pointer<Element>(array);
 
   if (array_pointer->ssc__core__member__length == 0) {
-    return ssc__core__fn__string_literal<u8"[]">();
+    return ssc__core__fn__string_literal<u"[]">();
   }
 
   std::string buffer = "[ ";
@@ -1550,12 +1850,12 @@ template <typename Element> inline ssc__core__type__ref ssc__core__fn__array_ins
       buffer.append(", ");
     }
 
-    ssc__core__fn__append_string(buffer, ssc__core__fn__inspect(array_pointer->ssc__core__member__elements_pointer[index]));
+    ssc__core__fn__append_text(buffer, ssc__core__fn__inspect(array_pointer->ssc__core__member__elements_pointer[index]));
   }
 
   buffer.append(" ]");
 
-  return ssc__core__fn__string_from_bytes(buffer.data(), buffer.size());
+  return ssc__core__fn__utf8_to_string(reinterpret_cast<const ssc__core__type__u8*>(buffer.data()), buffer.size());
 }
 
 // TODO: replace std::addressof with __builtin_addressof once https://github.com/llvm/llvm-project/pull/235313 is released
@@ -1602,6 +1902,53 @@ export inline ssc__core__type__u64 ssc__core__fn__array_length(const ssc__core__
   return ssc__core__fn__get_array_pointer<ssc__core__type__u8>(array)->ssc__core__member__length;
 }
 
+inline ssc__core__type__ref ssc__core__fn__u8_array_from_bytes(const ssc__core__type__u8* bytes, ssc__core__type__u64 length) {
+  ssc__core__type__ref result = ssc__core__fn__array_of<ssc__core__type__u8>();
+  ssc__core__struct__array<ssc__core__type__u8>* array_pointer = ssc__core__fn__get_array_pointer<ssc__core__type__u8>(result);
+
+  ssc__core__fn__array_reserve(array_pointer, length);
+  __builtin_memcpy(array_pointer->ssc__core__member__elements_pointer, bytes, length);
+  array_pointer->ssc__core__member__length = length;
+
+  return result;
+}
+
+export inline ssc__core__type__ref ssc__core__fn__bstring_to_u8_array(const ssc__core__type__ref& bstring) {
+  const ssc__core__struct__bstring* bstring_pointer = ssc__core__fn__get_bstring_pointer(bstring);
+
+  return ssc__core__fn__u8_array_from_bytes(bstring_pointer->ssc__core__member__bytes, bstring_pointer->ssc__core__member__length);
+}
+
+export inline ssc__core__type__ref ssc__core__fn__string_to_u8_array(const ssc__core__type__ref& string) {
+  const std::string bytes = ssc__core__fn__string_to_utf8(string);
+
+  return ssc__core__fn__u8_array_from_bytes(reinterpret_cast<const ssc__core__type__u8*>(bytes.data()), bytes.size());
+}
+
+export inline ssc__core__type__ref ssc__core__fn__u8_array_to_bstring(const ssc__core__type__ref& array) {
+  const ssc__core__struct__array<ssc__core__type__u8>* array_pointer = ssc__core__fn__get_array_pointer<ssc__core__type__u8>(array);
+  const ssc__core__type__u8* bytes = array_pointer->ssc__core__member__elements_pointer;
+  const ssc__core__type__u64 length = array_pointer->ssc__core__member__length;
+
+  if (!ssc__core__fn__is_utf8(bytes, length)) [[unlikely]] {
+    ssc__core__fn__throw_utf8_error();
+  }
+
+  return ssc__core__fn__bstring_from_bytes(reinterpret_cast<const char*>(bytes), length);
+}
+
+export inline ssc__core__type__ref ssc__core__fn__u8_array_to_string(const ssc__core__type__ref& array) {
+  const ssc__core__struct__array<ssc__core__type__u8>* array_pointer = ssc__core__fn__get_array_pointer<ssc__core__type__u8>(array);
+
+  return ssc__core__fn__utf8_to_string(array_pointer->ssc__core__member__elements_pointer, array_pointer->ssc__core__member__length);
+}
+
+export inline ssc__core__type__ref ssc__core__fn__u16_array_to_string(const ssc__core__type__ref& array) {
+  const ssc__core__struct__array<ssc__core__type__u16>* array_pointer = ssc__core__fn__get_array_pointer<ssc__core__type__u16>(array);
+
+  return ssc__core__fn__string_from_units(array_pointer->ssc__core__member__elements_pointer, array_pointer->ssc__core__member__length);
+}
+
 inline ssc__core__type__u64 ssc__core__fn__to_array_position(ssc__core__type__u64 index) noexcept {
   return index;
 }
@@ -1638,10 +1985,7 @@ inline ssc__core__type__union ssc__core__fn__array_get(const ssc__core__type__re
 template <typename Type>
   requires((17 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 24) || (32 <= ssc__core__var__type_id<Type> && ssc__core__var__type_id<Type> <= 34))
 inline std::string ssc__core__fn__number_text(Type value) {
-  const ssc__core__type__ref text = ssc__core__fn__to_string(value);
-  const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(text);
-
-  return std::string(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+  return ssc__core__fn__text_to_utf8(ssc__core__fn__to_string(value));
 }
 
 [[noreturn]] [[gnu::noinline]] [[gnu::cold]] inline void ssc__core__fn__throw_number_conversion_error(const std::string& text, const char* type_name_pointer) {
@@ -1756,7 +2100,7 @@ template <typename Type> inline Type ssc__core__fn__union_to(const ssc__core__ty
 template <typename Element> inline ssc__core__type__union ssc__core__fn__array_callback(const ssc__core__type__ref& callback, const ssc__core__type__ref& array, ssc__core__type__u64 index) {
   const ssc__core__type__union arguments[] = {
       ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-      ssc__core__type__union(index),
+      ssc__core__type__union(ssc__core__type__number(static_cast<ssc__core__type__f64>(index))),
       ssc__core__type__union(ssc__core__type__ref(array)),
   };
 
@@ -1809,7 +2153,7 @@ export template <typename Element> inline ssc__core__type__union ssc__core__fn__
     const ssc__core__type__union arguments[] = {
         accumulator,
         ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-        ssc__core__type__union(index),
+        ssc__core__type__union(ssc__core__type__number(static_cast<ssc__core__type__f64>(index))),
         ssc__core__type__union(ssc__core__type__ref(array)),
     };
 
@@ -1873,14 +2217,25 @@ export template <typename Element> inline ssc__core__type__i64 ssc__core__fn__ar
   return -1;
 }
 
-export inline void ssc__core__fn__write_stdout(ssc__core__type__ref string) noexcept {
-  const ssc__core__struct__string* string_pointer = reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
-  std::cout.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+inline void ssc__core__fn__write_text(std::ostream& stream, const ssc__core__type__ref& text) {
+  if (ssc__core__fn__is_bstring(text)) {
+    const ssc__core__struct__bstring* bstring_pointer = ssc__core__fn__get_bstring_pointer(text);
+
+    stream.write(reinterpret_cast<const char*>(bstring_pointer->ssc__core__member__bytes), bstring_pointer->ssc__core__member__length);
+    return;
+  }
+
+  const std::string bytes = ssc__core__fn__text_to_utf8(text);
+
+  stream.write(bytes.data(), bytes.size());
 }
 
-export inline void ssc__core__fn__write_stderr(ssc__core__type__ref string) noexcept {
-  const ssc__core__struct__string* string_pointer = reinterpret_cast<const ssc__core__struct__string*>(string.ssc__core__member__get_object_header_pointer());
-  std::cerr.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+export inline void ssc__core__fn__write_stdout(const ssc__core__type__ref& text) {
+  ssc__core__fn__write_text(std::cout, text);
+}
+
+export inline void ssc__core__fn__write_stderr(const ssc__core__type__ref& text) {
+  ssc__core__fn__write_text(std::cerr, text);
 }
 
 export inline void ssc__core__fn__write_stdout(std::string_view string_view) noexcept {
@@ -1896,15 +2251,14 @@ template <typename... Types> inline void ssc__core__fn__write_line(std::ostream&
 
   (
       [&] {
-        const ssc__core__type__ref string = ssc__core__fn__console_string(values);
-        const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
+        const ssc__core__type__ref text = ssc__core__fn__console_string(values);
 
         if (!is_first) {
           stream.put(' ');
         }
 
         is_first = false;
-        stream.write(reinterpret_cast<const char*>(string_pointer->ssc__core__member__bytes), string_pointer->ssc__core__member__length);
+        ssc__core__fn__write_text(stream, text);
       }(),
       ...);
 
@@ -2193,19 +2547,15 @@ inline ssc__core__type__char ssc__core__fn__char(Type value) {
 
 export inline ssc__core__type__char ssc__core__fn__char(const ssc__core__type__ref& string) {
   const ssc__core__struct__string* string_pointer = ssc__core__fn__get_string_pointer(string);
-  const ssc__core__type__u8* bytes = string_pointer->ssc__core__member__bytes;
+  const ssc__core__type__u16* units = string_pointer->ssc__core__member__units;
   const ssc__core__type__u64 length = string_pointer->ssc__core__member__length;
-  const ssc__core__type__u64 size = length == 0 ? 0 : bytes[0] < 0x80 ? 1 : bytes[0] < 0xE0 ? 2 : bytes[0] < 0xF0 ? 3 : 4;
+  const ssc__core__type__boolean is_pair = length == 2 && 0xD800 <= units[0] && units[0] <= 0xDBFF && 0xDC00 <= units[1] && units[1] <= 0xDFFF;
 
-  if (size == 0 || size != length) [[unlikely]] {
-    ssc__core__fn__throw_code_point_error("'" + std::string(reinterpret_cast<const char*>(bytes), length) + "'");
+  if (length != 1 && !is_pair) [[unlikely]] {
+    ssc__core__fn__throw_code_point_error("'" + ssc__core__fn__text_to_utf8(string) + "'");
   }
 
-  ssc__core__type__u32 code_point = size == 1 ? bytes[0] : bytes[0] & (0x7F >> size);
-
-  for (ssc__core__type__u64 index = 1; index < size; index++) {
-    code_point = (code_point << 6) | (bytes[index] & 0x3F);
-  }
+  const ssc__core__type__u32 code_point = is_pair ? 0x10000 + ((units[0] - 0xD800) << 10) + (units[1] - 0xDC00) : units[0];
 
   return ssc__core__fn__char(code_point);
 }
