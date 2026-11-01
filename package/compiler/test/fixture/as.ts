@@ -24,8 +24,6 @@ function widen(value: i32): i32 | string {
   return value as i32 | string;
 }
 
-const literal: i32 = 5 as i32;
-
 console.log(toInteger(i32(7)), toText('a'), toOptionalText(undefined), toOptionalText('b'), toFlag(true));
-console.log(same(i32(3)), toInteger(widen(i32(4))), literal);
+console.log(same(i32(3)), toInteger(widen(i32(4))));
 exit(i32(0));

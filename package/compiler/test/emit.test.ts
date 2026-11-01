@@ -223,7 +223,7 @@ test('as-const.ts', async () => {
 test('as.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'as.ts'))).toEqual({
     status: 0,
-    stdout: '7 a undefined b true\n3 4 5\n',
+    stdout: '7 a undefined b true\n3 4\n',
     stderr: '',
   });
 });
@@ -271,11 +271,7 @@ test.each([
     "const s: string = 'a';\nexport const x: string = s as unknown as string;\n",
     "'as' can not convert 'string' to 'unknown'",
   ],
-  [
-    'an out of range literal',
-    'export const x: u8 = 300 as u8;\n',
-    "'300' can not be converted to u8",
-  ],
+  ['a literal', 'export const x: u8 = 300 as u8;\n', 'typescript errors'],
 ])('as with %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
 });
@@ -308,7 +304,7 @@ test('array write at the length', async () => {
 });
 
 test.each([
-  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'i32 and number can not be compared'],
+  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'typescript errors'],
   [
     'another integer type',
     'const a: i32 = i32(1);\nconst b: i64 = i64(1);\nconst r = a !== b;',
@@ -317,7 +313,7 @@ test.each([
   [
     'a union member',
     'function f(v: i32 | undefined): boolean { return v === 1; }',
-    'i32 and number can not be compared',
+    'typescript errors',
   ],
 ])('equality rejects %s', async (_, source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);

@@ -8,7 +8,7 @@ function negateFloat(a: f32): f32 {
   return -a;
 }
 
-function plus(a: i32): number {
+function plus(a: i32): i32 {
   return +a;
 }
 
@@ -38,7 +38,7 @@ if (negateFloat(f32(1.5)) === f32(-1.5)) {
   result = result + i32(2);
 }
 
-if (plus(i32(7)) === 7) {
+if (plus(i32(7)) === i32(7)) {
   result = result + i32(4);
 }
 

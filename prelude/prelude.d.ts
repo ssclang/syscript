@@ -43,18 +43,18 @@ declare global {
   type SscFloatType = f32 | f64 | number;
   type SscNumberType = SscIntegerType | SscFloatType;
 
-  function i8(value: number | string): i8;
-  function i16(value: number | string): i16;
-  function i32(value: number | string): i32;
-  function i64(value: number | string): i64;
-  function u8(value: number | string): u8;
-  function u16(value: number | string): u16;
-  function u32(value: number | string): u32;
-  function u64(value: number | string): u64;
-  function char(value: number | string): char;
-  function f32(value: number | string): f32;
-  function f64(value: number | string): f64;
-  function number(value: number | string): number;
+  function i8(value: SscNumberType | string): i8;
+  function i16(value: SscNumberType | string): i16;
+  function i32(value: SscNumberType | string): i32;
+  function i64(value: SscNumberType | string): i64;
+  function u8(value: SscNumberType | string): u8;
+  function u16(value: SscNumberType | string): u16;
+  function u32(value: SscNumberType | string): u32;
+  function u64(value: SscNumberType | string): u64;
+  function char(value: SscNumberType | string): char;
+  function f32(value: SscNumberType | string): f32;
+  function f64(value: SscNumberType | string): f64;
+  function number(value: SscNumberType | string): number;
 
   function addWrap<T extends SscIntegerType>(left: T, right: T): T;
   function subWrap<T extends SscIntegerType>(left: T, right: T): T;
