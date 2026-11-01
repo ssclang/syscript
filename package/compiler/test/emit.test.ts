@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import * as ast from 'typescript7/ast';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { SscManager } from '~/ssc/manager/ssc.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
@@ -44,6 +44,18 @@ async function runSource(source: string) {
     return await runProcess(entryPath);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function typeScriptErrorOutput(source: string) {
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+  try {
+    await expect(runSource(source)).rejects.toThrow('1 typescript errors with ssc config');
+
+    return consoleError.mock.calls.flat().join('\n');
+  } finally {
+    consoleError.mockRestore();
   }
 }
 
@@ -260,20 +272,10 @@ test.each([
   });
 });
 
-test.each([
-  [
-    'a number to another number type',
-    'export function f(x: i32): u8 {\n  return x as u8;\n}\n',
-    'typescript errors',
-  ],
-  [
-    'a string to unknown',
-    "const s: string = 'a';\nexport const x: string = s as unknown as string;\n",
-    "'as' can not convert 'string' to 'unknown'",
-  ],
-  ['a literal', 'export const x: u8 = 300 as u8;\n', 'typescript errors'],
-])('as with %s', async (_, source, message) => {
-  await expect(runSource(source)).rejects.toThrow(message);
+test('as with a string to unknown', async () => {
+  const source = "const s: string = 'a';\nexport const x: string = s as unknown as string;\n";
+
+  await expect(runSource(source)).rejects.toThrow("'as' can not convert 'string' to 'unknown'");
 });
 
 test('array.ts', async () => {
@@ -304,19 +306,51 @@ test('array write at the length', async () => {
 });
 
 test.each([
-  ['a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'typescript errors'],
+  ['an i32 as u8', 'export function f(x: i32): u8 {\n  return x as u8;\n}\n', 'TS2352'],
+  ['a literal as u8', 'export const x: u8 = 300 as u8;\n', 'TS2352'],
+  ['i32 equality with a literal', 'const a: i32 = i32(1);\nconst r = a === 1;', 'TS2367'],
   [
-    'another integer type',
+    'i32 equality with i64',
     'const a: i32 = i32(1);\nconst b: i64 = i64(1);\nconst r = a !== b;',
-    'typescript errors',
+    'TS2367',
   ],
   [
-    'a union member',
+    'an i32 union member equality with a literal',
     'function f(v: i32 | undefined): boolean { return v === 1; }',
-    'typescript errors',
+    'TS2367',
   ],
-])('equality rejects %s', async (_, source, message) => {
-  await expect(runSource(source)).rejects.toThrow(message);
+  ['an i32 to number', 'const a: i32 = i32(1);\nconst r: number = a;', 'TS2322'],
+  ['an i32 argument for number', 'function f(v: number): void {}\nf(i32(1));', 'TS2345'],
+  ['an i32 return as number', 'function f(v: i32): number {\n  return v;\n}', 'TS2322'],
+  [
+    'an i32 array to a number array',
+    'const a: i32[] = [i32(1)];\nconst b: number[] = a;',
+    'TS2322',
+  ],
+  ['an i32 property to number', 'const o: { x: number } = { x: i32(1) };', 'TS2322'],
+  ['an f64 to number', 'const a: f64 = f64(1);\nconst r: number = a;', 'TS2322'],
+  ['number to i32', 'const n: number = 1;\nconst r: i32 = n;', 'TS2322'],
+  [
+    'i32 equality with number',
+    'const a: i32 = i32(1);\nconst n: number = 1;\nconst r = a === n;',
+    'TS2367',
+  ],
+  ['i32 as number', 'const a: i32 = i32(1);\nconst r = a as number;', 'TS2352'],
+  ['number as i32', 'const n: number = 1;\nconst r = n as i32;', 'TS2352'],
+  [
+    'bstring plus string',
+    "const b: bstring = bstring('a');\nconst s: string = 'b';\nconst r = b + s;",
+    'TS2365',
+  ],
+  ['bstring to string', "const b: bstring = bstring('a');\nconst s: string = b;", 'TS2322'],
+  ['string to bstring', "const s: string = 'a';\nconst b: bstring = s;", 'TS2322'],
+  [
+    'bstring equality with string',
+    "const b: bstring = bstring('a');\nconst s: string = 'a';\nconst r = b === s;",
+    'TS2367',
+  ],
+])('TS rejects %s', async (_, source, code) => {
+  expect(await typeScriptErrorOutput(source)).toContain(` ${code}: `);
 });
 
 test('bstring.ts', async () => {

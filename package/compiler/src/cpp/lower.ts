@@ -2312,12 +2312,6 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
   assert(!isTypeFlagMatch(targetType, ts.TypeFlags.AnyOrUnknown), message);
 
   const target = getSscTypeName(node.app, targetType);
-  const isLiteral = isTypeFlagMatch(sourceType, ts.TypeFlags.NumberLiteral);
-
-  if (isLiteral && includes(sscNumberTypes, target)) {
-    return lowerNumber(expression, target, context);
-  }
-
   const text = lowerExpression(expression, context);
   const source = getSscTypeName(node.app, sourceType);
 
@@ -2336,7 +2330,7 @@ function lowerAsExpression(node: NodeAsExpression, context: LowerContext): strin
   }
 
   if (targetType.isUnionType()) {
-    assert(isLiteral || getUnionMemberSscTypeNames(node.app, targetType).includes(source), message);
+    assert(getUnionMemberSscTypeNames(node.app, targetType).includes(source), message);
 
     return `ssc__core__type__union(${text})`;
   }
@@ -2427,15 +2421,6 @@ function lowerComparisonExpression(node: NodeBinaryExpression, context: LowerCon
 
 function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerContext) {
   const { left, right } = node;
-  const leftNumberTypes = getNumberTypeNames(left);
-  const rightNumberTypes = getNumberTypeNames(right);
-
-  assert(
-    !leftNumberTypes.length
-      || !rightNumberTypes.length
-      || leftNumberTypes.some((t) => rightNumberTypes.includes(t)),
-    `${node.location()}: ${leftNumberTypes.join(' | ')} and ${rightNumberTypes.join(' | ')} can not be compared, convert one side explicitly like ${leftNumberTypes[0]}(${right.getText()})`,
-  );
 
   if (isTypeIdComparison(left) || isTypeIdComparison(right)) {
     const leftText = lowerExpression(left, context);
@@ -2479,16 +2464,6 @@ function lowerEqualityExpression(node: NodeBinaryExpression, context: LowerConte
     leftText,
     new CppUnknownExpression(lowerNumber(right, type, context)),
   ).code();
-}
-
-function getNumberTypeNames(node: AbstractNode<ast.Expression>) {
-  const type = node.getType();
-  const memberTypes = type.isUnionType() ? type.getTypes() : [type];
-  const names = memberTypes
-    .map((t) => getSscTypeName(node.app, t))
-    .filter<SscNumberType>((t) => includes(sscNumberTypes, t));
-
-  return [...new Set(names)];
 }
 
 function isTypeIdComparison(node: AbstractNode<ast.Expression>) {
