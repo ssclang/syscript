@@ -1,11 +1,10 @@
 import { assert } from '@syscript/share/util';
 import cp from 'child_process';
 import fs from 'fs/promises';
-import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
-import { lower } from '~/cpp/lower.js';
+import { beforeAll, expect, test } from 'vitest';
 import { analyzeClosure } from '~/cpp/closure.js';
+import { lower } from '~/cpp/lower.js';
 import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscBuildManager } from '~/ssc/manager/build.js';
 import { SscManager } from '~/ssc/manager/ssc.js';
@@ -15,66 +14,56 @@ const fixtureDir = path.join(import.meta.dirname, 'fixture');
 const clang = PathResolver.clangPath();
 const compileFlags = SscBuildManager.clangCompileFlag();
 
-let preludeBuildDir: string;
+const outDir = path.join(import.meta.dirname, '.ssc');
+const manager = await SscManager.init({ outDir, profile: 'test/cpp-lower' });
+const { buildDir } = manager.buildManager;
 
 beforeAll(async () => {
-  preludeBuildDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ssc-prelude-'));
+  await fs.mkdir(buildDir, { recursive: true });
   cp.execFileSync(clang, [
     ...compileFlags,
     '-Wno-reserved-module-identifier',
     '-c',
     PathResolver.stdCppmPath(),
-    `-fmodule-output=${path.join(preludeBuildDir, 'std.pcm')}`,
+    `-fmodule-output=${path.join(buildDir, 'std.pcm')}`,
     '-o',
-    path.join(preludeBuildDir, 'std.o'),
+    path.join(buildDir, 'std.o'),
   ]);
   cp.execFileSync(clang, [
     ...compileFlags,
-    `-fmodule-file=std=${path.join(preludeBuildDir, 'std.pcm')}`,
+    `-fmodule-file=std=${path.join(buildDir, 'std.pcm')}`,
     '-c',
     PathResolver.preludeCppmPath(),
-    `-fmodule-output=${path.join(preludeBuildDir, 'ssc.pcm')}`,
+    `-fmodule-output=${path.join(buildDir, 'ssc.pcm')}`,
     '-o',
-    path.join(preludeBuildDir, 'ssc.o'),
+    path.join(buildDir, 'ssc.o'),
   ]);
 });
 
-afterAll(async () => {
-  await fs.rm(preludeBuildDir, { recursive: true, force: true });
-});
-
 async function lowerFixture(name: string) {
-  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
+  const { modules } = await manager.buildManager.compile(path.join(fixtureDir, name));
+  const module = modules.at(-1);
 
-  try {
-    const idJsonPath = path.join(import.meta.dirname, 'id.json');
-    const manager = await SscManager.init({ outDir, profile: 'test', idJsonPath });
-    const { modules } = await manager.buildManager.compile(path.join(fixtureDir, name));
-    const module = modules.at(-1);
+  assert(module);
 
-    assert(module);
+  const sourceFiles = modules.map((m) => m.sourceFile);
+  const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
+    analyzeTdz(sourceFiles);
+  const { boxedVariableSymbolIdSet, closureCaptureMap } = analyzeClosure(sourceFiles);
+  const output = lower(module.sourceFile, {
+    kind: 'program',
+    pathToId: (path) => manager.idManager.loadId(path),
+    topLevelVariableSymbolIdSet,
+    tdzVariableSymbolIdSet,
+    tdzReferenceNodeSet,
+    boxedVariableSymbolIdSet,
+    closureCaptureMap,
+  }).render();
 
-    const sourceFiles = modules.map((m) => m.sourceFile);
-    const { topLevelVariableSymbolIdSet, tdzVariableSymbolIdSet, tdzReferenceNodeSet } =
-      analyzeTdz(sourceFiles);
-    const { boxedVariableSymbolIdSet, closureCaptureMap } = analyzeClosure(sourceFiles);
-    const output = lower(module.sourceFile, {
-      kind: 'program',
-      pathToId: (path) => manager.idManager.loadId(path),
-      topLevelVariableSymbolIdSet,
-      tdzVariableSymbolIdSet,
-      tdzReferenceNodeSet,
-      boxedVariableSymbolIdSet,
-      closureCaptureMap,
-    }).render();
+  await manager.flush();
+  await compileCpp(buildDir, output);
 
-    await manager.flush();
-    await compileCpp(outDir, output);
-
-    return output;
-  } finally {
-    await fs.rm(outDir, { recursive: true, force: true });
-  }
+  return output;
 }
 
 async function compileCpp(dir: string, code: string) {
@@ -82,8 +71,8 @@ async function compileCpp(dir: string, code: string) {
   const tsPcmPath = path.join(dir, 'ts.pcm');
   const cppPath = path.join(dir, 'file.cpp');
   const moduleFlags = [
-    `-fmodule-file=std=${path.join(preludeBuildDir, 'std.pcm')}`,
-    `-fmodule-file=ssc=${path.join(preludeBuildDir, 'ssc.pcm')}`,
+    `-fmodule-file=std=${path.join(dir, 'std.pcm')}`,
+    `-fmodule-file=ssc=${path.join(dir, 'ssc.pcm')}`,
     `-fmodule-file=ts=${tsPcmPath}`,
   ];
 
