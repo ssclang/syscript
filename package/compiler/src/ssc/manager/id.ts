@@ -5,8 +5,7 @@ import z from 'zod';
 import { File } from '~/util/file.js';
 
 type SscIdManagerOption = {
-  outDir: string;
-  idJsonPath?: string;
+  idJsonPath: string;
 };
 
 export class SscIdManager {
@@ -16,7 +15,7 @@ export class SscIdManager {
   private readonly idSet = new Set<string>();
 
   private constructor(option: SscIdManagerOption) {
-    const { outDir, idJsonPath = path.join(outDir, 'id.json') } = option;
+    const { idJsonPath } = option;
     this.idJsonPath = path.resolve(idJsonPath);
   }
 

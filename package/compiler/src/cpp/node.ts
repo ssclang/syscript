@@ -83,6 +83,10 @@ export abstract class CppNode {
     return `ssc__ts__tdz__${tsVariableName}`;
   }
 
+  static toCppClassName(tsClassName: string) {
+    return `ssc__ts__class__${tsClassName}`;
+  }
+
   static toCppFunctionName(tsFunctionName: string) {
     return `ssc__ts__fn__${tsFunctionName}`;
   }
@@ -346,6 +350,7 @@ export type CppFunctionStorage = 'imported' | 'topLevel' | 'exportedTopLevel';
 
 export class CppFunctionDeclaration extends CppNode {
   readonly pathId: string;
+  readonly classDeclaration: CppClassDeclaration | undefined;
   readonly storage: CppFunctionStorage;
   readonly isExternC: boolean;
   readonly tsReturnTypeName: string;
@@ -357,6 +362,7 @@ export class CppFunctionDeclaration extends CppNode {
 
   constructor(
     pathId: string,
+    classDeclaration: CppClassDeclaration | undefined,
     storage: CppFunctionStorage,
     isExternC: boolean,
     tsReturnTypeName: string,
@@ -365,6 +371,7 @@ export class CppFunctionDeclaration extends CppNode {
   ) {
     super();
     this.pathId = pathId;
+    this.classDeclaration = classDeclaration;
     this.storage = storage;
     this.isExternC = isExternC;
     this.tsReturnTypeName = tsReturnTypeName;
@@ -414,7 +421,13 @@ export class CppFunctionReference extends CppExpression {
   }
 
   code() {
-    return CppNode.toCppNamespacedName(this.declaration.pathId, this.declaration.cppFunctionName);
+    const { pathId, classDeclaration, cppFunctionName } = this.declaration;
+
+    if (classDeclaration) {
+      return `${classDeclaration.reference.code()}::${cppFunctionName}`;
+    }
+
+    return CppNode.toCppNamespacedName(pathId, cppFunctionName);
   }
 }
 
@@ -432,6 +445,193 @@ export class CppFunctionCall extends CppExpression {
     const args = this.arguments.map((a) => a.code()).join(', ');
 
     return `${this.reference.code()}(${args})`;
+  }
+}
+
+// region shape
+
+export type CppShapeProperty = { tsPropertyName: string; tsTypeName: string };
+
+export class CppShapeDefinition extends CppNode {
+  readonly structName: string;
+  readonly properties: CppShapeProperty[];
+  readonly shapeId: string;
+
+  constructor(properties: CppShapeProperty[]) {
+    super();
+    this.properties = properties;
+    this.shapeId = CppShapeDefinition.getShapeId(this.properties);
+    this.structName = `ssc__ts__shape__${this.shapeId}`;
+  }
+
+  static getShapeId(properties: CppShapeProperty[]) {
+    const text = properties
+      .map((p) => `${p.tsPropertyName}:${CppNode.toCppTypeName(p.tsTypeName)}`)
+      .join(',');
+    let hash = 0xcbf29ce484222325n;
+
+    for (const byte of new TextEncoder().encode(text)) {
+      hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+
+    return hash.toString(16).padStart(16, '0');
+  }
+
+  lines() {
+    const { structName, properties } = this;
+    const w = new CppWriter();
+    const members = properties.map(
+      (p) => `${CppNode.toCppTypeName(p.tsTypeName)} ssc__ts__member__${p.tsPropertyName};`,
+    );
+    const getOffsets = (tsTypeName: string) =>
+      properties
+        .filter((p) => p.tsTypeName === tsTypeName)
+        .map((p) => `__builtin_offsetof(${structName}, ssc__ts__member__${p.tsPropertyName})`);
+    const propertyInfos = properties.map((p) => {
+      const kind =
+        p.tsTypeName === 'union' ?
+          'ssc__core__var__union_kind'
+        : `ssc__core__var__type_id<${CppNode.toCppTypeName(p.tsTypeName)}>`;
+
+      return `{"${p.tsPropertyName}", __builtin_offsetof(${structName}, ssc__ts__member__${p.tsPropertyName}), ${kind}}`;
+    });
+    const defineArray = (suffix: string, type: string, items: string[]) => {
+      if (items.length === 0) {
+        return '{}';
+      }
+
+      w.newline();
+      w.block(`inline constexpr ${type} ${structName}__${suffix}[] =`, () =>
+        items.map((i) => `${i},`),
+      );
+      w.inline(';');
+
+      return `{${items.length}, ${structName}__${suffix}}`;
+    };
+
+    w.block(`struct ${structName}`, () => [
+      'ssc__core__struct__object_header ssc__core__member__object_header;',
+      ...members,
+    ]);
+    w.inline(';');
+
+    const refs = defineArray('ref_offsets', 'ssc__core__type__u64', getOffsets('ref'));
+    const unions = defineArray('union_offsets', 'ssc__core__type__u64', getOffsets('union'));
+    const infos = defineArray('properties', 'ssc__core__struct__property', propertyInfos);
+
+    w.newline();
+    w.block(`inline constexpr ssc__core__struct__shape ${structName}__shape`, () =>
+      [refs, unions, infos, `0x${this.shapeId}ull`].map((i) => `${i},`),
+    );
+    w.inline(';');
+
+    return w.lines();
+  }
+
+  code() {
+    return this.lines().join('\n');
+  }
+}
+
+// region class
+
+export class CppClassDeclaration extends CppNode {
+  readonly pathId: string;
+  readonly tsClassName: string;
+  readonly cppClassName: string;
+  readonly shapeDefinition: CppShapeDefinition;
+  readonly functionDeclarations: CppFunctionDeclaration[] = [];
+  readonly reference: CppClassReference;
+
+  constructor(pathId: string, tsClassName: string, properties: CppShapeProperty[]) {
+    super();
+    this.pathId = pathId;
+    this.tsClassName = tsClassName;
+    this.cppClassName = CppNode.toCppClassName(this.tsClassName);
+    this.shapeDefinition = new CppShapeDefinition(properties);
+    this.reference = new CppClassReference(this);
+  }
+
+  declareFunction(
+    storage: CppFunctionStorage,
+    tsReturnTypeName: string,
+    tsFunctionName: string,
+    parameters: CppVariableDeclaration[],
+  ) {
+    const declaration = this.functionDeclarations.find((d) => d.tsFunctionName === tsFunctionName);
+
+    if (declaration) {
+      return declaration;
+    }
+
+    const newDeclaration = new CppFunctionDeclaration(
+      this.pathId,
+      this,
+      storage,
+      false,
+      tsReturnTypeName,
+      tsFunctionName,
+      parameters,
+    );
+
+    this.functionDeclarations.push(newDeclaration);
+
+    return newDeclaration;
+  }
+
+  code() {
+    const keys = this.shapeDefinition.properties.map((_, index) => index);
+    const keySpan = keys.length === 0 ? '{}' : `{${keys.length}, ssc__ts__descriptor__keys}`;
+    const className = new CppCStringLiteral(this.tsClassName).code();
+    const w = new CppWriter();
+
+    w.block(`namespace ${this.cppClassName}`, () => {
+      const descriptorWriter = new CppWriter();
+
+      if (keys.length !== 0) {
+        descriptorWriter.block(
+          'inline constexpr ssc__core__type__u64 ssc__ts__descriptor__keys[] =',
+          () => keys.map((k) => `${k},`),
+        );
+        descriptorWriter.inline(';');
+        descriptorWriter.newline();
+      }
+
+      descriptorWriter.block(
+        'inline constexpr ssc__core__struct__descriptor ssc__ts__descriptor',
+        () =>
+          [
+            `__builtin_addressof(${this.shapeDefinition.structName}__shape)`,
+            'nullptr',
+            'nullptr',
+            'ssc__core__fn__object_inspect',
+            keySpan,
+            className,
+          ].map((i) => `${i},`),
+      );
+      descriptorWriter.inline(';');
+
+      return [
+        ...this.shapeDefinition.lines(),
+        ...descriptorWriter.lines(),
+        ...this.functionDeclarations.map((d) => new CppDeclarationStatement(d).code()),
+      ];
+    });
+
+    return w.code();
+  }
+}
+
+export class CppClassReference extends CppNode {
+  readonly declaration: CppClassDeclaration;
+
+  constructor(declaration: CppClassDeclaration) {
+    super();
+    this.declaration = declaration;
+  }
+
+  code() {
+    return CppNode.toCppNamespacedName(this.declaration.pathId, this.declaration.cppClassName);
   }
 }
 

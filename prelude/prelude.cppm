@@ -152,7 +152,7 @@ export struct ssc__core__struct__object_header {
   const ssc__core__struct__descriptor* ssc__core__member__descriptor_pointer;
 };
 
-export struct ssc__core__struct__field {
+export struct ssc__core__struct__property {
   const char* ssc__core__member__name;
   ssc__core__type__u64 ssc__core__member__offset;
   ssc__core__type__u64 ssc__core__member__kind;
@@ -161,7 +161,7 @@ export struct ssc__core__struct__field {
 export struct ssc__core__struct__shape {
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__ref_offsets;
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__union_offsets;
-  ssc__core__struct__span<ssc__core__struct__field> ssc__core__member__fields;
+  ssc__core__struct__span<ssc__core__struct__property> ssc__core__member__properties;
   ssc__core__type__u64 ssc__core__member__id;
 };
 
@@ -171,6 +171,7 @@ export struct ssc__core__struct__descriptor {
   ssc__core__type__ref (*ssc__core__member__to_string_pointer)(const ssc__core__type__ref& value);
   ssc__core__type__ref (*ssc__core__member__inspect_pointer)(const ssc__core__type__ref& value);
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__keys;
+  const char* ssc__core__member__class_name;
 };
 
 export struct ssc__core__struct__bstring {
@@ -365,11 +366,11 @@ export inline void ssc__core__fn__drop_rc(ssc__core__struct__object_header* obje
     }
 
     for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__ref_offsets) {
-      ssc__core__fn__pointer_field_at<ssc__core__type__ref>(object_header_pointer, offset)->~ssc__core__type__ref();
+      std::destroy_at(ssc__core__fn__pointer_field_at<ssc__core__type__ref>(object_header_pointer, offset));
     }
 
     for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__union_offsets) {
-      ssc__core__fn__pointer_field_at<ssc__core__type__union>(object_header_pointer, offset)->~ssc__core__type__union();
+      std::destroy_at(ssc__core__fn__pointer_field_at<ssc__core__type__union>(object_header_pointer, offset));
     }
 
     free(object_header_pointer);
@@ -396,7 +397,7 @@ static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
 static_assert(sizeof(ssc__core__struct__object_header) == 16);
 static_assert(sizeof(ssc__core__struct__shape) == 56);
-static_assert(sizeof(ssc__core__struct__descriptor) == 48);
+static_assert(sizeof(ssc__core__struct__descriptor) == 56);
 
 export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
 export inline constexpr ssc__core__type__null ssc__core__var__null{};
@@ -462,19 +463,19 @@ export inline ssc__core__type__ref ssc__core__fn__box(ssc__core__type__union val
   return ssc__core__type__ref(__builtin_addressof(box_pointer->ssc__core__member__object_header));
 }
 
-export inline ssc__core__type__union& ssc__core__fn__box_value(ssc__core__struct__object_header* object_header_pointer) noexcept {
-  return reinterpret_cast<ssc__core__struct__box*>(object_header_pointer)->ssc__core__member__value;
+export inline ssc__core__type__union& ssc__core__fn__box_value(const ssc__core__type__ref& box) noexcept {
+  return reinterpret_cast<ssc__core__struct__box*>(box.ssc__core__member__get_object_header_pointer())->ssc__core__member__value;
 }
 
 export struct ssc__core__struct__closure {
   ssc__core__struct__object_header ssc__core__member__object_header;
   ssc__core__type__union (*ssc__core__member__function)(const ssc__core__struct__closure* closure, ssc__core__struct__span<ssc__core__type__union> arguments);
-  ssc__core__struct__span<ssc__core__struct__object_header*> ssc__core__member__captures;
+  ssc__core__struct__span<ssc__core__type__ref> ssc__core__member__captures;
 };
 
 inline void ssc__core__fn__closure_destroy(ssc__core__struct__object_header* object_header_pointer) noexcept {
-  for (ssc__core__struct__object_header* capture : reinterpret_cast<ssc__core__struct__closure*>(object_header_pointer)->ssc__core__member__captures) {
-    ssc__core__fn__drop_rc(capture);
+  for (const ssc__core__type__ref& capture : reinterpret_cast<ssc__core__struct__closure*>(object_header_pointer)->ssc__core__member__captures) {
+    std::destroy_at(const_cast<ssc__core__type__ref*>(__builtin_addressof(capture)));
   }
 }
 
@@ -485,20 +486,19 @@ inline ssc__core__type__ref ssc__core__fn__closure_to_string(const ssc__core__ty
 inline constexpr ssc__core__struct__shape ssc__core__var__closure_shape{};
 export inline constexpr ssc__core__struct__descriptor ssc__core__var__closure_descriptor{__builtin_addressof(ssc__core__var__closure_shape), ssc__core__fn__closure_destroy, ssc__core__fn__closure_to_string, ssc__core__fn__closure_to_string};
 
-export inline ssc__core__type__ref ssc__core__fn__closure(decltype(ssc__core__struct__closure::ssc__core__member__function) function, std::initializer_list<ssc__core__struct__object_header*> captures) {
-  void* pointer = malloc(sizeof(ssc__core__struct__closure) + captures.size() * sizeof(ssc__core__struct__object_header*));
+export inline ssc__core__type__ref ssc__core__fn__closure(decltype(ssc__core__struct__closure::ssc__core__member__function) function, std::initializer_list<ssc__core__type__ref> captures) {
+  void* pointer = malloc(sizeof(ssc__core__struct__closure) + captures.size() * sizeof(ssc__core__type__ref));
 
   if (!pointer) [[unlikely]] {
     __builtin_trap();
   }
 
   ssc__core__struct__closure* closure_pointer = static_cast<ssc__core__struct__closure*>(pointer);
-  ssc__core__struct__object_header** captures_pointer = reinterpret_cast<ssc__core__struct__object_header**>(closure_pointer + 1);
+  ssc__core__type__ref* captures_pointer = reinterpret_cast<ssc__core__type__ref*>(closure_pointer + 1);
   ssc__core__type__u64 index = 0;
 
-  for (ssc__core__struct__object_header* capture : captures) {
-    ssc__core__fn__clone_rc(capture);
-    captures_pointer[index++] = capture;
+  for (const ssc__core__type__ref& capture : captures) {
+    std::construct_at(captures_pointer + index++, capture);
   }
 
   closure_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__closure_descriptor)};
@@ -1655,21 +1655,28 @@ inline ssc__core__type__ref ssc__core__fn__console_string(const ssc__core__type_
 
 export inline constexpr ssc__core__type__u64 ssc__core__var__union_kind = 4;
 
-export inline ssc__core__struct__object_header* ssc__core__fn__allocate_object(ssc__core__type__u64 size, const ssc__core__struct__descriptor* descriptor_pointer) {
+export inline ssc__core__type__ref ssc__core__fn__allocate_object(ssc__core__type__u64 size, const ssc__core__struct__descriptor* descriptor_pointer) {
   void* pointer = malloc(size);
 
   if (!pointer) [[unlikely]] {
     __builtin_trap();
   }
 
-  ssc__core__struct__object_header* object_header_pointer = static_cast<ssc__core__struct__object_header*>(pointer);
-  *object_header_pointer = {1, descriptor_pointer};
+  char* bytes = static_cast<char*>(pointer);
+  const ssc__core__struct__shape* shape_pointer = descriptor_pointer->ssc__core__member__shape_pointer;
 
-  return object_header_pointer;
-}
+  *static_cast<ssc__core__struct__object_header*>(pointer) = {1, descriptor_pointer};
+  __builtin_memset(bytes + sizeof(ssc__core__struct__object_header), 0, size - sizeof(ssc__core__struct__object_header));
 
-export template <typename Type, typename Value> inline void ssc__core__fn__construct(Type* pointer, Value&& value) {
-  std::construct_at(pointer, static_cast<Value&&>(value));
+  for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__ref_offsets) {
+    std::construct_at(reinterpret_cast<ssc__core__type__ref*>(bytes + offset));
+  }
+
+  for (const ssc__core__type__u64 offset : shape_pointer->ssc__core__member__union_offsets) {
+    std::construct_at(reinterpret_cast<ssc__core__type__union*>(bytes + offset), ssc__core__var__undefined);
+  }
+
+  return ssc__core__type__ref(static_cast<ssc__core__struct__object_header*>(pointer));
 }
 
 inline ssc__core__type__u64 ssc__core__fn__field_offset(const ssc__core__struct__object_header* object_header_pointer, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
@@ -1679,9 +1686,9 @@ inline ssc__core__type__u64 ssc__core__fn__field_offset(const ssc__core__struct_
     return offset;
   }
 
-  for (const ssc__core__struct__field& field : shape_pointer->ssc__core__member__fields) {
-    if (__builtin_strcmp(field.ssc__core__member__name, name) == 0) {
-      return field.ssc__core__member__offset;
+  for (const ssc__core__struct__property& property : shape_pointer->ssc__core__member__properties) {
+    if (__builtin_strcmp(property.ssc__core__member__name, name) == 0) {
+      return property.ssc__core__member__offset;
     }
   }
 
@@ -1769,26 +1776,31 @@ inline ssc__core__type__ref ssc__core__fn__inspect_field(const char* pointer, ss
 export inline ssc__core__type__ref ssc__core__fn__object_inspect(const ssc__core__type__ref& object) {
   const ssc__core__struct__object_header* object_header_pointer = object.ssc__core__member__get_object_header_pointer();
   const ssc__core__struct__descriptor* descriptor_pointer = object_header_pointer->ssc__core__member__descriptor_pointer;
-  const ssc__core__struct__span<ssc__core__struct__field> fields = descriptor_pointer->ssc__core__member__shape_pointer->ssc__core__member__fields;
+  const ssc__core__struct__span<ssc__core__struct__property> properties = descriptor_pointer->ssc__core__member__shape_pointer->ssc__core__member__properties;
+
+  const char* class_name = descriptor_pointer->ssc__core__member__class_name;
+  std::string buffer = class_name ? std::string(class_name) + " " : std::string();
 
   if (descriptor_pointer->ssc__core__member__keys.ssc__core__member__length == 0) {
-    return ssc__core__fn__string_literal<u"{}">();
+    buffer.append("{}");
+
+    return ssc__core__fn__utf8_to_string(reinterpret_cast<const ssc__core__type__u8*>(buffer.data()), buffer.size());
   }
 
-  std::string buffer = "{ ";
+  buffer.append("{ ");
   ssc__core__type__boolean is_first = true;
 
   for (const ssc__core__type__u64 key : descriptor_pointer->ssc__core__member__keys) {
-    const ssc__core__struct__field& field = fields[key];
+    const ssc__core__struct__property& property = properties[key];
 
     if (!is_first) {
       buffer.append(", ");
     }
 
     is_first = false;
-    buffer.append(field.ssc__core__member__name);
+    buffer.append(property.ssc__core__member__name);
     buffer.append(": ");
-    ssc__core__fn__append_text(buffer, ssc__core__fn__inspect_field(reinterpret_cast<const char*>(object_header_pointer) + field.ssc__core__member__offset, field.ssc__core__member__kind));
+    ssc__core__fn__append_text(buffer, ssc__core__fn__inspect_field(reinterpret_cast<const char*>(object_header_pointer) + property.ssc__core__member__offset, property.ssc__core__member__kind));
   }
 
   buffer.append(" }");

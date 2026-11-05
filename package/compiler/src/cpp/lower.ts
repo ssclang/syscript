@@ -2,7 +2,7 @@ import { assert, assertNever } from '@syscript/share/util';
 import BigNumber from 'bignumber.js';
 import * as ast from 'typescript7/ast';
 import * as ts from 'typescript7/sync';
-import { Capture } from '~/cpp/closure.js';
+import { Capture, isSameCapture } from '~/cpp/closure.js';
 import { CppCoreFunctionName } from '~/cpp/core.js';
 import {
   CppBinaryExpression,
@@ -10,6 +10,7 @@ import {
   CppBlock,
   CppBooleanLiteral,
   CppBreakStatement,
+  CppBStringLiteral,
   CppConditionalExpression,
   CppContinueStatement,
   CppCoreFunctionCall,
@@ -26,17 +27,17 @@ import {
   CppNullLiteral,
   CppNumericLiteral,
   CppReturnStatement,
+  CppShapeDefinition,
   CppStatement,
   CppStaticCast,
-  CppBStringLiteral,
   CppStringLiteral,
+  CppTryStatement,
   CppUnaryExpression,
   CppUndefinedLiteral,
   CppUnknownDeclaration,
   CppUnknownExpression,
   CppVariableDeclaration,
   CppVariableStorage,
-  CppTryStatement,
   CppWhileStatement,
 } from '~/cpp/node.js';
 import { CppWriter } from '~/cpp/writer.js';
@@ -80,12 +81,12 @@ import {
   NodeReturnStatement,
   NodeStringLiteral,
   NodeTemplateExpression,
+  NodeThrowStatement,
+  NodeTryStatement,
   NodeTypeDeclaration,
   NodeTypeOfExpression,
   NodeVariableDeclaration,
   NodeVariableStatement,
-  NodeThrowStatement,
-  NodeTryStatement,
   NodeWhileStatement,
 } from '~/ts/node.js';
 import { RealPath } from '~/util/path.js';
@@ -107,7 +108,7 @@ type GlobalContext = {
   programContext: ProgramContext;
   importedForwardMap: Map<RealPath, Map<string, string>>;
   functionValueDefinitionMap: Map<string, string>;
-  shapeDefinitionMap: Map<string, string>;
+  shapeDefinitionMap: Map<string, string[]>;
   variableDeclarationMap: Map<number, CppVariableDeclaration>;
   functionDeclarationMap: Map<number, CppFunctionDeclaration>;
 };
@@ -140,7 +141,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     programContext,
     importedForwardMap: new Map<RealPath, Map<string, string>>(),
     functionValueDefinitionMap: new Map<string, string>(),
-    shapeDefinitionMap: new Map<string, string>(),
+    shapeDefinitionMap: new Map<string, string[]>(),
     variableDeclarationMap: new Map<number, CppVariableDeclaration>(),
     functionDeclarationMap: new Map<number, CppFunctionDeclaration>(),
   } as const satisfies GlobalContext;
@@ -196,7 +197,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   w.block(`namespace ${namespaceName}`, () => [
     ...topLevelVariableDefinitions,
     ...functionForwards,
-    ...globalContext.shapeDefinitionMap.values(),
+    ...globalContext.shapeDefinitionMap.values().flatMap((l) => l),
     ...globalContext.functionValueDefinitionMap.values(),
     ...definedFunctionLines,
     ...topLevelStatements,
@@ -338,6 +339,7 @@ function declareFunction(
   );
   const newDeclaration = new CppFunctionDeclaration(
     getPathId(identifier, context),
+    undefined,
     storage,
     node.isDeclared,
     returnTypeName,
@@ -549,11 +551,11 @@ function lowerForStatement(node: NodeForStatement, context: LowerContext) {
     .filter((i) => isBoxedVariable(i, context))
     .map((i) => {
       const name = getSscBoxName(i.text);
-
-      const pointer = new CppUnknownExpression(
-        `${name}.ssc__core__member__get_object_header_pointer()`,
+      const value = new CppCoreFunctionCall(
+        'ssc__core__fn__box_value',
+        [],
+        [new CppUnknownExpression(name)],
       );
-      const value = new CppCoreFunctionCall('ssc__core__fn__box_value', [], [pointer]);
 
       return `${name} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [value]).code()}, `;
     });
@@ -929,7 +931,10 @@ function lowerFunctionValueCallExpression(node: NodeCallExpression, context: Low
 }
 
 function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerContext) {
-  const captures = context.globalContext.programContext.closureCaptureMap.get(node.tsNode) || [];
+  const { closureCaptureMap, topLevelVariableSymbolIdSet } = context.globalContext.programContext;
+  const captures = (closureCaptureMap.get(node.tsNode) || []).filter(
+    (c) => c.kind !== 'variable' || !topLevelVariableSymbolIdSet.has(c.symbolId),
+  );
   const closureContext = {
     kind: 'closure',
     globalContext: context.globalContext,
@@ -968,11 +973,11 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
     `return ssc__core__type__union(${new CppUndefinedLiteral().code()});`,
   ];
   const lambda = `+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${lines.join(' ')} }`;
-  const boxes = captures.map((c) => getBoxPointerText(c, context));
+  const captureValues = captures.map((c) => getCaptureText(c, context));
 
   const args = [
     new CppUnknownExpression(lambda),
-    new CppUnknownExpression(`{${boxes.join(', ')}}`),
+    new CppUnknownExpression(`{${captureValues.join(', ')}}`),
   ];
 
   return new CppCoreFunctionCall('ssc__core__fn__closure', [], args).code();
@@ -1020,20 +1025,31 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
 }
 
 function isBoxedVariable(node: NodeIdentifier, context: LowerContext) {
-  return context.globalContext.programContext.boxedVariableSymbolIdSet.has(node.getSymbol().id);
+  const { boxedVariableSymbolIdSet, topLevelVariableSymbolIdSet } =
+    context.globalContext.programContext;
+  const symbolId = node.getSymbol().id;
+
+  return boxedVariableSymbolIdSet.has(symbolId) && !topLevelVariableSymbolIdSet.has(symbolId);
 }
 
-function getBoxPointerText(capture: Capture, context: LowerContext) {
+function getCaptureText(capture: Capture, context: LowerContext) {
   const index =
-    context.kind === 'closure' ?
-      context.captures.findIndex((c) => c.symbolId === capture.symbolId)
-    : -1;
+    context.kind === 'closure' ? context.captures.findIndex((c) => isSameCapture(c, capture)) : -1;
 
   if (index !== -1) {
     return `ssc__core__var__closure->ssc__core__member__captures[${index}]`;
   }
 
-  return `${getSscBoxName(capture.name)}.ssc__core__member__get_object_header_pointer()`;
+  if (capture.kind === 'variable') {
+    return getSscBoxName(capture.name);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (capture.kind === 'this') {
+    throw new Error('not implemented this capture');
+  }
+
+  assertNever(capture);
 }
 
 function lowerMethodCallExpression(
@@ -2029,12 +2045,12 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
 
   if (isObjectType(node.app, node.expression.getType())) {
     const text = lowerFieldReference(node, context);
-    const fieldTypeName = getShape(node.expression, context).fields.find(
-      (f) => f.name === node.name,
-    )?.typeName;
+    const propertyTypeName = getShape(node.expression, context).properties.find(
+      (p) => p.tsPropertyName === node.name,
+    )?.tsTypeName;
     const typeName = getSscTypeName(node.app, node.getType());
 
-    if (fieldTypeName === 'union' && typeName !== 'union') {
+    if (propertyTypeName === 'union' && typeName !== 'union') {
       return getUnionReadText(typeName, text);
     }
 
@@ -2044,77 +2060,35 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
   throw new Error(`${node.location()}: not implemented property: ${node.getText()}`);
 }
 
-type Shape = { id: string; structName: string; fields: { name: string; typeName: string }[] };
-
 function getShape(
   node: AbstractNode<ast.Expression>,
   context: LowerContext,
   type = node.getType(),
-): Shape {
+): CppShapeDefinition {
   const { checker } = node.app;
-  const fields = checker
+  const properties = checker
     .getPropertiesOfType(type)
-    .map((s) => ({ name: s.name, typeName: getSscTypeName(node.app, checker.getTypeOfSymbol(s)) }))
+    .map((s) => ({
+      tsPropertyName: s.name,
+      tsTypeName: getSscTypeName(node.app, checker.getTypeOfSymbol(s)),
+    }))
     .sort((a, b) =>
-      a.name < b.name ? -1
-      : a.name > b.name ? 1
+      a.tsPropertyName < b.tsPropertyName ? -1
+      : a.tsPropertyName > b.tsPropertyName ? 1
       : 0,
     );
-  const id = getHash(fields.map((f) => `${f.name}:${CppNode.toCppTypeName(f.typeName)}`).join(','));
-  const structName = `ssc__ts__shape__${id}`;
+  const shapeDefinition = new CppShapeDefinition(properties);
   const definitions = context.globalContext.shapeDefinitionMap;
 
-  if (!definitions.has(structName)) {
-    const members = fields
-      .map((f) => ` ${CppNode.toCppTypeName(f.typeName)} ssc__ts__member__${f.name};`)
-      .join('');
-    const getOffsets = (typeName: string) =>
-      fields
-        .filter((f) => f.typeName === typeName)
-        .map((f) => `__builtin_offsetof(${structName}, ssc__ts__member__${f.name})`);
-    const refOffsets = getOffsets('ref');
-    const unionOffsets = getOffsets('union');
-    const fieldInfos = fields.map((f) => {
-      const kind =
-        f.typeName === 'union' ?
-          'ssc__core__var__union_kind'
-        : `ssc__core__var__type_id<${CppNode.toCppTypeName(f.typeName)}>`;
-
-      return `{"${f.name}", __builtin_offsetof(${structName}, ssc__ts__member__${f.name}), ${kind}}`;
-    });
-    const defineArray = (suffix: string, type: string, items: string[]) => {
-      if (items.length === 0) {
-        return '{}';
-      }
-
-      definitions.set(
-        `${structName}__${suffix}`,
-        `inline constexpr ${type} ${structName}__${suffix}[] = {${items.join(', ')}};`,
-      );
-
-      return `{${items.length}, ${structName}__${suffix}}`;
-    };
-
-    definitions.set(
-      structName,
-      `struct ${structName} { ssc__core__struct__object_header ssc__core__member__object_header;${members} };`,
-    );
-
-    const refs = defineArray('ref_offsets', 'ssc__core__type__u64', refOffsets);
-    const unions = defineArray('union_offsets', 'ssc__core__type__u64', unionOffsets);
-    const infos = defineArray('fields', 'ssc__core__struct__field', fieldInfos);
-
-    definitions.set(
-      `${structName}__shape`,
-      `inline constexpr ssc__core__struct__shape ${structName}__shape{${refs}, ${unions}, ${infos}, 0x${id}ull};`,
-    );
+  if (!definitions.has(shapeDefinition.structName)) {
+    definitions.set(shapeDefinition.structName, shapeDefinition.lines());
   }
 
-  return { id, structName, fields };
+  return shapeDefinition;
 }
 
-function getDescriptorName(shape: Shape, keys: string[], context: LowerContext) {
-  const indices = keys.map((k) => shape.fields.findIndex((f) => f.name === k));
+function getDescriptorName(shape: CppShapeDefinition, keys: string[], context: LowerContext) {
+  const indices = keys.map((k) => shape.properties.findIndex((p) => p.tsPropertyName === k));
   const name = `${shape.structName}__descriptor__${indices.join('_')}`;
   const definitions = context.globalContext.shapeDefinitionMap;
 
@@ -2122,29 +2096,17 @@ function getDescriptorName(shape: Shape, keys: string[], context: LowerContext) 
     const keySpan = indices.length === 0 ? '{}' : `{${indices.length}, ${name}__keys}`;
 
     if (indices.length !== 0) {
-      definitions.set(
-        `${name}__keys`,
+      definitions.set(`${name}__keys`, [
         `inline constexpr ssc__core__type__u64 ${name}__keys[] = {${indices.join(', ')}};`,
-      );
+      ]);
     }
 
-    definitions.set(
-      name,
+    definitions.set(name, [
       `inline constexpr ssc__core__struct__descriptor ${name}{__builtin_addressof(${shape.structName}__shape), nullptr, nullptr, ssc__core__fn__object_inspect, ${keySpan}};`,
-    );
+    ]);
   }
 
   return name;
-}
-
-function getHash(text: string) {
-  let hash = 0xcbf29ce484222325n;
-
-  for (const byte of new TextEncoder().encode(text)) {
-    hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
-  }
-
-  return hash.toString(16).padStart(16, '0');
 }
 
 function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context: LowerContext) {
@@ -2161,25 +2123,17 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
   );
   const keys = node.properties.map((p) => p.name);
   const descriptor = getDescriptorName(shape, keys, context);
-  const field = (name: string) => `__builtin_addressof(object->ssc__ts__member__${name})`;
   const values = node.properties.map(
-    (p) =>
-      `${new CppCoreFunctionCall('ssc__core__fn__construct', [], [new CppUnknownExpression(field(p.name)), new CppUnknownExpression(lowerValue(p.value, context))]).code()};`,
+    (p) => `object->ssc__ts__member__${p.name} = ${lowerValue(p.value, context)};`,
   );
-  const missings = shape.fields
-    .filter((f) => !keys.includes(f.name))
-    .map((f) => {
-      assert(
-        f.typeName === 'union',
-        `${node.location()}: not implemented missing property: ${f.name}`,
-      );
 
-      const value = new CppUnknownExpression(
-        `ssc__core__type__union(${new CppUndefinedLiteral().code()})`,
-      );
+  for (const p of shape.properties) {
+    assert(
+      keys.includes(p.tsPropertyName) || p.tsTypeName === 'union',
+      `${node.location()}: not implemented missing property: ${p.tsPropertyName}`,
+    );
+  }
 
-      return `${new CppCoreFunctionCall('ssc__core__fn__construct', [], [new CppUnknownExpression(field(f.name)), value]).code()};`;
-    });
   const allocate = new CppCoreFunctionCall(
     'ssc__core__fn__allocate_object',
     [],
@@ -2188,27 +2142,27 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
       new CppUnknownExpression(`__builtin_addressof(${descriptor})`),
     ],
   );
-  const allocation = `${shape.structName}* object = reinterpret_cast<${shape.structName}*>(${allocate.code()});`;
+  const allocation = `ssc__core__type__ref reference = ${allocate.code()}; ${shape.structName}* object = reinterpret_cast<${shape.structName}*>(reference.ssc__core__member__get_object_header_pointer());`;
 
-  return `[&] { ${[allocation, ...values, ...missings].join(' ')} return ssc__core__type__ref(__builtin_addressof(object->ssc__core__member__object_header)); }()`;
+  return `[&] { ${[allocation, ...values].join(' ')} return reference; }()`;
 }
 
 function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerContext) {
   const shape = getShape(node.expression, context);
-  const field = shape.fields.find((f) => f.name === node.name);
+  const property = shape.properties.find((p) => p.tsPropertyName === node.name);
 
-  assert(field, `${node.location()}: not implemented property: ${node.getText()}`);
+  assert(property, `${node.location()}: not implemented property: ${node.getText()}`);
 
   const args = [
     new CppUnknownExpression(lowerExpression(node.expression, context)),
-    new CppUnknownExpression(`0x${shape.id}ull`),
+    new CppUnknownExpression(`0x${shape.shapeId}ull`),
     new CppUnknownExpression(
       `__builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name})`,
     ),
     new CppCStringLiteral(node.name),
   ];
 
-  return new CppCoreFunctionCall('ssc__core__fn__field', [field.typeName], args).code();
+  return new CppCoreFunctionCall('ssc__core__fn__field', [property.tsTypeName], args).code();
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {
@@ -2706,9 +2660,9 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
   );
 
   if (isBoxedVariable(node, context)) {
-    const capture = { symbolId: node.getSymbol().id, name: node.text };
+    const capture = { kind: 'variable', symbolId: node.getSymbol().id, name: node.text } as const;
 
-    const args = [new CppUnknownExpression(getBoxPointerText(capture, context))];
+    const args = [new CppUnknownExpression(getCaptureText(capture, context))];
 
     return new CppCoreFunctionCall('ssc__core__fn__box_value', [], args).code();
   }

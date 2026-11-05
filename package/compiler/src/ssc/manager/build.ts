@@ -1,10 +1,13 @@
+import { AnyString } from '@syscript/share/type';
+import { assert } from '@syscript/share/util';
 import { spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { lower, ProgramContext, renderMainCpp, renderTsCppm } from '~/cpp/lower.js';
 import { analyzeClosure } from '~/cpp/closure.js';
+import { lower, ProgramContext, renderMainCpp, renderTsCppm } from '~/cpp/lower.js';
 import { analyzeTdz } from '~/cpp/tdz.js';
 import { SscIdManager } from '~/ssc/manager/id.js';
+import { SscModuleCacheManager } from '~/ssc/manager/module-cache.js';
 import { TsApp } from '~/ts/app.js';
 import { AppSourceFile } from '~/ts/node.js';
 import { TsParser } from '~/ts/parser.js';
@@ -16,12 +19,13 @@ import { Path, RealPath } from '~/util/path.js';
 declare const _sscTsserverPath: string | undefined;
 declare const _sscPreludeDir: string | undefined;
 
-export type SscBuildProfile = 'dev' | 'release' | 'test';
+export type SscBuildProfile = AnyString<'dev' | 'release'>;
 
 type SscBuildManagerOption = {
   outDir: string;
-  profile: SscBuildProfile;
+  profileDir: string;
   idManager: SscIdManager;
+  moduleCacheManager: SscModuleCacheManager;
 };
 
 type CompiledModule = {
@@ -64,16 +68,20 @@ export class SscBuildManager {
 
   readonly outDir: string;
   readonly markerPath: string;
+  readonly profileDir: string;
   readonly buildDir: string;
   readonly codeDir: string;
   readonly idManager: SscIdManager;
+  readonly moduleCacheManager: SscModuleCacheManager;
 
   constructor(option: SscBuildManagerOption) {
     this.outDir = option.outDir;
     this.markerPath = path.join(this.outDir, '.ssc');
-    this.buildDir = path.join(this.outDir, 'build', option.profile);
+    this.profileDir = option.profileDir;
+    this.buildDir = path.join(this.profileDir, 'build');
     this.codeDir = path.join(this.buildDir, 'src');
     this.idManager = option.idManager;
+    this.moduleCacheManager = option.moduleCacheManager;
   }
 
   async compile(inputEntryPath: string) {
@@ -237,12 +245,6 @@ export class SscBuildManager {
     const cppDir = path.join(codeDir, 'cpp');
     const oDir = path.join(codeDir, 'o');
 
-    const stdCppmPath = PathResolver.stdCppmPath();
-    const stdPcmPath = path.join(pcmDir, 'std.pcm');
-
-    const sscCppmPath = PathResolver.preludeCppmPath();
-    const sscPcmPath = path.join(pcmDir, 'ssc.pcm');
-
     const tsCppmPath = path.join(cppmDir, 'ts.cppm');
     const tsPcmPath = path.join(pcmDir, 'ts.pcm');
 
@@ -275,23 +277,37 @@ export class SscBuildManager {
         '-o',
         oPath,
       ]);
-      oPaths.push(oPath);
     };
 
+    const clangVersion = SscBuildManager.getClangVersion(clang);
+    const stdCppmPath = PathResolver.stdCppmPath();
+    const sscCppmPath = PathResolver.preludeCppmPath();
+    const tsOPath = path.join(oDir, 'ts.o');
+
     await File.write(tsCppmPath, renderTsCppm(pathIds));
-    compileCppm(stdCppmPath, stdPcmPath, path.join(oDir, 'std.o'), [
-      '-Wno-reserved-module-identifier',
-    ]);
-    compileCppm(sscCppmPath, sscPcmPath, path.join(oDir, 'ssc.o'), [
-      `-fmodule-file=std=${stdPcmPath}`,
-    ]);
-    compileCppm(tsCppmPath, tsPcmPath, path.join(oDir, 'ts.o'));
+
+    const std = await this.moduleCacheManager.loadOrCompile(
+      stdCppmPath,
+      [clangVersion, ...compileFlags, await File.read(stdCppmPath)],
+      (pcmPath, oPath) =>
+        compileCppm(stdCppmPath, pcmPath, oPath, ['-Wno-reserved-module-identifier']),
+    );
+    const ssc = await this.moduleCacheManager.loadOrCompile(
+      sscCppmPath,
+      [clangVersion, ...compileFlags, std.key, await File.read(sscCppmPath), std.key],
+      (pcmPath, oPath) =>
+        compileCppm(sscCppmPath, pcmPath, oPath, [`-fmodule-file=std=${std.pcmPath}`]),
+    );
+
+    compileCppm(tsCppmPath, tsPcmPath, tsOPath);
+
+    oPaths.push(std.oPath, ssc.oPath, tsOPath);
 
     // region render and compile cpp
     const renderAndCompileCpp = async (code: string, cppPath: string, oPath: string) => {
       const pcmFlags = [
-        `-fmodule-file=std=${stdPcmPath}`,
-        `-fmodule-file=ssc=${sscPcmPath}`,
+        `-fmodule-file=std=${std.pcmPath}`,
+        `-fmodule-file=ssc=${ssc.pcmPath}`,
         `-fmodule-file=ts=${tsPcmPath}`,
       ];
 
@@ -459,7 +475,24 @@ export class SscBuildManager {
   //   await File.writeIfChanged(layout.moduleMapPath, moduleMap, true);
   // }
 
-  /** 진단은 clang이 색까지 입혀 그대로 내보내는 게 읽기 좋다. 우리는 짧게만 던진다. */
+  private static clangVersionMap = new Map<string, string>();
+
+  private static getClangVersion(clang: string) {
+    const version = SscBuildManager.clangVersionMap.get(clang);
+
+    if (version) {
+      return version;
+    }
+
+    const { status, stdout } = spawnSync(clang, ['--version'], { encoding: 'utf8' });
+
+    assert(status === 0, `${clang} --version failed (exit ${status})`);
+
+    SscBuildManager.clangVersionMap.set(clang, stdout);
+
+    return stdout;
+  }
+
   private static run(command: string, args: readonly string[]) {
     const { status } = spawnSync(command, args, { stdio: 'inherit' });
 

@@ -109,6 +109,10 @@ export abstract class AbstractStatement<
       return new NodeFunctionDeclaration(app, tsNode);
     }
 
+    if (ast.isClassDeclaration(tsNode)) {
+      return new NodeClassDeclaration(app, tsNode);
+    }
+
     if (ast.isInterfaceDeclaration(tsNode) || ast.isTypeAliasDeclaration(tsNode)) {
       return new NodeTypeDeclaration(app, tsNode);
     }
@@ -247,6 +251,14 @@ export abstract class AbstractExpression<
       return new NodeTemplateExpression(app, tsNode);
     }
 
+    if (ast.isNewExpression(tsNode)) {
+      return new NodeNewExpression(app, tsNode);
+    }
+
+    if (ast.isThisExpression(tsNode)) {
+      return new NodeThisExpression(app, tsNode);
+    }
+
     throw new Error(`not implemented expression: ${tsNode.getText()}`);
   }
 }
@@ -275,6 +287,116 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
 
   getReturnType() {
     return this.getSignature().getReturnType();
+  }
+}
+
+export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration> {
+  readonly isExported: boolean;
+  readonly isDeclared: boolean;
+  readonly identifier: NodeIdentifier;
+  readonly properties: NodePropertyDeclaration[] = [];
+  readonly methods: NodeMethodDeclaration[] = [];
+  readonly constructorDeclaration?: NodeConstructorDeclaration;
+
+  constructor(app: TsApp, tsNode: ast.ClassDeclaration) {
+    super(app, tsNode);
+
+    const { name, heritageClauses, typeParameters, members } = this.tsNode;
+    const notImplemented = (what: string) =>
+      `${this.location()}: not implemented ${what}: ${this.getText()}`;
+
+    assert(name, notImplemented('anonymous class'));
+    assert(!heritageClauses?.length, notImplemented('class heritage'));
+    assert(!typeParameters?.length, notImplemented('generic class'));
+    assert(
+      !isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract),
+      notImplemented('abstract class'),
+    );
+
+    this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
+    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.identifier = new NodeIdentifier(app, name);
+
+    for (const member of members) {
+      if (ast.isSemicolonClassElement(member)) {
+        continue;
+      }
+
+      if (ast.isPropertyDeclaration(member)) {
+        this.properties.push(new NodePropertyDeclaration(app, member));
+      } else if (ast.isMethodDeclaration(member)) {
+        this.methods.push(new NodeMethodDeclaration(app, member));
+      } else if (ast.isConstructorDeclaration(member)) {
+        this.constructorDeclaration = new NodeConstructorDeclaration(app, member);
+      } else {
+        throw new Error(notImplemented('class member'));
+      }
+    }
+  }
+}
+
+function assertSimpleClassMember(
+  node: AbstractNode<ast.PropertyDeclaration | ast.MethodDeclaration>,
+) {
+  const { name } = node.tsNode;
+
+  assert(
+    ast.isIdentifier(name),
+    `${node.location()}: not implemented class member name: ${node.getText()}`,
+  );
+  assert(
+    !isModifierFlagMatch(node.tsNode, ast.ModifierFlags.Static | ast.ModifierFlags.Abstract),
+    `${node.location()}: not implemented static or abstract member: ${node.getText()}`,
+  );
+
+  return name;
+}
+
+export class NodePropertyDeclaration extends AbstractNode<ast.PropertyDeclaration> {
+  readonly name: string;
+  readonly initializer?: AbstractExpression;
+
+  constructor(app: TsApp, tsNode: ast.PropertyDeclaration) {
+    super(app, tsNode);
+    this.name = assertSimpleClassMember(this).text;
+    this.initializer =
+      this.tsNode.initializer && AbstractExpression.of(app, this.tsNode.initializer);
+  }
+}
+
+export class NodeMethodDeclaration extends AbstractNode<ast.MethodDeclaration> {
+  readonly name: string;
+  readonly parameters: NodeParameterDeclaration[];
+  readonly block: NodeBlock | undefined;
+
+  constructor(app: TsApp, tsNode: ast.MethodDeclaration) {
+    super(app, tsNode);
+    this.name = assertSimpleClassMember(this).text;
+    this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
+    this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
+  }
+
+  getReturnType() {
+    return this.app.checker.getSignatureFromDeclaration(this.tsNode).getReturnType();
+  }
+}
+
+export class NodeConstructorDeclaration extends AbstractNode<ast.ConstructorDeclaration> {
+  readonly parameters: NodeParameterDeclaration[];
+  readonly block: NodeBlock | undefined;
+
+  constructor(app: TsApp, tsNode: ast.ConstructorDeclaration) {
+    super(app, tsNode);
+
+    for (const parameter of this.tsNode.parameters) {
+      assert(
+        !isModifierFlagMatch(parameter, ast.ModifierFlags.ParameterPropertyModifier),
+        `${this.location()}: not implemented parameter property: ${parameter.getText()}`,
+      );
+    }
+
+    this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
+    this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
   }
 }
 
@@ -508,15 +630,6 @@ export class NodeInterfaceDeclaration extends AbstractStatement<ast.InterfaceDec
   }
 }
 
-export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration> {
-  readonly isDeclared: boolean;
-
-  constructor(app: TsApp, tsNode: ast.ClassDeclaration) {
-    super(app, tsNode);
-    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
-  }
-}
-
 export class NodeTypeDeclaration extends AbstractStatement<
   ast.InterfaceDeclaration | ast.TypeAliasDeclaration
 > {}
@@ -589,6 +702,27 @@ export class NodeCallExpression extends AbstractExpression<ast.CallExpression> {
     this.arguments = tsNode.arguments.map((arg) => AbstractExpression.of(app, arg));
   }
 }
+
+export class NodeNewExpression extends AbstractExpression<ast.NewExpression> {
+  readonly identifier: NodeIdentifier;
+  readonly arguments: AbstractExpression[];
+
+  constructor(app: TsApp, tsNode: ast.NewExpression) {
+    super(app, tsNode);
+
+    const { expression } = this.tsNode;
+
+    assert(
+      ast.isIdentifier(expression),
+      `${this.location()}: not implemented new target: ${this.getText()}`,
+    );
+
+    this.identifier = new NodeIdentifier(app, expression);
+    this.arguments = (this.tsNode.arguments ?? []).map((arg) => AbstractExpression.of(app, arg));
+  }
+}
+
+export class NodeThisExpression extends AbstractExpression<ast.ThisExpression> {}
 
 export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpression> {
   readonly expression: AbstractExpression;

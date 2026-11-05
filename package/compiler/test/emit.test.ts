@@ -7,20 +7,16 @@ import { expect, test, vi } from 'vitest';
 import { SscManager } from '~/ssc/manager/ssc.js';
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture');
+const outDir = path.join(import.meta.dirname, '.ssc');
+
+const manager = await SscManager.init({ outDir, profile: 'test/emit' });
 
 async function spawn(entryPath: string) {
-  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syscript-'));
+  const { modules } = await manager.buildManager.compile(entryPath);
+  const binPath = await manager.buildManager.emit(modules, { entryPath });
+  const { status, stdout, stderr } = spawnSync(binPath, { encoding: 'utf8' });
 
-  try {
-    const manager = await SscManager.init({ outDir, profile: 'test' });
-    const { modules } = await manager.buildManager.compile(entryPath);
-    const binPath = await manager.buildManager.emit(modules, { entryPath });
-    const { status, stdout, stderr } = spawnSync(binPath, { encoding: 'utf8' });
-
-    return { status, stdout, stderr };
-  } finally {
-    await fs.rm(outDir, { recursive: true, force: true });
-  }
+  return { status, stdout, stderr };
 }
 
 async function runProcess(entryPath: string) {
