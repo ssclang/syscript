@@ -417,6 +417,23 @@ test('finally is not implemented', async () => {
   );
 });
 
+test.each([
+  ['class A {}\nclass B extends A {}', 'not implemented class heritage'],
+  ['abstract class A {}', 'not implemented abstract class'],
+  ['class A {\n  static x: number = 1;\n}', 'not implemented static or abstract member'],
+  ['class A {\n  get x(): number {\n    return 1;\n  }\n}', 'not implemented class member'],
+  ['class A {\n  #x: number = 1;\n}', 'not implemented class member name'],
+  ['class A {\n  constructor(public x: number) {}\n}', 'not implemented parameter property'],
+  ['function f(): void {\n  class A {}\n}', 'not implemented local class'],
+  [
+    'class A {\n  constructor() {\n    return this;\n  }\n}',
+    'not implemented constructor return value',
+  ],
+  ['class A {\n  m(): void {}\n}\nconst f = new A().m;', 'not implemented property'],
+])('class %s is not implemented', async (source, message) => {
+  await expect(runSource(source)).rejects.toThrow(message);
+});
+
 test('number-output.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'number-output.ts'))).toEqual({
     status: 0,
@@ -536,6 +553,29 @@ test('array-callback.ts', async () => {
       '2 -1 2',
       '',
     ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('class.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'class.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '1 3 c=3',
+      '114',
+      "Counter { count: 4, label: 'c', step: 1 }",
+      "Empty {} Order { log: 'ac', extra: 'ab' }",
+      '2 Link { value: 1, next: Link { value: 2, next: undefined } }',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('import-class.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'import-class.ts'))).toEqual({
+    status: 0,
+    stdout: '44 Box { value: 22 }\n',
     stderr: '',
   });
 });

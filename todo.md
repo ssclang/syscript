@@ -384,6 +384,25 @@ shape
   소멸 함수(null 가능)를 두고 std 컨테이너 소멸자에 정리를 맡기는 방향. 원소 shape별로 몇 개만 생김
 - 힙 객체 생성: placement new 없이 `ref` 필드를 가진 객체를 만드는 방법(테스트는 `__builtin_memcpy`로 만듦)
 
+[클래스]
+1단계(상속 없음) ✅ 2026-11-06
+- 클래스 하나 = C++ 네임스페이스 `ssc__ts__class__<이름>`. 구조체(shape), descriptor(클래스 이름 포함), 생성자, 메소드가 모두 그 안에 있음.
+  C++ class를 쓰지 않는 이유: vptr이 객체 헤더(descriptor)와 겹치고 offsetof를 못 씀, 부모 생성자 안의 가상 호출 의미가 JS와 다름,
+  구조적 타입(같은 모양의 plain object)에 메소드 호출을 못 함
+- 필드 순서는 선언 순서. 초기값 없는 필드는 `allocate_object`가 기본값(숫자 0, ref null, union undefined)으로 채움
+- `new C(a)` → `C::constructor(allocate_object(sizeof, &C::descriptor), a)`. 할당은 `new` 자리에서 하고 생성자는 `this`를 받아
+  필드 초기값 → 본문 → `this` 반환. `super()`도 부모 생성자에 같은 `this`를 넘기면 됨(JS의 new.target과 같은 결과)
+- 메소드는 `this`를 첫 인자로 받는 함수, 직접 호출. 화살표 함수의 `this`는 클로저 캡처(ref)
+- 다른 파일의 클래스는 쓰는 곳에서 클래스 블록을 forward로 다시 냄
+- 막아 둔 것(컴파일 에러): extends, abstract, static, 접근자, `#private`, 파라미터 프로퍼티, 지역 클래스, 생성자 반환값,
+  메소드를 값으로 꺼내기, `declare class`
+
+다음 단계
+2. 상속: 부모 레이아웃을 앞에 두는 구조체, `super(...)`/`super.m()`, descriptor의 메소드 테이블(vtable), `instanceof`(부모 descriptor 체인)
+3. 필드 접근: 클래스 타입 수신자는 정적 읽기, 그 밖은 완전 해시. 지금의 shape id 비교 → strcmp 검색을 대체
+4. 접근자, static, `#private`, abstract, 메소드 값
+5. Error 클래스와 prelude 에러를 Error 객체로 전환
+
 [제네릭]
 방향: shape별 단일 구현(Go 1.18+의 GC shape stenciling + dictionary 방식)
 - 참조 타입은 모두 같은 shape(`ref` 8바이트)라 구현 하나를 공유. `Array<User>`, `Array<string>`이 같은 코드

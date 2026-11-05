@@ -14,6 +14,7 @@ import {
   CppConditionalExpression,
   CppContinueStatement,
   CppCoreFunctionCall,
+  CppClassDeclaration,
   CppCStringLiteral,
   CppDeclarationStatement,
   CppExpression,
@@ -60,6 +61,7 @@ import {
   NodeBlock,
   NodeBooleanLiteral,
   NodeBreakStatement,
+  NodeClassDeclaration,
   NodeCallExpression,
   NodeConditionalExpression,
   NodeContinueStatement,
@@ -70,7 +72,10 @@ import {
   NodeFunctionExpression,
   NodeIdentifier,
   NodeIfStatement,
+  NodeMethodDeclaration,
+  NodeParameterDeclaration,
   NodeImportDeclaration,
+  NodeNewExpression,
   NodeNullLiteral,
   NodeNumericLiteral,
   NodeObjectLiteralExpression,
@@ -81,6 +86,7 @@ import {
   NodeReturnStatement,
   NodeStringLiteral,
   NodeTemplateExpression,
+  NodeThisExpression,
   NodeThrowStatement,
   NodeTryStatement,
   NodeTypeDeclaration,
@@ -101,16 +107,17 @@ export type ProgramContext = {
   closureCaptureMap: Map<ast.Node, Capture[]>;
 };
 
-type LowerContext = TopLevelContext | FunctionContext | ClosureContext;
+type LowerContext = TopLevelContext | FunctionContext | ConstructorContext | ClosureContext;
 
 type GlobalContext = {
   kind: 'global';
   programContext: ProgramContext;
-  importedForwardMap: Map<RealPath, Map<string, string>>;
+  importedForwardMap: Map<RealPath, Map<string, string[]>>;
   functionValueDefinitionMap: Map<string, string>;
   shapeDefinitionMap: Map<string, string[]>;
   variableDeclarationMap: Map<number, CppVariableDeclaration>;
   functionDeclarationMap: Map<number, CppFunctionDeclaration>;
+  classDeclarationMap: Map<number, CppClassDeclaration>;
 };
 
 type TopLevelContext = {
@@ -120,6 +127,11 @@ type TopLevelContext = {
 
 type FunctionContext = {
   kind: 'function';
+  globalContext: GlobalContext;
+};
+
+type ConstructorContext = {
+  kind: 'constructor';
   globalContext: GlobalContext;
 };
 
@@ -139,11 +151,12 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   const globalContext = {
     kind: 'global',
     programContext,
-    importedForwardMap: new Map<RealPath, Map<string, string>>(),
+    importedForwardMap: new Map<RealPath, Map<string, string[]>>(),
     functionValueDefinitionMap: new Map<string, string>(),
     shapeDefinitionMap: new Map<string, string[]>(),
     variableDeclarationMap: new Map<number, CppVariableDeclaration>(),
     functionDeclarationMap: new Map<number, CppFunctionDeclaration>(),
+    classDeclarationMap: new Map<number, CppClassDeclaration>(),
   } as const satisfies GlobalContext;
   const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
@@ -175,6 +188,21 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   const definedFunctionLines = functions
     .filter((f) => !f.isDeclared)
     .flatMap((f) => lowerFunction(f, topLevelContext));
+  const classes = sourceFile.statements
+    .filter((n) => n instanceof NodeClassDeclaration)
+    .filter((c) => !c.isDeclared);
+  const classDeclarationLines = classes.flatMap((c) => {
+    const storage = getTopLevelClassStorage(c);
+
+    declareConstructor(c, topLevelContext, storage);
+
+    for (const method of c.methods) {
+      declareMethod(c, method, topLevelContext, storage);
+    }
+
+    return declareClass(c, topLevelContext).code().split('\n');
+  });
+  const definedClassLines = classes.flatMap((c) => lowerClass(c, topLevelContext));
   const topLevelStatements = lowerTopLevelStatements(sourceFile, topLevelContext);
   const w = new CppWriter();
 
@@ -188,7 +216,10 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     const [realPath, forwards] = entry;
 
     w.block(`namespace ${CppNode.toCppNamespaceName(pathToId(realPath))}`, () =>
-      forwards.values().toArray(),
+      forwards
+        .values()
+        .flatMap((l) => l)
+        .toArray(),
     );
     w.newline();
     w.newline();
@@ -197,9 +228,11 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
   w.block(`namespace ${namespaceName}`, () => [
     ...topLevelVariableDefinitions,
     ...functionForwards,
+    ...classDeclarationLines,
     ...globalContext.shapeDefinitionMap.values().flatMap((l) => l),
     ...globalContext.functionValueDefinitionMap.values(),
     ...definedFunctionLines,
+    ...definedClassLines,
     ...topLevelStatements,
   ]);
 
@@ -363,23 +396,161 @@ function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelC
 
   w.block(declareFunction(node, context, getTopLevelFunctionStorage(node)).code(), () => {
     assert(node.block); // TODO: remove
-    const boxes = node.parameters
-      .map((p) => p.bindingName.identifier)
-      .filter((i) => isBoxedVariable(i, context))
-      .map(
-        (i) =>
-          `ssc__core__type__ref ${getSscBoxName(i.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [getVariableReference(i, context)]).code()};`,
-      );
 
-    return [
-      ...boxes,
-      ...node.block.statements
-        .values()
-        .flatMap((s) =>
-          lowerStatement(s, context).flatMap((statement) => statement.code().split('\n')),
+    return lowerFunctionBody(node.parameters, node.block, context);
+  });
+
+  return w.lines();
+}
+
+function lowerFunctionBody(
+  parameters: NodeParameterDeclaration[],
+  block: NodeBlock,
+  context: FunctionContext | ConstructorContext,
+) {
+  const boxes = parameters
+    .map((p) => p.bindingName.identifier)
+    .filter((i) => isBoxedVariable(i, context))
+    .map(
+      (i) =>
+        `ssc__core__type__ref ${getSscBoxName(i.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [getVariableReference(i, context)]).code()};`,
+    );
+
+  return [
+    ...boxes,
+    ...block.statements
+      .values()
+      .flatMap((s) =>
+        lowerStatement(s, context).flatMap((statement) => statement.code().split('\n')),
+      )
+      .toArray(),
+  ];
+}
+
+function getTopLevelClassStorage(node: NodeClassDeclaration) {
+  return node.isExported ? 'exportedTopLevel' : 'topLevel';
+}
+
+function declareClass(node: NodeClassDeclaration, context: LowerContext) {
+  const { classDeclarationMap } = context.globalContext;
+  const { identifier } = node;
+  const symbolId = identifier.getSymbol().id;
+  const declaration = classDeclarationMap.get(symbolId);
+
+  if (declaration) {
+    return declaration;
+  }
+
+  assert(
+    !node.isDeclared,
+    `${node.location()}: not implemented declared class: ${identifier.text}`,
+  );
+
+  const properties = node.properties.map((p) => ({
+    tsPropertyName: p.name,
+    tsTypeName: getSscTypeName(node.app, p.getType()),
+  }));
+  const newDeclaration = new CppClassDeclaration(
+    getPathId(identifier, context),
+    identifier.text,
+    properties,
+  );
+
+  classDeclarationMap.set(symbolId, newDeclaration);
+
+  return newDeclaration;
+}
+
+function declareThisParameter() {
+  return new CppVariableDeclaration(undefined, 'local', false, 'ref', 'this');
+}
+
+function declareConstructor(
+  node: NodeClassDeclaration,
+  context: LowerContext,
+  storage: CppFunctionStorage,
+) {
+  const parameters = (node.constructorDeclaration?.parameters ?? []).map((p) =>
+    declareVariable(p.bindingName.identifier, context, 'local', false),
+  );
+
+  return declareClass(node, context).declareFunction(storage, 'ref', 'constructor', [
+    declareThisParameter(),
+    ...parameters,
+  ]);
+}
+
+function declareMethod(
+  node: NodeClassDeclaration,
+  method: NodeMethodDeclaration,
+  context: LowerContext,
+  storage: CppFunctionStorage,
+) {
+  const parameters = method.parameters.map((p) =>
+    declareVariable(p.bindingName.identifier, context, 'local', false),
+  );
+
+  return declareClass(node, context).declareFunction(
+    storage,
+    getSscTypeName(node.app, method.getReturnType()),
+    method.name,
+    [declareThisParameter(), ...parameters],
+  );
+}
+
+function lowerClass(node: NodeClassDeclaration, topLevelContext: TopLevelContext) {
+  const { globalContext } = topLevelContext;
+  const storage = getTopLevelClassStorage(node);
+  const classDeclaration = declareClass(node, topLevelContext);
+  const { structName } = classDeclaration.shapeDefinition;
+  const { constructorDeclaration } = node;
+  const w = new CppWriter();
+
+  w.block(`namespace ${classDeclaration.cppClassName}`, () => {
+    const memberWriter = new CppWriter();
+    const constructorContext = {
+      kind: 'constructor',
+      globalContext,
+    } as const satisfies ConstructorContext;
+
+    const initializers = node.properties.flatMap((p) =>
+      p.initializer ?
+        [
+          `ssc__core__var__object->ssc__ts__member__${p.name} = ${lowerValue(p.initializer, constructorContext)};`,
+        ]
+      : [],
+    );
+
+    memberWriter.block(declareConstructor(node, constructorContext, storage).code(), () => [
+      ...(initializers.length === 0 ?
+        []
+      : [
+          `${structName}* ssc__core__var__object = reinterpret_cast<${structName}*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer());`,
+          ...initializers,
+        ]),
+      ...(constructorDeclaration?.block ?
+        lowerFunctionBody(
+          constructorDeclaration.parameters,
+          constructorDeclaration.block,
+          constructorContext,
         )
-        .toArray(),
-    ];
+      : []),
+      'return ssc__ts__var__this;',
+    ]);
+
+    for (const method of node.methods) {
+      const { block } = method;
+      const methodContext = { kind: 'function', globalContext } as const satisfies FunctionContext;
+
+      assert(block, `${method.location()}: declared method can not be lowered`);
+
+      memberWriter.newline();
+      memberWriter.block(declareMethod(node, method, methodContext, storage).code(), () =>
+        lowerFunctionBody(method.parameters, block, methodContext),
+      );
+    }
+
+    return memberWriter.lines();
   });
 
   return w.lines();
@@ -394,7 +565,10 @@ function lowerTopLevelStatements(sourceFile: AppSourceFile, context: TopLevelCon
     return sourceFile.statements
       .values()
       .filter(
-        (s) => !(s instanceof NodeFunctionDeclaration) && !(s instanceof NodeImportDeclaration),
+        (s) =>
+          !(s instanceof NodeFunctionDeclaration)
+          && !(s instanceof NodeImportDeclaration)
+          && !(s instanceof NodeClassDeclaration),
       )
       .flatMap((s) => {
         if (s instanceof NodeVariableStatement) {
@@ -452,6 +626,15 @@ function lowerStatement(node: AbstractStatement, context: LowerContext): CppStat
   }
 
   if (node instanceof NodeReturnStatement) {
+    if (context.kind === 'constructor') {
+      assert(
+        !node.expression,
+        `${node.location()}: not implemented constructor return value: ${node.getText()}`,
+      );
+
+      return [new CppReturnStatement(new CppUnknownExpression('ssc__ts__var__this'))];
+    }
+
     if (context.kind === 'closure') {
       const value =
         node.expression ? lowerValue(node.expression, context) : new CppUndefinedLiteral().code();
@@ -502,6 +685,10 @@ function lowerStatement(node: AbstractStatement, context: LowerContext): CppStat
 
   if (node instanceof NodeTryStatement) {
     return [lowerTryStatement(node, context)];
+  }
+
+  if (node instanceof NodeClassDeclaration) {
+    throw new Error(`${node.location()}: not implemented local class: ${node.identifier.text}`);
   }
 
   throw new Error(`not implemented statement: ${node.getText()}`);
@@ -731,6 +918,14 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return lowerFunctionExpression(node, context);
   }
 
+  if (node instanceof NodeNewExpression) {
+    return lowerNewExpression(node, context);
+  }
+
+  if (node instanceof NodeThisExpression) {
+    return getCaptureText({ kind: 'this' }, context);
+  }
+
   if (node instanceof NodeArrayLiteralExpression) {
     return lowerArrayLiteralExpression(node, context);
   }
@@ -894,12 +1089,9 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
           `${callee.location()}: '${callee.text}' is declared in ${realPath}, but it has no 'declare' modifier`,
         );
 
-        addImportedForward(
-          context,
-          realPath,
-          cppDeclaration.reference.code(),
+        addImportedForward(context, realPath, cppDeclaration.reference.code(), [
           new CppDeclarationStatement(cppDeclaration).code(),
-        );
+        ]);
       }
 
       return new CppFunctionCall(cppDeclaration.reference, args).code();
@@ -1046,7 +1238,7 @@ function getCaptureText(capture: Capture, context: LowerContext) {
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (capture.kind === 'this') {
-    throw new Error('not implemented this capture');
+    return 'ssc__ts__var__this';
   }
 
   assertNever(capture);
@@ -1185,7 +1377,123 @@ function lowerMethodCallExpression(
     }
   }
 
+  const classNode = getClassNode(expression.app, expression.getType());
+
+  if (classNode) {
+    const method = classNode.methods.find((m) => m.name === callee.name);
+
+    if (!method) {
+      return lowerFunctionValueCallExpression(node, context);
+    }
+
+    const declaration = declareMethod(classNode, method, context, getClassStorage(classNode, node));
+    const args = [
+      new CppUnknownExpression(lowerExpression(expression, context)),
+      ...node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context))),
+    ];
+
+    addImportedClassForward(classNode, node, context);
+
+    return new CppFunctionCall(declaration.reference, args).code();
+  }
+
   throw new Error(`${callee.location()}: not implemented callee: ${callee.getText()}`);
+}
+
+function lowerNewExpression(node: NodeNewExpression, context: LowerContext) {
+  const declaration = node.identifier.getValueDeclaration();
+
+  assert(
+    ast.isClassDeclaration(declaration),
+    `${node.location()}: not implemented new target: ${node.getText()}`,
+  );
+
+  const classNode = new NodeClassDeclaration(node.app, declaration);
+  const constructorDeclaration = declareConstructor(
+    classNode,
+    context,
+    getClassStorage(classNode, node),
+  );
+  const classDeclaration = declareClass(classNode, context);
+  const classReference = classDeclaration.reference.code();
+  const allocate = new CppCoreFunctionCall(
+    'ssc__core__fn__allocate_object',
+    [],
+    [
+      new CppUnknownExpression(
+        `sizeof(${classReference}::${classDeclaration.shapeDefinition.structName})`,
+      ),
+      new CppUnknownExpression(`__builtin_addressof(${classReference}::ssc__ts__descriptor)`),
+    ],
+  );
+  const args = node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context)));
+
+  addImportedClassForward(classNode, node, context);
+
+  return new CppFunctionCall(constructorDeclaration.reference, [allocate, ...args]).code();
+}
+
+function getClassNode(app: AppSourceFile['app'], type: ts.Type) {
+  const declaration = type.getSymbol()?.valueDeclaration?.resolve();
+
+  if (!declaration || !ast.isClassDeclaration(declaration)) {
+    return undefined;
+  }
+
+  const classNode = new NodeClassDeclaration(app, declaration);
+
+  return classNode.isDeclared ? undefined : classNode;
+}
+
+function getClassStorage(classNode: NodeClassDeclaration, node: AbstractNode<ast.Node>) {
+  const isSameFile = classNode.getSourceFile().fileName === node.getSourceFile().fileName;
+
+  return isSameFile ? getTopLevelClassStorage(classNode) : 'imported';
+}
+
+function addImportedClassForward(
+  classNode: NodeClassDeclaration,
+  node: AbstractNode<ast.Node>,
+  context: LowerContext,
+) {
+  if (classNode.getSourceFile().fileName === node.getSourceFile().fileName) {
+    return;
+  }
+
+  const realPath = node.app.parser.tsPathToRealPath(classNode.getSourceFile().fileName);
+  const classDeclaration = declareClass(classNode, context);
+
+  assert(
+    classNode.isExported,
+    `${node.location()}: '${classNode.identifier.text}' is declared in ${realPath}, but it has no 'export' modifier`,
+  );
+
+  addImportedForward(
+    context,
+    realPath,
+    classDeclaration.reference.code(),
+    classDeclaration.code().split('\n'),
+  );
+}
+
+function getPropertyShape(node: AbstractNode<ast.Expression>, context: LowerContext) {
+  const classNode = getClassNode(node.app, node.getType());
+
+  if (!classNode) {
+    const shapeDefinition = getShape(node, context);
+
+    return { shapeDefinition, structName: shapeDefinition.structName };
+  }
+
+  const classDeclaration = declareClass(classNode, context);
+  const { shapeDefinition } = classDeclaration;
+
+  addImportedClassForward(classNode, node, context);
+
+  return {
+    shapeDefinition,
+    structName: `${classDeclaration.reference.code()}::${shapeDefinition.structName}`,
+  };
 }
 
 function lowerArrayLiteralExpression(node: NodeArrayLiteralExpression, context: LowerContext) {
@@ -2043,11 +2351,15 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     return new CppStaticCast('number', length).code();
   }
 
-  if (isObjectType(node.app, node.expression.getType())) {
+  if (
+    isObjectType(node.app, node.expression.getType())
+    || getClassNode(node.app, node.expression.getType())
+  ) {
     const text = lowerFieldReference(node, context);
-    const propertyTypeName = getShape(node.expression, context).properties.find(
-      (p) => p.tsPropertyName === node.name,
-    )?.tsTypeName;
+    const propertyTypeName = getPropertyShape(
+      node.expression,
+      context,
+    ).shapeDefinition.properties.find((p) => p.tsPropertyName === node.name)?.tsTypeName;
     const typeName = getSscTypeName(node.app, node.getType());
 
     if (propertyTypeName === 'union' && typeName !== 'union') {
@@ -2148,17 +2460,15 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
 }
 
 function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerContext) {
-  const shape = getShape(node.expression, context);
-  const property = shape.properties.find((p) => p.tsPropertyName === node.name);
+  const { shapeDefinition, structName } = getPropertyShape(node.expression, context);
+  const property = shapeDefinition.properties.find((p) => p.tsPropertyName === node.name);
 
   assert(property, `${node.location()}: not implemented property: ${node.getText()}`);
 
   const args = [
     new CppUnknownExpression(lowerExpression(node.expression, context)),
-    new CppUnknownExpression(`0x${shape.shapeId}ull`),
-    new CppUnknownExpression(
-      `__builtin_offsetof(${shape.structName}, ssc__ts__member__${node.name})`,
-    ),
+    new CppUnknownExpression(`0x${shapeDefinition.shapeId}ull`),
+    new CppUnknownExpression(`__builtin_offsetof(${structName}, ssc__ts__member__${node.name})`),
     new CppCStringLiteral(node.name),
   ];
 
@@ -2640,10 +2950,10 @@ function addImportedForward(
   context: LowerContext,
   realPath: RealPath,
   name: string,
-  forward: string,
+  forward: string[],
 ) {
   const forwards =
-    context.globalContext.importedForwardMap.get(realPath) || new Map<string, string>();
+    context.globalContext.importedForwardMap.get(realPath) || new Map<string, string[]>();
 
   forwards.set(name, forward);
   context.globalContext.importedForwardMap.set(realPath, forwards);
@@ -2696,7 +3006,7 @@ function lowerVariableReference(node: NodeIdentifier, context: LowerContext) {
   const tdzTagName = reference.tdzTagCode();
 
   if (!isSameFile) {
-    addImportedForward(context, realPath, tdzTagName, `${reference.declaration.tdzTagCode()};`);
+    addImportedForward(context, realPath, tdzTagName, [`${reference.declaration.tdzTagCode()};`]);
   }
 
   const check = new CppCoreFunctionCall(
@@ -2725,12 +3035,9 @@ function declareImportedVariable(node: NodeIdentifier, context: LowerContext) {
 
   const variableDeclaration = declareVariable(identifier, context, 'imported', false);
 
-  addImportedForward(
-    context,
-    realPath,
-    variableDeclaration.reference.code(),
+  addImportedForward(context, realPath, variableDeclaration.reference.code(), [
     new CppDeclarationStatement(variableDeclaration).code(),
-  );
+  ]);
 }
 
 function narrowUnion(node: NodeIdentifier, text: string, context: LowerContext) {

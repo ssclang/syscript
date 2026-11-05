@@ -1744,6 +1744,98 @@ test('conditional.ts', async () => {
   `);
 });
 
+test('class-declaration.ts', async () => {
+  expect(await lowerFixture('class-declaration.ts')).toMatchInlineSnapshot(`
+    "module ts;
+
+    import ssc;
+
+    namespace ssc__ts__namespace__1cc11bcd8b5e407ca92008b8f0e7712a {
+      namespace ssc__ts__class__Point {
+        struct ssc__ts__shape__b9df1bc3d13b7ad5 {
+          ssc__core__struct__object_header ssc__core__member__object_header;
+          ssc__core__type__number ssc__ts__member__x;
+          ssc__core__type__ref ssc__ts__member__label;
+          ssc__core__type__union ssc__ts__member__next;
+        };
+        inline constexpr ssc__core__type__u64 ssc__ts__shape__b9df1bc3d13b7ad5__ref_offsets[] = {
+          __builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__label),
+        };
+        inline constexpr ssc__core__type__u64 ssc__ts__shape__b9df1bc3d13b7ad5__union_offsets[] = {
+          __builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__next),
+        };
+        inline constexpr ssc__core__struct__property ssc__ts__shape__b9df1bc3d13b7ad5__properties[] = {
+          {"x", __builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__x), ssc__core__var__type_id<ssc__core__type__number>},
+          {"label", __builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__label), ssc__core__var__type_id<ssc__core__type__ref>},
+          {"next", __builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__next), ssc__core__var__union_kind},
+        };
+        inline constexpr ssc__core__struct__shape ssc__ts__shape__b9df1bc3d13b7ad5__shape {
+          {1, ssc__ts__shape__b9df1bc3d13b7ad5__ref_offsets},
+          {1, ssc__ts__shape__b9df1bc3d13b7ad5__union_offsets},
+          {3, ssc__ts__shape__b9df1bc3d13b7ad5__properties},
+          0xb9df1bc3d13b7ad5ull,
+        };
+        inline constexpr ssc__core__type__u64 ssc__ts__descriptor__keys[] = {
+          0,
+          1,
+          2,
+        };
+        inline constexpr ssc__core__struct__descriptor ssc__ts__descriptor {
+          __builtin_addressof(ssc__ts__shape__b9df1bc3d13b7ad5__shape),
+          nullptr,
+          nullptr,
+          ssc__core__fn__object_inspect,
+          {3, ssc__ts__descriptor__keys},
+          "Point",
+        };
+        static ssc__core__type__ref ssc__ts__fn__constructor(ssc__core__type__ref ssc__ts__var__this, ssc__core__type__number ssc__ts__var__scale);
+        static ssc__core__type__number ssc__ts__fn__area(ssc__core__type__ref ssc__ts__var__this, ssc__core__type__number ssc__ts__var__height);
+      }
+      namespace ssc__ts__class__Empty {
+        struct ssc__ts__shape__cbf29ce484222325 {
+          ssc__core__struct__object_header ssc__core__member__object_header;
+        };
+        inline constexpr ssc__core__struct__shape ssc__ts__shape__cbf29ce484222325__shape {
+          {},
+          {},
+          {},
+          0xcbf29ce484222325ull,
+        };
+        inline constexpr ssc__core__struct__descriptor ssc__ts__descriptor {
+          __builtin_addressof(ssc__ts__shape__cbf29ce484222325__shape),
+          nullptr,
+          nullptr,
+          ssc__core__fn__object_inspect,
+          {},
+          "Empty",
+        };
+        ssc__core__type__ref ssc__ts__fn__constructor(ssc__core__type__ref ssc__ts__var__this);
+      }
+      namespace ssc__ts__class__Point {
+        static ssc__core__type__ref ssc__ts__fn__constructor(ssc__core__type__ref ssc__ts__var__this, ssc__core__type__number ssc__ts__var__scale) {
+          ssc__ts__shape__b9df1bc3d13b7ad5* ssc__core__var__object = reinterpret_cast<ssc__ts__shape__b9df1bc3d13b7ad5*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer());
+          ssc__core__var__object->ssc__ts__member__x = ssc__core__type__number{1.0};
+          ssc__core__var__object->ssc__ts__member__label = ssc__core__fn__string_literal<u"p">();
+          if ((ssc__ts__var__scale > ssc__core__type__number{1.0})) {
+            return ssc__ts__var__this;
+          }
+          return ssc__ts__var__this;
+        }
+        static ssc__core__type__number ssc__ts__fn__area(ssc__core__type__ref ssc__ts__var__this, ssc__core__type__number ssc__ts__var__height) {
+          return (ssc__ts__var__height * ssc__core__type__number{2.0});
+        }
+      }
+      namespace ssc__ts__class__Empty {
+        ssc__core__type__ref ssc__ts__fn__constructor(ssc__core__type__ref ssc__ts__var__this) {
+          return ssc__ts__var__this;
+        }
+      }
+      void ssc__core__fn__1cc11bcd8b5e407ca92008b8f0e7712a() {
+      }
+    }"
+  `);
+});
+
 test('closure.ts', async () => {
   expect(await lowerFixture('closure.ts')).toMatchInlineSnapshot(`
     "module ts;
