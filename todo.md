@@ -422,19 +422,20 @@ shape
   closure 템플릿 제거 21.8초(-9%), 둘 다 제거하고 호출부에서 직접 캐스팅 19.4초(-19%). -O0에서는 직접 캐스팅이 오히려 조금 느림(9.3 → 9.1~9.3초).
   한 단계 중첩 템플릿에서도 폭발적 증가는 없었음. 지금 단계에서는 감수하고 유지. 측정 코드는 tmp/closure-compile/gen.py(시그니처 수, 호출부 수, 방식을 인자로 받아 C++ 파일 생성)
 
+3단계(필드 접근) ✅ 2026-11-07: 순수 해시로 확정
+- 필드 읽기/쓰기도 메소드와 같은 key → 값 표: `ssc__core__fn__member<T>(obj, H)`. 수신자 타입, 상속, plain object와 무관하게 한 경로
+- 지운 것: shape id 비교 → strcmp 검색(`ssc__core__fn__field`, `field_offset`), shape의 실행 중 id 필드
+- 측정(2026-11-07, -O2, ns/읽기, 벤치 tmp/object-layout/field-access.cpp)
+  - L1(객체 4096개): 정적 0.26~0.31, 순수 해시 0.81~0.83, display(별도 배열) + 정적 0.55~0.57, display(descriptor 안 고정 8칸) 0.36~0.40.
+    필드가 더 많은 plain만 들어오면 display가 해시보다 느림(0.88~0.98)
+  - 메모리(100만 개): 모든 방식 1.4~1.8로 차이 거의 없음
+  - descriptor 자주 쓰는 필드 앞쪽 배치 + alignas(64): 고정 8칸 display와 합칠 때만 약 8%, 나머지는 차이 없음
+- 결정 이유: 큰 규모에서 차이가 없고, 제약(상속 깊이)과 구현 복잡도(클래스 필드 정렬, display, 읽기 경로 2개)가 없음.
+  실제 프로그램 측정(트리 평가, AST 방문)에서도 필드 읽기가 몰린 최악이 1.17~1.49배
+- 나중에 볼 최적화: 실제 프로그램에서 필드 읽기가 병목으로 측정되면 클래스 필드 단계별 정렬 + descriptor 레이아웃 display(깊이별 shape id)로
+  클래스 타입 수신자를 정적 읽기. 그때 descriptor 필드 순서와 정렬도 같이 다시 잼
+
 다음 단계
-3. 필드 접근 (2026-11-06 방향 결정, 측정 후 확정)
-   - 클래스 타입 수신자라도 plain object가 들어올 수 있음(구조적 타입). 필드가 더 많은 plain object는 오프셋이 달라 정적 읽기가 안전하지 않음
-   - 클래스 필드를 단계별로 정렬(부모 필드 정렬 → 자기 필드 정렬). 출력 순서는 descriptor keys로 선언 순서 유지.
-     상속 없는 클래스는 같은 필드의 plain object와 shape가 같아짐
-   - descriptor에 레이아웃 display: 깊이별로 그 단계까지의 shape id. plain object는 [자기 shape id]
-   - 클래스 C(깊이 k) 타입 수신자: `display_length > k && display[k] == C의 shape id`면 C의 정적 오프셋, 아니면 key → 값 표(완전 해시).
-     자식 클래스와 같은 필드의 plain object는 정적, 나머지는 해시라 최악이 없음. 클래스가 아닌 타입 수신자는 처음부터 해시
-   - 지금의 shape id 비교 → strcmp 검색은 제거
-   - 측정: display + 정적 / 순수 해시 / 정적 기준선을 tmp/object-layout에 추가해서 비교한 뒤 확정
-   - descriptor 필드 순서: 지금은 추가한 순서라 가장 자주 읽는 member_table이 88바이트 중 끝(64~88, 두 번째 캐시 줄)에 있음.
-     자주 쓰는 필드(member_table, display, shape_pointer, destroy, super)를 앞 64바이트로, 출력용(to_string, inspect, keys, class_name)을
-     뒤로 옮기고 alignas(64)로 정렬하는 것이 유효한지 같은 벤치에서 측정. 바꾸면 descriptor 초기화를 지정 초기화(.member = …)로 전환
 4. 접근자, static, `#private`, abstract, 메소드 값
 5. Error 클래스와 prelude 에러를 Error 객체로 전환
 

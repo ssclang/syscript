@@ -162,7 +162,6 @@ export struct ssc__core__struct__shape {
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__ref_offsets;
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__union_offsets;
   ssc__core__struct__span<ssc__core__struct__property> ssc__core__member__properties;
-  ssc__core__type__u64 ssc__core__member__id;
 };
 
 export struct ssc__core__struct__member {
@@ -408,7 +407,7 @@ static_assert(sizeof(ssc__core__struct__string) == 24);
 static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
 static_assert(sizeof(ssc__core__struct__object_header) == 16);
-static_assert(sizeof(ssc__core__struct__shape) == 56);
+static_assert(sizeof(ssc__core__struct__shape) == 48);
 static_assert(sizeof(ssc__core__struct__descriptor) == 88);
 
 export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
@@ -1715,28 +1714,6 @@ export inline ssc__core__type__boolean ssc__core__fn__instance_of(const ssc__cor
 
 export inline ssc__core__type__boolean ssc__core__fn__instance_of(const ssc__core__type__union& value, const ssc__core__struct__descriptor* class_descriptor_pointer) noexcept {
   return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && ssc__core__fn__is_descriptor_of_class(value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer, class_descriptor_pointer);
-}
-
-inline ssc__core__type__u64 ssc__core__fn__field_offset(const ssc__core__struct__object_header* object_header_pointer, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
-  const ssc__core__struct__shape* shape_pointer = object_header_pointer->ssc__core__member__descriptor_pointer->ssc__core__member__shape_pointer;
-
-  if (shape_pointer->ssc__core__member__id == shape_id) [[likely]] {
-    return offset;
-  }
-
-  for (const ssc__core__struct__property& property : shape_pointer->ssc__core__member__properties) {
-    if (__builtin_strcmp(property.ssc__core__member__name, name) == 0) {
-      return property.ssc__core__member__offset;
-    }
-  }
-
-  __builtin_trap();
-}
-
-export template <typename Type> inline Type& ssc__core__fn__field(const ssc__core__type__ref& object, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
-  ssc__core__struct__object_header* object_header_pointer = object.ssc__core__member__get_object_header_pointer();
-
-  return *reinterpret_cast<Type*>(reinterpret_cast<char*>(object_header_pointer) + ssc__core__fn__field_offset(object_header_pointer, shape_id, offset, name));
 }
 
 template <typename Type> inline ssc__core__type__ref ssc__core__fn__inspect_at(const char* pointer) {

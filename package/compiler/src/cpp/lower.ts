@@ -1792,19 +1792,9 @@ function getClassStorage(classNode: NodeClassDeclaration, node: AbstractNode<ast
 function getPropertyShape(node: AbstractNode<ast.Expression>, context: LowerContext) {
   const classNode = getClassNode(node.app, node.getType());
 
-  if (!classNode) {
-    const shapeDefinition = getShape(node, context);
-
-    return { shapeDefinition, structName: shapeDefinition.structName };
-  }
-
-  const classDeclaration = declareClass(classNode, node, context);
-  const { shapeDefinition } = classDeclaration;
-
-  return {
-    shapeDefinition,
-    structName: `${classDeclaration.reference.code()}::${shapeDefinition.structName}`,
-  };
+  return classNode ?
+      declareClass(classNode, node, context).shapeDefinition
+    : getShape(node, context);
 }
 
 function lowerArrayLiteralExpression(node: NodeArrayLiteralExpression, context: LowerContext) {
@@ -2667,10 +2657,9 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     || getClassNode(node.app, node.expression.getType())
   ) {
     const text = lowerFieldReference(node, context);
-    const propertyTypeName = getPropertyShape(
-      node.expression,
-      context,
-    ).shapeDefinition.properties.find((p) => p.tsPropertyName === node.name)?.tsTypeName;
+    const propertyTypeName = getPropertyShape(node.expression, context).properties.find(
+      (p) => p.tsPropertyName === node.name,
+    )?.tsTypeName;
     const typeName = getSscTypeName(node.app, node.getType());
 
     if (propertyTypeName === 'union' && typeName !== 'union') {
@@ -2771,19 +2760,18 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
 }
 
 function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerContext) {
-  const { shapeDefinition, structName } = getPropertyShape(node.expression, context);
-  const property = shapeDefinition.properties.find((p) => p.tsPropertyName === node.name);
+  const property = getPropertyShape(node.expression, context).properties.find(
+    (p) => p.tsPropertyName === node.name,
+  );
 
   assert(property, `${node.location()}: not implemented property: ${node.getText()}`);
 
   const args = [
     new CppUnknownExpression(lowerExpression(node.expression, context)),
-    new CppUnknownExpression(`0x${shapeDefinition.shapeId}ull`),
-    new CppUnknownExpression(`__builtin_offsetof(${structName}, ssc__ts__member__${node.name})`),
-    new CppCStringLiteral(node.name),
+    new CppUnknownExpression(CppMemberTableDefinition.toCppMemberHash(node.name)),
   ];
 
-  return new CppCoreFunctionCall('ssc__core__fn__field', [property.tsTypeName], args).code();
+  return new CppCoreFunctionCall('ssc__core__fn__member', [property.tsTypeName], args).code();
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {

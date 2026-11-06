@@ -1773,7 +1773,6 @@ test('class-declaration.ts', async () => {
           {1, ssc__ts__shape__b9df1bc3d13b7ad5__ref_offsets},
           {1, ssc__ts__shape__b9df1bc3d13b7ad5__union_offsets},
           {3, ssc__ts__shape__b9df1bc3d13b7ad5__properties},
-          0xb9df1bc3d13b7ad5ull,
         };
         inline constexpr ssc__core__struct__member ssc__ts__shape__b9df1bc3d13b7ad5__member_slots[] = {
           {__builtin_offsetof(ssc__ts__shape__b9df1bc3d13b7ad5, ssc__ts__member__next), nullptr},
@@ -1815,7 +1814,6 @@ test('class-declaration.ts', async () => {
           {},
           {},
           {},
-          0xcbf29ce484222325ull,
         };
         inline constexpr ssc__core__struct__member ssc__ts__shape__cbf29ce484222325__member_slots[] = {
           {0, nullptr},
@@ -1964,7 +1962,6 @@ test('object-literal.ts', async () => {
         {},
         {},
         {2, ssc__ts__shape__76a1102b326949c2__properties},
-        0x76a1102b326949c2ull,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__76a1102b326949c2__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), nullptr},
@@ -1984,7 +1981,6 @@ test('object-literal.ts', async () => {
         {1, ssc__ts__shape__80bdf0a5cc1c9a6f__ref_offsets},
         {},
         {1, ssc__ts__shape__80bdf0a5cc1c9a6f__properties},
-        0x80bdf0a5cc1c9a6full,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__80bdf0a5cc1c9a6f__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), nullptr},
@@ -2010,7 +2006,6 @@ test('object-literal.ts', async () => {
         {2, ssc__ts__shape__208f716220376f6a__ref_offsets},
         {},
         {2, ssc__ts__shape__208f716220376f6a__properties},
-        0x208f716220376f6aull,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__208f716220376f6a__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__name), nullptr},
@@ -2034,7 +2029,6 @@ test('object-literal.ts', async () => {
         {1, ssc__ts__shape__a83c75e30b8aa0e2__ref_offsets},
         {},
         {2, ssc__ts__shape__a83c75e30b8aa0e2__properties},
-        0xa83c75e30b8aa0e2ull,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__a83c75e30b8aa0e2__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__a83c75e30b8aa0e2, ssc__ts__member__lives), nullptr},
@@ -2058,7 +2052,6 @@ test('object-literal.ts', async () => {
         {},
         {1, ssc__ts__shape__0d5ab165223eb3c9__union_offsets},
         {2, ssc__ts__shape__0d5ab165223eb3c9__properties},
-        0x0d5ab165223eb3c9ull,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__0d5ab165223eb3c9__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__size), nullptr},
@@ -2083,7 +2076,6 @@ test('object-literal.ts', async () => {
         {2, ssc__ts__shape__cb2f883bd87ccd8c__ref_offsets},
         {},
         {2, ssc__ts__shape__cb2f883bd87ccd8c__properties},
-        0xcb2f883bd87ccd8cull,
       };
       inline constexpr ssc__core__struct__member ssc__ts__shape__cb2f883bd87ccd8c__member_slots[] = {
         {__builtin_offsetof(ssc__ts__shape__cb2f883bd87ccd8c, ssc__ts__member__tags), nullptr},
@@ -2092,13 +2084,13 @@ test('object-literal.ts', async () => {
       inline constexpr ssc__core__type__u64 ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1__keys[] = {0, 1};
       inline constexpr ssc__core__struct__descriptor ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1{__builtin_addressof(ssc__ts__shape__cb2f883bd87ccd8c__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1__keys}, nullptr, nullptr, {0, {2, ssc__ts__shape__cb2f883bd87ccd8c__member_slots}}};
       static ssc__core__type__i32 ssc__ts__fn__sum(ssc__core__type__ref ssc__ts__var__point) {
-        return ssc__core__fn__add(ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x"), ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), "y"), "i32");
+        return ssc__core__fn__add(ssc__core__fn__member<ssc__core__type__i32>(ssc__ts__var__point, 0xaf63f54c86021707ull), ssc__core__fn__member<ssc__core__type__i32>(ssc__ts__var__point, 0xaf63f44c86021554ull), "i32");
       }
       static ssc__core__type__void ssc__ts__fn__rename(ssc__core__type__ref ssc__ts__var__animal, ssc__core__type__ref ssc__ts__var__name) {
-        (ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__var__animal, 0x80bdf0a5cc1c9a6full, __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), "name") = ssc__ts__var__name);
+        (ssc__core__fn__member<ssc__core__type__ref>(ssc__ts__var__animal, 0xc4bcadba8e631b86ull) = ssc__ts__var__name);
       }
       static ssc__core__type__ref ssc__ts__fn__describe(ssc__core__type__ref ssc__ts__var__animal) {
-        return ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__var__animal, 0x80bdf0a5cc1c9a6full, __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), "name");
+        return ssc__core__fn__member<ssc__core__type__ref>(ssc__ts__var__animal, 0xc4bcadba8e631b86ull);
       }
       void ssc__core__fn__034ed69556374db88ff0a9da7b12df42() {
         ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point = [&] { ssc__core__type__ref reference = ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__76a1102b326949c2), __builtin_addressof(ssc__ts__shape__76a1102b326949c2__descriptor__1_0)); ssc__ts__shape__76a1102b326949c2* object = reinterpret_cast<ssc__ts__shape__76a1102b326949c2*>(reference.ssc__core__member__get_object_header_pointer()); object->ssc__ts__member__y = ssc__core__type__i32{2}; object->ssc__ts__member__x = ssc__core__type__i32{1}; return reference; }();
@@ -2111,11 +2103,11 @@ test('object-literal.ts', async () => {
         ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__nested = [&] { ssc__core__type__ref reference = ssc__core__fn__allocate_object(sizeof(ssc__ts__shape__cb2f883bd87ccd8c), __builtin_addressof(ssc__ts__shape__cb2f883bd87ccd8c__descriptor__0_1)); ssc__ts__shape__cb2f883bd87ccd8c* object = reinterpret_cast<ssc__ts__shape__cb2f883bd87ccd8c*>(reference.ssc__core__member__get_object_header_pointer()); object->ssc__ts__member__point = ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point; object->ssc__ts__member__tags = ssc__core__fn__array_of<ssc__core__type__ref>(ssc__core__fn__string_literal<u"a">()); return reference; }();
         ssc__core__fn__console_log(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point, ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__pair, ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__shorthand, ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__options);
         ssc__core__fn__console_log(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__sum(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__sum(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__pair), ssc__core__fn__strict_equals(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point, ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__pair));
-        (ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x") = ssc__core__type__i32{5});
-        ssc__core__fn__console_log(ssc__core__fn__field<ssc__core__type__i32>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__pair, 0x76a1102b326949c2ull, __builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), "x"));
+        (ssc__core__fn__member<ssc__core__type__i32>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__point, 0xaf63f54c86021707ull) = ssc__core__type__i32{5});
+        ssc__core__fn__console_log(ssc__core__fn__member<ssc__core__type__i32>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__pair, 0xaf63f54c86021707ull));
         ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__rename(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog, ssc__core__fn__string_literal<u"max">());
-        ssc__core__fn__console_log(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__describe(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__describe(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__cat), ssc__core__fn__field<ssc__core__type__ref>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog, 0x208f716220376f6aull, __builtin_offsetof(ssc__ts__shape__208f716220376f6a, ssc__ts__member__name), "name"), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog);
-        ssc__core__fn__console_log(ssc__core__fn__field<ssc__core__type__union>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__options, 0x0d5ab165223eb3c9ull, __builtin_offsetof(ssc__ts__shape__0d5ab165223eb3c9, ssc__ts__member__label), "label"), ssc__core__fn__string_literal<u"object">(), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__nested);
+        ssc__core__fn__console_log(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__describe(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__fn__describe(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__cat), ssc__core__fn__member<ssc__core__type__ref>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog, 0xc4bcadba8e631b86ull), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__dog);
+        ssc__core__fn__console_log(ssc__core__fn__member<ssc__core__type__union>(ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__options, 0x39f7fcec8fcb623dull), ssc__core__fn__string_literal<u"object">(), ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::ssc__ts__var__nested);
         ssc__ts__namespace__034ed69556374db88ff0a9da7b12df42::exit(ssc__core__type__i32{0});
       }
     }"

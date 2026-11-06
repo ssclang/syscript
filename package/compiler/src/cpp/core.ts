@@ -84,7 +84,6 @@ export const cppCoreFunctionNames = [
 
   // region object
   'ssc__core__fn__allocate_object',
-  'ssc__core__fn__field',
   'ssc__core__fn__member',
   'ssc__core__fn__instance_of',
   'ssc__core__fn__object_inspect',

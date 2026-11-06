@@ -612,7 +612,7 @@ export class CppShapeDefinition extends CppNode {
 
     w.newline();
     w.block(`inline constexpr ssc__core__struct__shape ${structName}__shape`, () =>
-      [refs, unions, infos, `0x${this.shapeId}ull`].map((i) => `${i},`),
+      [refs, unions, infos].map((i) => `${i},`),
     );
     w.inline(';');
 
