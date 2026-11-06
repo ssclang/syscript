@@ -259,6 +259,10 @@ export abstract class AbstractExpression<
       return new NodeThisExpression(app, tsNode);
     }
 
+    if (ast.isSuperExpression(tsNode)) {
+      return new NodeSuperExpression(app, tsNode);
+    }
+
     throw new Error(`not implemented expression: ${tsNode.getText()}`);
   }
 }
@@ -267,7 +271,8 @@ export abstract class AbstractExpression<
 
 export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDeclaration> {
   readonly isExported: boolean;
-  readonly isDeclared: boolean;
+  readonly hasDeclareKeyword: boolean;
+  readonly isAmbient: boolean;
   readonly identifier: NodeIdentifier;
   readonly parameters: NodeParameterDeclaration[];
   readonly block: NodeBlock | undefined;
@@ -275,7 +280,8 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
   constructor(app: TsApp, tsNode: ast.FunctionDeclaration) {
     super(app, tsNode);
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
-    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
     this.identifier = new NodeIdentifier(app, this.tsNode.name);
     this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
     this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
@@ -292,8 +298,10 @@ export class NodeFunctionDeclaration extends AbstractStatement<ast.FunctionDecla
 
 export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration> {
   readonly isExported: boolean;
-  readonly isDeclared: boolean;
+  readonly hasDeclareKeyword: boolean;
+  readonly isAmbient: boolean;
   readonly identifier: NodeIdentifier;
+  readonly superClassIdentifier: NodeIdentifier | undefined;
   readonly properties: NodePropertyDeclaration[] = [];
   readonly methods: NodeMethodDeclaration[] = [];
   readonly constructorDeclaration?: NodeConstructorDeclaration;
@@ -306,7 +314,23 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
       `${this.location()}: not implemented ${what}: ${this.getText()}`;
 
     assert(name, notImplemented('anonymous class'));
-    assert(!heritageClauses?.length, notImplemented('class heritage'));
+
+    const extendsClause = heritageClauses?.find((c) => c.token === ast.SyntaxKind.ExtendsKeyword);
+    const [superClass] = extendsClause?.types ?? [];
+    const superClassExpression =
+      (
+        superClass
+        && ast.isExpressionWithTypeArguments(superClass)
+        && !superClass.typeArguments?.length
+      ) ?
+        superClass.expression
+      : undefined;
+
+    assert(
+      !extendsClause || (superClassExpression && ast.isIdentifier(superClassExpression)),
+      notImplemented('class heritage'),
+    );
+
     assert(!typeParameters?.length, notImplemented('generic class'));
     assert(
       !isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract),
@@ -314,8 +338,13 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
     );
 
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
-    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
     this.identifier = new NodeIdentifier(app, name);
+    this.superClassIdentifier =
+      superClassExpression && ast.isIdentifier(superClassExpression) ?
+        new NodeIdentifier(app, superClassExpression)
+      : undefined;
 
     for (const member of members) {
       if (ast.isSemicolonClassElement(member)) {
@@ -470,13 +499,15 @@ export class NodeExpressionStatement extends AbstractStatement<ast.ExpressionSta
 
 export class NodeVariableStatement extends AbstractStatement<ast.VariableStatement> {
   readonly isExported: boolean;
-  readonly isDeclare: boolean;
+  readonly hasDeclareKeyword: boolean;
+  readonly isAmbient: boolean;
   readonly declarations: NodeVariableDeclaration[];
 
   constructor(app: TsApp, tsNode: ast.VariableStatement) {
     super(app, tsNode);
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
-    this.isDeclare = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
     this.declarations = this.tsNode.declarationList.declarations.map(
       (v) => new NodeVariableDeclaration(app, v, this.isExported),
     );
@@ -613,20 +644,24 @@ export class NodeContinueStatement extends AbstractStatement<ast.ContinueStateme
 }
 
 export class NodeTypeAliasDeclaration extends AbstractStatement<ast.TypeAliasDeclaration> {
-  readonly isDeclared: boolean;
+  readonly hasDeclareKeyword: boolean;
+  readonly isAmbient: boolean;
 
   constructor(app: TsApp, tsNode: ast.TypeAliasDeclaration) {
     super(app, tsNode);
-    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
   }
 }
 
 export class NodeInterfaceDeclaration extends AbstractStatement<ast.InterfaceDeclaration> {
-  readonly isDeclared: boolean;
+  readonly hasDeclareKeyword: boolean;
+  readonly isAmbient: boolean;
 
   constructor(app: TsApp, tsNode: ast.InterfaceDeclaration) {
     super(app, tsNode);
-    this.isDeclared = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
+    this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
   }
 }
 
@@ -723,6 +758,8 @@ export class NodeNewExpression extends AbstractExpression<ast.NewExpression> {
 }
 
 export class NodeThisExpression extends AbstractExpression<ast.ThisExpression> {}
+
+export class NodeSuperExpression extends AbstractExpression<ast.SuperExpression> {}
 
 export class NodeTypeOfExpression extends AbstractExpression<ast.TypeOfExpression> {
   readonly expression: AbstractExpression;

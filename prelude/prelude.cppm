@@ -165,6 +165,16 @@ export struct ssc__core__struct__shape {
   ssc__core__type__u64 ssc__core__member__id;
 };
 
+export struct ssc__core__struct__member {
+  ssc__core__type__u64 ssc__core__member__offset;
+  const ssc__core__type__ref* ssc__core__member__value_pointer;
+};
+
+export struct ssc__core__struct__member_table {
+  ssc__core__type__u64 ssc__core__member__hash_shift;
+  ssc__core__struct__span<ssc__core__struct__member> ssc__core__member__slots;
+};
+
 export struct ssc__core__struct__descriptor {
   const ssc__core__struct__shape* ssc__core__member__shape_pointer;
   void (*ssc__core__member__destroy_pointer)(ssc__core__struct__object_header* object_header_pointer);
@@ -172,6 +182,8 @@ export struct ssc__core__struct__descriptor {
   ssc__core__type__ref (*ssc__core__member__inspect_pointer)(const ssc__core__type__ref& value);
   ssc__core__struct__span<ssc__core__type__u64> ssc__core__member__keys;
   const char* ssc__core__member__class_name;
+  const ssc__core__struct__descriptor* ssc__core__member__super_descriptor_pointer;
+  ssc__core__struct__member_table ssc__core__member__member_table;
 };
 
 export struct ssc__core__struct__bstring {
@@ -397,7 +409,7 @@ static_assert(sizeof(ssc__core__type__ref) == 8);
 static_assert(sizeof(ssc__core__type__union) == 16);
 static_assert(sizeof(ssc__core__struct__object_header) == 16);
 static_assert(sizeof(ssc__core__struct__shape) == 56);
-static_assert(sizeof(ssc__core__struct__descriptor) == 56);
+static_assert(sizeof(ssc__core__struct__descriptor) == 88);
 
 export inline constexpr ssc__core__type__undefined ssc__core__var__undefined{};
 export inline constexpr ssc__core__type__null ssc__core__var__null{};
@@ -469,7 +481,7 @@ export inline ssc__core__type__union& ssc__core__fn__box_value(const ssc__core__
 
 export struct ssc__core__struct__closure {
   ssc__core__struct__object_header ssc__core__member__object_header;
-  ssc__core__type__union (*ssc__core__member__function)(const ssc__core__struct__closure* closure, ssc__core__struct__span<ssc__core__type__union> arguments);
+  void (*ssc__core__member__function)();
   ssc__core__struct__span<ssc__core__type__ref> ssc__core__member__captures;
 };
 
@@ -486,7 +498,7 @@ inline ssc__core__type__ref ssc__core__fn__closure_to_string(const ssc__core__ty
 inline constexpr ssc__core__struct__shape ssc__core__var__closure_shape{};
 export inline constexpr ssc__core__struct__descriptor ssc__core__var__closure_descriptor{__builtin_addressof(ssc__core__var__closure_shape), ssc__core__fn__closure_destroy, ssc__core__fn__closure_to_string, ssc__core__fn__closure_to_string};
 
-export inline ssc__core__type__ref ssc__core__fn__closure(decltype(ssc__core__struct__closure::ssc__core__member__function) function, std::initializer_list<ssc__core__type__ref> captures) {
+export template <typename Function> inline ssc__core__type__ref ssc__core__fn__closure(Function* function, std::initializer_list<ssc__core__type__ref> captures) {
   void* pointer = malloc(sizeof(ssc__core__struct__closure) + captures.size() * sizeof(ssc__core__type__ref));
 
   if (!pointer) [[unlikely]] {
@@ -502,7 +514,7 @@ export inline ssc__core__type__ref ssc__core__fn__closure(decltype(ssc__core__st
   }
 
   closure_pointer->ssc__core__member__object_header = {1, __builtin_addressof(ssc__core__var__closure_descriptor)};
-  closure_pointer->ssc__core__member__function = function;
+  closure_pointer->ssc__core__member__function = reinterpret_cast<void (*)()>(function);
   closure_pointer->ssc__core__member__captures = {captures.size(), captures_pointer};
 
   return ssc__core__type__ref(__builtin_addressof(closure_pointer->ssc__core__member__object_header));
@@ -512,14 +524,11 @@ export inline ssc__core__type__ref ssc__core__fn__function_value(const ssc__core
   return ssc__core__type__ref(const_cast<ssc__core__struct__object_header*>(__builtin_addressof(closure.ssc__core__member__object_header)));
 }
 
-inline ssc__core__type__union ssc__core__fn__call_span(const ssc__core__type__ref& function, ssc__core__struct__span<ssc__core__type__union> arguments) {
+export template <typename Result, typename... Arguments> inline Result ssc__core__fn__call(const ssc__core__type__ref& function, ssc__core__type__ref receiver, Arguments... arguments) {
   const ssc__core__struct__closure* closure_pointer = reinterpret_cast<const ssc__core__struct__closure*>(function.ssc__core__member__get_object_header_pointer());
+  using Function = Result (*)(const ssc__core__struct__closure*, ssc__core__type__ref, Arguments...);
 
-  return closure_pointer->ssc__core__member__function(closure_pointer, arguments);
-}
-
-export inline ssc__core__type__union ssc__core__fn__call(const ssc__core__type__ref& function, std::initializer_list<ssc__core__type__union> arguments) {
-  return ssc__core__fn__call_span(function, {arguments.size(), arguments.begin()});
+  return reinterpret_cast<Function>(closure_pointer->ssc__core__member__function)(closure_pointer, static_cast<ssc__core__type__ref&&>(receiver), static_cast<Arguments&&>(arguments)...);
 }
 
 inline const ssc__core__struct__bstring* ssc__core__fn__get_bstring_pointer(const ssc__core__type__ref& string) noexcept {
@@ -1679,6 +1688,35 @@ export inline ssc__core__type__ref ssc__core__fn__allocate_object(ssc__core__typ
   return ssc__core__type__ref(static_cast<ssc__core__struct__object_header*>(pointer));
 }
 
+export template <typename Type> inline Type& ssc__core__fn__member(const ssc__core__type__ref& object, ssc__core__type__u64 hash) noexcept {
+  ssc__core__struct__object_header* object_header_pointer = object.ssc__core__member__get_object_header_pointer();
+  const ssc__core__struct__descriptor* descriptor_pointer = object_header_pointer->ssc__core__member__descriptor_pointer;
+  const ssc__core__struct__member_table& member_table = descriptor_pointer->ssc__core__member__member_table;
+  const ssc__core__struct__span<ssc__core__struct__member>& slots = member_table.ssc__core__member__slots;
+  const ssc__core__struct__member& member = slots[(hash >> member_table.ssc__core__member__hash_shift) & (slots.ssc__core__member__length - 1)];
+  const void* pointer = member.ssc__core__member__value_pointer ? static_cast<const void*>(member.ssc__core__member__value_pointer) : reinterpret_cast<const char*>(object_header_pointer) + member.ssc__core__member__offset;
+
+  return *static_cast<Type*>(const_cast<void*>(pointer));
+}
+
+inline ssc__core__type__boolean ssc__core__fn__is_descriptor_of_class(const ssc__core__struct__descriptor* descriptor_pointer, const ssc__core__struct__descriptor* class_descriptor_pointer) noexcept {
+  for (; descriptor_pointer; descriptor_pointer = descriptor_pointer->ssc__core__member__super_descriptor_pointer) {
+    if (descriptor_pointer == class_descriptor_pointer) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__instance_of(const ssc__core__type__ref& value, const ssc__core__struct__descriptor* class_descriptor_pointer) noexcept {
+  return ssc__core__fn__is_descriptor_of_class(value->ssc__core__member__descriptor_pointer, class_descriptor_pointer);
+}
+
+export inline ssc__core__type__boolean ssc__core__fn__instance_of(const ssc__core__type__union& value, const ssc__core__struct__descriptor* class_descriptor_pointer) noexcept {
+  return value.ssc__core__member__type_id == ssc__core__var__type_id<ssc__core__type__ref> && ssc__core__fn__is_descriptor_of_class(value.ssc__core__member__value.ssc__core__member__object_header_pointer->ssc__core__member__descriptor_pointer, class_descriptor_pointer);
+}
+
 inline ssc__core__type__u64 ssc__core__fn__field_offset(const ssc__core__struct__object_header* object_header_pointer, ssc__core__type__u64 shape_id, ssc__core__type__u64 offset, const char* name) noexcept {
   const ssc__core__struct__shape* shape_pointer = object_header_pointer->ssc__core__member__descriptor_pointer->ssc__core__member__shape_pointer;
 
@@ -2117,14 +2155,8 @@ template <typename Type> inline Type ssc__core__fn__union_to(const ssc__core__ty
   }
 }
 
-template <typename Element> inline ssc__core__type__union ssc__core__fn__array_callback(const ssc__core__type__ref& callback, const ssc__core__type__ref& array, ssc__core__type__u64 index) {
-  const ssc__core__type__union arguments[] = {
-      ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-      ssc__core__type__union(ssc__core__type__number(static_cast<ssc__core__type__f64>(index))),
-      ssc__core__type__union(ssc__core__type__ref(array)),
-  };
-
-  return ssc__core__fn__call_span(callback, {3, arguments});
+template <typename Result, typename Element> inline Result ssc__core__fn__array_callback(const ssc__core__type__ref& callback, const ssc__core__type__ref& array, ssc__core__type__u64 index) {
+  return ssc__core__fn__call<Result, Element, ssc__core__type__number, ssc__core__type__ref>(callback, ssc__core__type__ref(), Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index]), ssc__core__type__number(static_cast<ssc__core__type__f64>(index)), ssc__core__type__ref(array));
 }
 
 template <typename Element> inline ssc__core__type__boolean ssc__core__fn__is_array_index(const ssc__core__type__ref& array, ssc__core__type__u64 index) noexcept {
@@ -2135,7 +2167,7 @@ export template <typename Element> inline void ssc__core__fn__array_for_each(con
   const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    ssc__core__fn__array_callback<Element>(callback, array, index);
+    ssc__core__fn__array_callback<void, Element>(callback, array, index);
   }
 }
 
@@ -2146,7 +2178,7 @@ export template <typename Element, typename Result> inline ssc__core__type__ref 
   ssc__core__fn__array_reserve(ssc__core__fn__get_array_pointer<Result>(result), length);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    ssc__core__fn__array_push<Result>(result, ssc__core__fn__union_to<Result>(ssc__core__fn__array_callback<Element>(callback, array, index)));
+    ssc__core__fn__array_push<Result>(result, ssc__core__fn__array_callback<Result, Element>(callback, array, index));
   }
 
   return result;
@@ -2157,7 +2189,7 @@ export template <typename Element> inline ssc__core__type__ref ssc__core__fn__ar
   ssc__core__type__ref result = ssc__core__fn__array_of<Element>();
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+    if (ssc__core__fn__array_callback<ssc__core__type__boolean, Element>(callback, array, index)) {
       ssc__core__fn__array_push<Element>(result, Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index]));
     }
   }
@@ -2165,19 +2197,12 @@ export template <typename Element> inline ssc__core__type__ref ssc__core__fn__ar
   return result;
 }
 
-export template <typename Element> inline ssc__core__type__union ssc__core__fn__array_reduce(const ssc__core__type__ref& array, const ssc__core__type__ref& callback, ssc__core__type__union initial) {
+export template <typename Element, typename Result> inline Result ssc__core__fn__array_reduce(const ssc__core__type__ref& array, const ssc__core__type__ref& callback, Result initial) {
   const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
-  ssc__core__type__union accumulator = static_cast<ssc__core__type__union&&>(initial);
+  Result accumulator = static_cast<Result&&>(initial);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    const ssc__core__type__union arguments[] = {
-        accumulator,
-        ssc__core__type__union(Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index])),
-        ssc__core__type__union(ssc__core__type__number(static_cast<ssc__core__type__f64>(index))),
-        ssc__core__type__union(ssc__core__type__ref(array)),
-    };
-
-    accumulator = ssc__core__fn__call_span(callback, {4, arguments});
+    accumulator = ssc__core__fn__call<Result, Result, Element, ssc__core__type__number, ssc__core__type__ref>(callback, ssc__core__type__ref(), accumulator, Element(ssc__core__fn__get_array_pointer<Element>(array)->ssc__core__member__elements_pointer[index]), ssc__core__type__number(static_cast<ssc__core__type__f64>(index)), ssc__core__type__ref(array));
   }
 
   return accumulator;
@@ -2187,7 +2212,7 @@ export template <typename Element> inline ssc__core__type__union ssc__core__fn__
   const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+    if (ssc__core__fn__array_callback<ssc__core__type__boolean, Element>(callback, array, index)) {
       return ssc__core__fn__array_get<Element>(array, index);
     }
   }
@@ -2199,7 +2224,7 @@ export template <typename Element> inline ssc__core__type__boolean ssc__core__fn
   const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    if (ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+    if (ssc__core__fn__array_callback<ssc__core__type__boolean, Element>(callback, array, index)) {
       return true;
     }
   }
@@ -2211,7 +2236,7 @@ export template <typename Element> inline ssc__core__type__boolean ssc__core__fn
   const ssc__core__type__u64 length = ssc__core__fn__array_length(array);
 
   for (ssc__core__type__u64 index = 0; index < length && ssc__core__fn__is_array_index<Element>(array, index); index++) {
-    if (!ssc__core__fn__truthy_union(ssc__core__fn__array_callback<Element>(callback, array, index))) {
+    if (!ssc__core__fn__array_callback<ssc__core__type__boolean, Element>(callback, array, index)) {
       return false;
     }
   }
@@ -2250,20 +2275,12 @@ inline void ssc__core__fn__write_text(std::ostream& stream, const ssc__core__typ
   stream.write(bytes.data(), bytes.size());
 }
 
-export inline void ssc__core__fn__write_stdout(const ssc__core__type__ref& text) {
+export inline void ssc__core__fn__write_ts_stdout(const ssc__core__type__ref& text) {
   ssc__core__fn__write_text(std::cout, text);
 }
 
-export inline void ssc__core__fn__write_stderr(const ssc__core__type__ref& text) {
+export inline void ssc__core__fn__write_ts_stderr(const ssc__core__type__ref& text) {
   ssc__core__fn__write_text(std::cerr, text);
-}
-
-export inline void ssc__core__fn__write_stdout(std::string_view string_view) noexcept {
-  std::cout.write(string_view.data(), string_view.size());
-}
-
-export inline void ssc__core__fn__write_stderr(std::string_view string_view) noexcept {
-  std::cerr.write(string_view.data(), string_view.size());
 }
 
 template <typename... Types> inline void ssc__core__fn__write_line(std::ostream& stream, const Types&... values) {

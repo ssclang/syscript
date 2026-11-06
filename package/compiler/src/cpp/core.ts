@@ -85,6 +85,8 @@ export const cppCoreFunctionNames = [
   // region object
   'ssc__core__fn__allocate_object',
   'ssc__core__fn__field',
+  'ssc__core__fn__member',
+  'ssc__core__fn__instance_of',
   'ssc__core__fn__object_inspect',
 
   // region tdz
@@ -94,8 +96,8 @@ export const cppCoreFunctionNames = [
   'ssc__core__fn__throw_value',
 
   // region output
-  'ssc__core__fn__write_stdout',
-  'ssc__core__fn__write_stderr',
+  'ssc__core__fn__write_ts_stdout',
+  'ssc__core__fn__write_ts_stderr',
   'ssc__core__fn__console_log',
   'ssc__core__fn__console_error',
 ] as const;

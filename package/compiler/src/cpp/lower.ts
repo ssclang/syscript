@@ -11,10 +11,10 @@ import {
   CppBooleanLiteral,
   CppBreakStatement,
   CppBStringLiteral,
+  CppClassDeclaration,
   CppConditionalExpression,
   CppContinueStatement,
   CppCoreFunctionCall,
-  CppClassDeclaration,
   CppCStringLiteral,
   CppDeclarationStatement,
   CppExpression,
@@ -24,6 +24,7 @@ import {
   CppFunctionDeclaration,
   CppFunctionStorage,
   CppIfStatement,
+  CppMemberTableDefinition,
   CppNode,
   CppNullLiteral,
   CppNumericLiteral,
@@ -61,8 +62,8 @@ import {
   NodeBlock,
   NodeBooleanLiteral,
   NodeBreakStatement,
-  NodeClassDeclaration,
   NodeCallExpression,
+  NodeClassDeclaration,
   NodeConditionalExpression,
   NodeContinueStatement,
   NodeElementAccessExpression,
@@ -72,19 +73,19 @@ import {
   NodeFunctionExpression,
   NodeIdentifier,
   NodeIfStatement,
-  NodeMethodDeclaration,
-  NodeParameterDeclaration,
   NodeImportDeclaration,
   NodeNewExpression,
   NodeNullLiteral,
   NodeNumericLiteral,
   NodeObjectLiteralExpression,
+  NodeParameterDeclaration,
   NodeParenthesizedExpression,
   NodePostfixUnaryExpression,
   NodePrefixUnaryExpression,
   NodePropertyAccessExpression,
   NodeReturnStatement,
   NodeStringLiteral,
+  NodeSuperExpression,
   NodeTemplateExpression,
   NodeThisExpression,
   NodeThrowStatement,
@@ -118,6 +119,7 @@ type GlobalContext = {
   variableDeclarationMap: Map<number, CppVariableDeclaration>;
   functionDeclarationMap: Map<number, CppFunctionDeclaration>;
   classDeclarationMap: Map<number, CppClassDeclaration>;
+  importedClassDeclarations: CppClassDeclaration[];
 };
 
 type TopLevelContext = {
@@ -133,12 +135,14 @@ type FunctionContext = {
 type ConstructorContext = {
   kind: 'constructor';
   globalContext: GlobalContext;
+  classNode: NodeClassDeclaration;
 };
 
 type ClosureContext = {
   kind: 'closure';
   globalContext: GlobalContext;
   captures: Capture[];
+  returnTypeName: string;
 };
 
 export function lower(sourceFile: AppSourceFile, programContext: ProgramContext) {
@@ -157,6 +161,7 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     variableDeclarationMap: new Map<number, CppVariableDeclaration>(),
     functionDeclarationMap: new Map<number, CppFunctionDeclaration>(),
     classDeclarationMap: new Map<number, CppClassDeclaration>(),
+    importedClassDeclarations: new Array<CppClassDeclaration>(),
   } as const satisfies GlobalContext;
   const topLevelContext = { kind: 'topLevel', globalContext } as const satisfies TopLevelContext;
   const pathId = pathToId(sourceFile.realPath);
@@ -186,22 +191,14 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
     ).code(),
   );
   const definedFunctionLines = functions
-    .filter((f) => !f.isDeclared)
+    .filter((f) => !f.isAmbient)
     .flatMap((f) => lowerFunction(f, topLevelContext));
   const classes = sourceFile.statements
     .filter((n) => n instanceof NodeClassDeclaration)
-    .filter((c) => !c.isDeclared);
-  const classDeclarationLines = classes.flatMap((c) => {
-    const storage = getTopLevelClassStorage(c);
-
-    declareConstructor(c, topLevelContext, storage);
-
-    for (const method of c.methods) {
-      declareMethod(c, method, topLevelContext, storage);
-    }
-
-    return declareClass(c, topLevelContext).code().split('\n');
-  });
+    .filter((c) => !c.isAmbient);
+  const classDeclarationLines = classes.flatMap((c) =>
+    declareClass(c, c, topLevelContext).code().split('\n'),
+  );
   const definedClassLines = classes.flatMap((c) => lowerClass(c, topLevelContext));
   const topLevelStatements = lowerTopLevelStatements(sourceFile, topLevelContext);
   const w = new CppWriter();
@@ -220,6 +217,14 @@ export function lower(sourceFile: AppSourceFile, programContext: ProgramContext)
         .values()
         .flatMap((l) => l)
         .toArray(),
+    );
+    w.newline();
+    w.newline();
+  }
+
+  for (const classDeclaration of globalContext.importedClassDeclarations) {
+    w.block(`namespace ${CppNode.toCppNamespaceName(classDeclaration.pathId)}`, () =>
+      classDeclaration.code().split('\n'),
     );
     w.newline();
     w.newline();
@@ -362,7 +367,7 @@ function declareFunction(
   }
 
   assert(
-    !node.isDeclared || !identifier.text.startsWith('ssc__'),
+    !node.isAmbient || !identifier.text.startsWith('ssc__'),
     `${node.location()}: '${identifier.text}' is reserved`,
   );
 
@@ -374,7 +379,7 @@ function declareFunction(
     getPathId(identifier, context),
     undefined,
     storage,
-    node.isDeclared,
+    node.isAmbient,
     returnTypeName,
     identifier.text,
     parameters,
@@ -386,7 +391,7 @@ function declareFunction(
 }
 
 function lowerFunction(node: NodeFunctionDeclaration, topLevelContext: TopLevelContext) {
-  assert(!node.isDeclared, `${node.location()}: declared function can not be lowered`);
+  assert(!node.isAmbient, `${node.location()}: declared function can not be lowered`);
 
   const context = {
     kind: 'function',
@@ -431,8 +436,39 @@ function getTopLevelClassStorage(node: NodeClassDeclaration) {
   return node.isExported ? 'exportedTopLevel' : 'topLevel';
 }
 
-function declareClass(node: NodeClassDeclaration, context: LowerContext) {
-  const { classDeclarationMap } = context.globalContext;
+function getSuperClassNode(node: NodeClassDeclaration) {
+  const { superClassIdentifier } = node;
+
+  if (!superClassIdentifier) {
+    return undefined;
+  }
+
+  const declaration = superClassIdentifier.getValueDeclaration();
+
+  assert(
+    ast.isClassDeclaration(declaration),
+    `${node.location()}: not implemented class heritage: ${superClassIdentifier.text}`,
+  );
+
+  return new NodeClassDeclaration(node.app, declaration);
+}
+
+function getConstructorParameters(node: NodeClassDeclaration): NodeParameterDeclaration[] {
+  if (node.constructorDeclaration) {
+    return node.constructorDeclaration.parameters;
+  }
+
+  const superClassNode = getSuperClassNode(node);
+
+  return superClassNode ? getConstructorParameters(superClassNode) : [];
+}
+
+function declareClass(
+  node: NodeClassDeclaration,
+  useNode: AbstractNode<ast.Node>,
+  context: LowerContext,
+): CppClassDeclaration {
+  const { classDeclarationMap, importedClassDeclarations } = context.globalContext;
   const { identifier } = node;
   const symbolId = identifier.getSymbol().id;
   const declaration = classDeclarationMap.get(symbolId);
@@ -441,11 +477,11 @@ function declareClass(node: NodeClassDeclaration, context: LowerContext) {
     return declaration;
   }
 
-  assert(
-    !node.isDeclared,
-    `${node.location()}: not implemented declared class: ${identifier.text}`,
-  );
+  assert(!node.isAmbient, `${node.location()}: not implemented declared class: ${identifier.text}`);
 
+  const storage = getClassStorage(node, useNode);
+  const superClassNode = getSuperClassNode(node);
+  const superClassDeclaration = superClassNode && declareClass(superClassNode, useNode, context);
   const properties = node.properties.map((p) => ({
     tsPropertyName: p.name,
     tsTypeName: getSscTypeName(node.app, p.getType()),
@@ -453,81 +489,128 @@ function declareClass(node: NodeClassDeclaration, context: LowerContext) {
   const newDeclaration = new CppClassDeclaration(
     getPathId(identifier, context),
     identifier.text,
+    superClassDeclaration,
     properties,
   );
+  const declareParameters = (parameters: NodeParameterDeclaration[]) => [
+    new CppVariableDeclaration(undefined, 'local', false, 'ref', 'this'),
+    ...parameters.map((p) => declareVariable(p.bindingName.identifier, context, 'local', false)),
+  ];
 
   classDeclarationMap.set(symbolId, newDeclaration);
+  newDeclaration.declareFunction(
+    storage,
+    'ref',
+    'constructor',
+    declareParameters(getConstructorParameters(node)),
+  );
+
+  for (const method of node.methods) {
+    const methodDeclaration = newDeclaration.declareFunction(
+      storage,
+      getSscTypeName(node.app, method.getReturnType()),
+      method.name,
+      declareParameters(method.parameters),
+    );
+    const superClassMethod = superClassDeclaration
+      ?.getMethods()
+      .find((m) => m.tsMethodName === method.name);
+
+    assert(
+      !superClassMethod
+        || isSameCppFunctionSignature(superClassMethod.declaration, methodDeclaration),
+      `${method.location()}: not implemented override with a different signature: ${method.name}`,
+    );
+  }
+
+  if (storage === 'imported') {
+    assert(
+      node.isExported,
+      `${useNode.location()}: '${identifier.text}' is declared in ${node.getSourceFile().fileName}, but it has no 'export' modifier`,
+    );
+
+    importedClassDeclarations.push(newDeclaration);
+  }
 
   return newDeclaration;
 }
 
-function declareThisParameter() {
-  return new CppVariableDeclaration(undefined, 'local', false, 'ref', 'this');
+function isSameCppFunctionSignature(left: CppFunctionDeclaration, right: CppFunctionDeclaration) {
+  return (
+    left.cppReturnTypeName === right.cppReturnTypeName
+    && left.parameters.length === right.parameters.length
+    && left.parameters.every((p, index) => p.cppTypeName === right.parameters[index]?.cppTypeName)
+  );
 }
 
-function declareConstructor(
-  node: NodeClassDeclaration,
-  context: LowerContext,
-  storage: CppFunctionStorage,
-) {
-  const parameters = (node.constructorDeclaration?.parameters ?? []).map((p) =>
-    declareVariable(p.bindingName.identifier, context, 'local', false),
+function getClassFunction(classDeclaration: CppClassDeclaration, tsFunctionName: string) {
+  const declaration = classDeclaration.functionDeclarations.find(
+    (d) => d.tsFunctionName === tsFunctionName,
   );
 
-  return declareClass(node, context).declareFunction(storage, 'ref', 'constructor', [
-    declareThisParameter(),
-    ...parameters,
+  assert(declaration, `class function not declared: ${tsFunctionName}`);
+
+  return declaration;
+}
+
+function lowerFieldInitializers(node: NodeClassDeclaration, context: ConstructorContext) {
+  const { structName } = declareClass(node, node, context).shapeDefinition;
+
+  return node.properties.flatMap((p) =>
+    p.initializer ?
+      [
+        new CppExpressionStatement(
+          new CppUnknownExpression(
+            `reinterpret_cast<${structName}*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer())->ssc__ts__member__${p.name} = ${lowerValue(p.initializer, context)}`,
+          ),
+        ),
+      ]
+    : [],
+  );
+}
+
+function lowerSuperConstructorCall(args: string[], context: ConstructorContext) {
+  const superClassNode = getSuperClassNode(context.classNode);
+
+  assert(superClassNode, `${context.classNode.location()}: super call without a super class`);
+
+  const superClassConstructor = getClassFunction(
+    declareClass(superClassNode, context.classNode, context),
+    'constructor',
+  );
+  const call = new CppFunctionCall(superClassConstructor.reference, [
+    new CppUnknownExpression('ssc__ts__var__this'),
+    ...args.map((a) => new CppUnknownExpression(a)),
   ]);
-}
 
-function declareMethod(
-  node: NodeClassDeclaration,
-  method: NodeMethodDeclaration,
-  context: LowerContext,
-  storage: CppFunctionStorage,
-) {
-  const parameters = method.parameters.map((p) =>
-    declareVariable(p.bindingName.identifier, context, 'local', false),
-  );
-
-  return declareClass(node, context).declareFunction(
-    storage,
-    getSscTypeName(node.app, method.getReturnType()),
-    method.name,
-    [declareThisParameter(), ...parameters],
-  );
+  return [new CppExpressionStatement(call), ...lowerFieldInitializers(context.classNode, context)];
 }
 
 function lowerClass(node: NodeClassDeclaration, topLevelContext: TopLevelContext) {
   const { globalContext } = topLevelContext;
-  const storage = getTopLevelClassStorage(node);
-  const classDeclaration = declareClass(node, topLevelContext);
-  const { structName } = classDeclaration.shapeDefinition;
+  const classDeclaration = declareClass(node, node, topLevelContext);
   const { constructorDeclaration } = node;
+  const constructorContext = {
+    kind: 'constructor',
+    globalContext,
+    classNode: node,
+  } as const satisfies ConstructorContext;
+  const constructorStatements =
+    getSuperClassNode(node) === undefined ? lowerFieldInitializers(node, constructorContext)
+    : constructorDeclaration ? []
+    : lowerSuperConstructorCall(
+        getConstructorParameters(node).map((p) =>
+          getVariableReference(p.bindingName.identifier, constructorContext).code(),
+        ),
+        constructorContext,
+      );
   const w = new CppWriter();
 
   w.block(`namespace ${classDeclaration.cppClassName}`, () => {
     const memberWriter = new CppWriter();
-    const constructorContext = {
-      kind: 'constructor',
-      globalContext,
-    } as const satisfies ConstructorContext;
 
-    const initializers = node.properties.flatMap((p) =>
-      p.initializer ?
-        [
-          `ssc__core__var__object->ssc__ts__member__${p.name} = ${lowerValue(p.initializer, constructorContext)};`,
-        ]
-      : [],
-    );
-
-    memberWriter.block(declareConstructor(node, constructorContext, storage).code(), () => [
-      ...(initializers.length === 0 ?
-        []
-      : [
-          `${structName}* ssc__core__var__object = reinterpret_cast<${structName}*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer());`,
-          ...initializers,
-        ]),
+    memberWriter.block(getClassFunction(classDeclaration, 'constructor').code(), () => [
+      ...constructorStatements.flatMap((statement) => statement.code().split('\n')),
       ...(constructorDeclaration?.block ?
         lowerFunctionBody(
           constructorDeclaration.parameters,
@@ -545,7 +628,7 @@ function lowerClass(node: NodeClassDeclaration, topLevelContext: TopLevelContext
       assert(block, `${method.location()}: declared method can not be lowered`);
 
       memberWriter.newline();
-      memberWriter.block(declareMethod(node, method, methodContext, storage).code(), () =>
+      memberWriter.block(getClassFunction(classDeclaration, method.name).code(), () =>
         lowerFunctionBody(method.parameters, block, methodContext),
       );
     }
@@ -609,6 +692,22 @@ function lowerTopLevelVariableStatement(node: NodeVariableStatement, context: To
 }
 
 function lowerStatement(node: AbstractStatement, context: LowerContext): CppStatement[] {
+  if (
+    node instanceof NodeExpressionStatement
+    && node.expression instanceof NodeCallExpression
+    && node.expression.expression instanceof NodeSuperExpression
+  ) {
+    assert(
+      context.kind === 'constructor',
+      `${node.location()}: not implemented super call: ${node.getText()}`,
+    );
+
+    return lowerSuperConstructorCall(
+      node.expression.arguments.map((a) => lowerValue(a, context)),
+      context,
+    );
+  }
+
   if (node instanceof NodeExpressionStatement) {
     const expression = new CppUnknownExpression(lowerExpression(node.expression, context));
 
@@ -636,10 +735,7 @@ function lowerStatement(node: AbstractStatement, context: LowerContext): CppStat
     }
 
     if (context.kind === 'closure') {
-      const value =
-        node.expression ? lowerValue(node.expression, context) : new CppUndefinedLiteral().code();
-
-      return [new CppReturnStatement(new CppUnknownExpression(`ssc__core__type__union(${value})`))];
+      return lowerClosureReturn(node.expression, context);
     }
 
     if (!node.expression) {
@@ -926,6 +1022,10 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
     return getCaptureText({ kind: 'this' }, context);
   }
 
+  if (node instanceof NodeSuperExpression) {
+    throw new Error(`${node.location()}: not implemented super expression: ${node.getText()}`);
+  }
+
   if (node instanceof NodeArrayLiteralExpression) {
     return lowerArrayLiteralExpression(node, context);
   }
@@ -1032,6 +1132,11 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
       return lowerNullishExpression(node, context);
     }
 
+    // instanceof
+    if (kind === ast.SyntaxKind.InstanceOfKeyword) {
+      return lowerInstanceOfExpression(node, context);
+    }
+
     if (
       kind === ast.SyntaxKind.PlusEqualsToken // +=
       || kind === ast.SyntaxKind.MinusEqualsToken // -=
@@ -1085,7 +1190,7 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
           `${callee.location()}: '${callee.text}' is declared in ${realPath}, but it has no 'export' modifier`,
         );
         assert(
-          !declaration.getSourceFile().isDeclarationFile || functionDeclaration.isDeclared,
+          !declaration.getSourceFile().isDeclarationFile || functionDeclaration.hasDeclareKeyword,
           `${callee.location()}: '${callee.text}' is declared in ${realPath}, but it has no 'declare' modifier`,
         );
 
@@ -1103,23 +1208,129 @@ function lowerExpression(node: AbstractNode<ast.Expression>, context: LowerConte
   throw new Error(`not implemented expression: ${node.getText()}`);
 }
 
-function lowerFunctionValueCallExpression(node: NodeCallExpression, context: LowerContext) {
-  const args = node.arguments.map((a) => `ssc__core__type__union(${lowerValue(a, context)})`);
-  const text = new CppCoreFunctionCall(
-    'ssc__core__fn__call',
-    [],
-    [
-      new CppUnknownExpression(lowerExpression(node.expression, context)),
-      new CppUnknownExpression(`{${args.join(', ')}}`),
-    ],
-  ).code();
-  const typeName = getSscTypeName(node.app, node.getType());
+type FunctionSignature = { returnTypeName: string; parameterTypeNames: string[] };
 
-  if (typeName === 'void' || typeName === 'union') {
+function getFunctionSignature(app: AppSourceFile['app'], type: ts.Type): FunctionSignature {
+  const { checker } = app;
+  const signatures = checker.getSignaturesOfType(type, ts.SignatureKind.Call);
+  const [signature] = signatures;
+
+  assert(
+    signature && signatures.length === 1 && !signature.hasRestParameter,
+    `not implemented function type: ${checker.typeToString(type)}`,
+  );
+
+  return {
+    returnTypeName: getSscTypeName(app, signature.getReturnType()),
+    parameterTypeNames: signature
+      .getParameters()
+      .map((p) => getSscTypeName(app, checker.getTypeOfSymbol(p))),
+  };
+}
+
+function getTargetFunctionSignature(node: AbstractNode<ast.Expression>) {
+  const contextualType = node.app.checker.getContextualType(node.tsNode);
+  const type =
+    contextualType && isFunctionType(node.app, contextualType) ? contextualType : node.getType();
+
+  return getFunctionSignature(node.app, type);
+}
+
+function isSameTsFunctionSignature(left: FunctionSignature, right: FunctionSignature) {
+  return (
+    left.returnTypeName === right.returnTypeName
+    && left.parameterTypeNames.length === right.parameterTypeNames.length
+    && left.parameterTypeNames.every((t, index) => t === right.parameterTypeNames[index])
+  );
+}
+
+function convertValueText(text: string, fromTypeName: string, toTypeName: string) {
+  if (fromTypeName === toTypeName) {
     return text;
   }
 
-  return getUnionReadText(typeName, text);
+  if (toTypeName === 'union') {
+    return `ssc__core__type__union(${text})`;
+  }
+
+  if (fromTypeName === 'union') {
+    return getUnionReadText(toTypeName, text);
+  }
+
+  throw new Error(`not implemented value conversion: ${fromTypeName} to ${toTypeName}`);
+}
+
+function getFunctionValueLambdaHead(signature: FunctionSignature) {
+  const parameters = signature.parameterTypeNames.map(
+    (t, index) => `${CppNode.toCppTypeName(t)} ssc__core__var__argument_${index}`,
+  );
+
+  return `+[](${['const ssc__core__struct__closure* ssc__core__var__closure', 'ssc__core__type__ref ssc__ts__var__this', ...parameters].join(', ')}) -> ${CppNode.toCppTypeName(signature.returnTypeName)}`;
+}
+
+function getFunctionValueReturnLines(
+  text: string,
+  fromTypeName: string,
+  signature: FunctionSignature,
+) {
+  if (signature.returnTypeName === 'void') {
+    return [`${text};`, 'return;'];
+  }
+
+  if (fromTypeName === 'void') {
+    return [
+      `${text};`,
+      `return ${convertValueText(new CppUndefinedLiteral().code(), 'undefined', signature.returnTypeName)};`,
+    ];
+  }
+
+  return [`return ${convertValueText(text, fromTypeName, signature.returnTypeName)};`];
+}
+
+function lowerClosureReturn(
+  expression: AbstractNode<ast.Expression> | undefined,
+  context: ClosureContext,
+): CppStatement[] {
+  const { returnTypeName } = context;
+
+  if (returnTypeName === 'void') {
+    return [
+      ...(expression ?
+        [new CppExpressionStatement(new CppUnknownExpression(lowerExpression(expression, context)))]
+      : []),
+      new CppReturnStatement(),
+    ];
+  }
+
+  const value =
+    expression ?
+      lowerValueAs(expression, returnTypeName, context)
+    : convertValueText(new CppUndefinedLiteral().code(), 'undefined', returnTypeName);
+
+  return [new CppReturnStatement(new CppUnknownExpression(value))];
+}
+
+function lowerFunctionValueCallExpression(node: NodeCallExpression, context: LowerContext) {
+  const signature = getFunctionSignature(node.app, node.expression.getType());
+  const args = signature.parameterTypeNames.map((typeName, index) => {
+    const argument = node.arguments[index];
+
+    return new CppUnknownExpression(
+      argument ?
+        lowerValueAs(argument, typeName, context)
+      : convertValueText(new CppUndefinedLiteral().code(), 'undefined', typeName),
+    );
+  });
+
+  return new CppCoreFunctionCall(
+    'ssc__core__fn__call',
+    [signature.returnTypeName, ...signature.parameterTypeNames],
+    [
+      new CppUnknownExpression(lowerExpression(node.expression, context)),
+      new CppUnknownExpression('ssc__core__type__ref()'),
+      ...args,
+    ],
+  ).code();
 }
 
 function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerContext) {
@@ -1127,44 +1338,53 @@ function lowerFunctionExpression(node: NodeFunctionExpression, context: LowerCon
   const captures = (closureCaptureMap.get(node.tsNode) || []).filter(
     (c) => c.kind !== 'variable' || !topLevelVariableSymbolIdSet.has(c.symbolId),
   );
+  const signature = getTargetFunctionSignature(node);
   const closureContext = {
     kind: 'closure',
     globalContext: context.globalContext,
     captures,
+    returnTypeName: signature.returnTypeName,
   } as const satisfies ClosureContext;
   const parameters = node.parameters.map((p, index) => {
     const { identifier } = p.bindingName;
-    const argument = `ssc__core__var__arguments[${index}]`;
+    const parameterTypeName = signature.parameterTypeNames[index];
+
+    assert(
+      parameterTypeName !== undefined,
+      `${p.location()}: not implemented parameter beyond the expected function type: ${p.getText()}`,
+    );
+
+    const argument = `ssc__core__var__argument_${index}`;
 
     if (isBoxedVariable(identifier, closureContext)) {
-      return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [new CppUnknownExpression(argument)]).code()};`;
+      const value = convertValueText(argument, parameterTypeName, 'union');
+
+      return `ssc__core__type__ref ${getSscBoxName(identifier.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [new CppUnknownExpression(value)]).code()};`;
     }
 
     const typeName = getSscTypeName(node.app, identifier.getType());
-    const value = typeName === 'union' ? argument : getUnionReadText(typeName, argument);
-
     const declaration = declareVariable(
       identifier,
       closureContext,
       'local',
       true,
-      new CppUnknownExpression(value),
+      new CppUnknownExpression(convertValueText(argument, parameterTypeName, typeName)),
     );
 
     return new CppDeclarationStatement(declaration).code();
   });
   const body =
     node.body instanceof NodeBlock ?
-      node.body.statements
-        .flatMap((s) => lowerStatement(s, closureContext))
-        .flatMap((statement) => statement.code().split('\n'))
-    : [`return ssc__core__type__union(${lowerValue(node.body, closureContext)});`];
+      node.body.statements.flatMap((s) => lowerStatement(s, closureContext))
+    : lowerClosureReturn(node.body, closureContext);
   const lines = [
     ...parameters,
-    ...body,
-    `return ssc__core__type__union(${new CppUndefinedLiteral().code()});`,
+    ...body.flatMap((statement) => statement.code().split('\n')),
+    ...(signature.returnTypeName === 'union' ?
+      [`return ssc__core__type__union(${new CppUndefinedLiteral().code()});`]
+    : []),
   ];
-  const lambda = `+[](const ssc__core__struct__closure* ssc__core__var__closure, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${lines.join(' ')} }`;
+  const lambda = `${getFunctionValueLambdaHead(signature)} { ${lines.join(' ')} }`;
   const captureValues = captures.map((c) => getCaptureText(c, context));
 
   const args = [
@@ -1182,37 +1402,65 @@ function lowerFunctionValue(node: NodeIdentifier, context: LowerContext) {
   );
 
   assert(
-    !declaration.isDeclared && declaration.getSourceFile() === node.getSourceFile(),
+    !declaration.isAmbient && declaration.getSourceFile() === node.getSourceFile(),
     `${node.location()}: not implemented function value: ${node.text}`,
   );
 
-  const name = `ssc__ts__closure__${declaration.identifier.text}`;
-  const parameters = declaration.parameters.map((p, index) => {
-    const typeName = getSscTypeName(node.app, p.bindingName.identifier.getType());
-    const argument = `ssc__core__var__arguments[${index}]`;
+  const signature = getTargetFunctionSignature(node);
+  const ownSignature = getFunctionSignature(node.app, node.getType());
+  const name = `ssc__ts__closure__${declaration.identifier.text}__${[...signature.parameterTypeNames, signature.returnTypeName].join('_')}`;
+  const args = ownSignature.parameterTypeNames.map((typeName, index) => {
+    const parameterTypeName = signature.parameterTypeNames[index];
 
     return new CppUnknownExpression(
-      typeName === 'union' ? argument : getUnionReadText(typeName, argument),
+      parameterTypeName === undefined ?
+        convertValueText(new CppUndefinedLiteral().code(), 'undefined', typeName)
+      : convertValueText(`ssc__core__var__argument_${index}`, parameterTypeName, typeName),
     );
   });
   const storage = getTopLevelFunctionStorage(declaration);
   const { reference } = declareFunction(declaration, context, storage);
-  const call = new CppFunctionCall(reference, parameters).code();
-  const isVoid = getSscTypeName(node.app, declaration.getReturnType()) === 'void';
-  const body =
-    isVoid ?
-      `${call}; return ssc__core__type__union(${new CppUndefinedLiteral().code()});`
-    : `return ssc__core__type__union(${call});`;
+  const call = new CppFunctionCall(reference, args).code();
+  const body = getFunctionValueReturnLines(call, ownSignature.returnTypeName, signature);
 
   context.globalContext.functionValueDefinitionMap.set(
     name,
-    `const ssc__core__struct__closure ${name}{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, +[](const ssc__core__struct__closure*, ssc__core__struct__span<ssc__core__type__union> ssc__core__var__arguments) -> ssc__core__type__union { ${body} }, {0, nullptr}};`,
+    `const ssc__core__struct__closure ${name}{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, reinterpret_cast<void (*)()>(${getFunctionValueLambdaHead(signature)} { ${body.join(' ')} }), {0, nullptr}};`,
   );
 
   return new CppCoreFunctionCall(
     'ssc__core__fn__function_value',
     [],
     [new CppUnknownExpression(name)],
+  ).code();
+}
+
+function adaptFunctionValue(text: string, source: FunctionSignature, target: FunctionSignature) {
+  const args = source.parameterTypeNames.map((typeName, index) => {
+    const parameterTypeName = target.parameterTypeNames[index];
+
+    return parameterTypeName === undefined ?
+        convertValueText(new CppUndefinedLiteral().code(), 'undefined', typeName)
+      : convertValueText(`ssc__core__var__argument_${index}`, parameterTypeName, typeName);
+  });
+  const call = new CppCoreFunctionCall(
+    'ssc__core__fn__call',
+    [source.returnTypeName, ...source.parameterTypeNames],
+    [
+      new CppUnknownExpression('ssc__core__var__closure->ssc__core__member__captures[0]'),
+      new CppUnknownExpression('ssc__ts__var__this'),
+      ...args.map((a) => new CppUnknownExpression(a)),
+    ],
+  ).code();
+  const body = getFunctionValueReturnLines(call, source.returnTypeName, target);
+
+  return new CppCoreFunctionCall(
+    'ssc__core__fn__closure',
+    [],
+    [
+      new CppUnknownExpression(`${getFunctionValueLambdaHead(target)} { ${body.join(' ')} }`),
+      new CppUnknownExpression(`{${text}}`),
+    ],
   ).code();
 }
 
@@ -1251,6 +1499,10 @@ function lowerMethodCallExpression(
 ) {
   const { expression } = callee;
 
+  if (expression instanceof NodeSuperExpression) {
+    return lowerSuperMethodCallExpression(node, callee, context);
+  }
+
   if (
     callee.name === 'write'
     && expression instanceof NodePropertyAccessExpression
@@ -1264,7 +1516,9 @@ function lowerMethodCallExpression(
     assert(text, `${node.location()}: '${callee.getText()}' takes an argument`);
 
     const functionName =
-      expression.name === 'stdout' ? 'ssc__core__fn__write_stdout' : 'ssc__core__fn__write_stderr';
+      expression.name === 'stdout' ?
+        'ssc__core__fn__write_ts_stdout'
+      : 'ssc__core__fn__write_ts_stderr';
     const textType = text.getType();
     const value =
       isStringType(textType) || isBStringType(node.app, textType) ?
@@ -1340,13 +1594,14 @@ function lowerMethodCallExpression(
     if (callee.name === 'reduce') {
       assert(second, `${node.location()}: 'reduce' takes an initial value`);
 
-      const initial = new CppUnknownExpression(
-        `ssc__core__type__union(${lowerValue(second, context)})`,
-      );
-      const text = callArray('ssc__core__fn__array_reduce', [argument, initial]);
       const typeName = getSscTypeName(node.app, node.getType());
+      const initial = new CppUnknownExpression(lowerValueAs(second, typeName, context));
 
-      return typeName === 'union' ? text : getUnionReadText(typeName, text);
+      return new CppCoreFunctionCall(
+        'ssc__core__fn__array_reduce',
+        [elementType, typeName],
+        [array, argument, initial],
+      ).code();
     }
 
     if (callee.name === 'forEach') {
@@ -1379,22 +1634,41 @@ function lowerMethodCallExpression(
 
   const classNode = getClassNode(expression.app, expression.getType());
 
-  if (classNode) {
-    const method = classNode.methods.find((m) => m.name === callee.name);
-
-    if (!method) {
-      return lowerFunctionValueCallExpression(node, context);
+  if (classNode || isObjectType(expression.app, expression.getType())) {
+    if (classNode) {
+      declareClass(classNode, node, context);
     }
 
-    const declaration = declareMethod(classNode, method, context, getClassStorage(classNode, node));
-    const args = [
-      new CppUnknownExpression(lowerExpression(expression, context)),
-      ...node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context))),
-    ];
+    assert(
+      getSscTypeName(node.app, callee.getType()) === 'ref',
+      `${callee.location()}: not implemented member call: ${callee.getText()}`,
+    );
 
-    addImportedClassForward(classNode, node, context);
+    const signature = getFunctionSignature(node.app, callee.getType());
+    const member = new CppCoreFunctionCall(
+      'ssc__core__fn__member',
+      ['ref'],
+      [
+        new CppUnknownExpression('object'),
+        new CppUnknownExpression(CppMemberTableDefinition.toCppMemberHash(callee.name)),
+      ],
+    );
+    const args = signature.parameterTypeNames.map((typeName, index) => {
+      const argument = node.arguments[index];
 
-    return new CppFunctionCall(declaration.reference, args).code();
+      return new CppUnknownExpression(
+        argument ?
+          lowerValueAs(argument, typeName, context)
+        : convertValueText(new CppUndefinedLiteral().code(), 'undefined', typeName),
+      );
+    });
+    const call = new CppCoreFunctionCall(
+      'ssc__core__fn__call',
+      [signature.returnTypeName, ...signature.parameterTypeNames],
+      [member, new CppUnknownExpression('object'), ...args],
+    ).code();
+
+    return `[&](const ssc__core__type__ref& object) { return ${call}; }(${lowerExpression(expression, context)})`;
   }
 
   throw new Error(`${callee.location()}: not implemented callee: ${callee.getText()}`);
@@ -1408,13 +1682,11 @@ function lowerNewExpression(node: NodeNewExpression, context: LowerContext) {
     `${node.location()}: not implemented new target: ${node.getText()}`,
   );
 
-  const classNode = new NodeClassDeclaration(node.app, declaration);
-  const constructorDeclaration = declareConstructor(
-    classNode,
+  const classDeclaration = declareClass(
+    new NodeClassDeclaration(node.app, declaration),
+    node,
     context,
-    getClassStorage(classNode, node),
   );
-  const classDeclaration = declareClass(classNode, context);
   const classReference = classDeclaration.reference.code();
   const allocate = new CppCoreFunctionCall(
     'ssc__core__fn__allocate_object',
@@ -1428,9 +1700,75 @@ function lowerNewExpression(node: NodeNewExpression, context: LowerContext) {
   );
   const args = node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context)));
 
-  addImportedClassForward(classNode, node, context);
+  return new CppFunctionCall(getClassFunction(classDeclaration, 'constructor').reference, [
+    allocate,
+    ...args,
+  ]).code();
+}
 
-  return new CppFunctionCall(constructorDeclaration.reference, [allocate, ...args]).code();
+function lowerSuperMethodCallExpression(
+  node: NodeCallExpression,
+  callee: NodePropertyAccessExpression,
+  context: LowerContext,
+) {
+  const classDeclaration = getEnclosingClassDeclaration(node.tsNode);
+
+  assert(classDeclaration, `${node.location()}: super outside a class`);
+
+  const superClassNode = getSuperClassNode(new NodeClassDeclaration(node.app, classDeclaration));
+
+  assert(superClassNode, `${node.location()}: super without a super class`);
+
+  const method = declareClass(superClassNode, node, context)
+    .getMethods()
+    .find((m) => m.tsMethodName === callee.name);
+
+  assert(method, `${callee.location()}: not implemented super member: ${callee.getText()}`);
+
+  const args = [
+    new CppUnknownExpression(getCaptureText({ kind: 'this' }, context)),
+    ...node.arguments.map((a) => new CppUnknownExpression(lowerValue(a, context))),
+  ];
+
+  return new CppFunctionCall(method.declaration.reference, args).code();
+}
+
+function getEnclosingClassDeclaration(node: ast.Node) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  for (let current = node.parent; current; current = current.parent) {
+    if (ast.isClassDeclaration(current)) {
+      return current;
+    }
+  }
+
+  return undefined;
+}
+
+function lowerInstanceOfExpression(node: NodeBinaryExpression, context: LowerContext) {
+  const { right } = node;
+  const declaration = right instanceof NodeIdentifier ? right.getValueDeclaration() : undefined;
+
+  assert(
+    declaration && ast.isClassDeclaration(declaration),
+    `${node.location()}: not implemented instanceof target: ${right.getText()}`,
+  );
+
+  const classDeclaration = declareClass(
+    new NodeClassDeclaration(node.app, declaration),
+    node,
+    context,
+  );
+
+  return new CppCoreFunctionCall(
+    'ssc__core__fn__instance_of',
+    [],
+    [
+      new CppUnknownExpression(lowerExpression(node.left, context)),
+      new CppUnknownExpression(
+        `__builtin_addressof(${classDeclaration.reference.code()}::ssc__ts__descriptor)`,
+      ),
+    ],
+  ).code();
 }
 
 function getClassNode(app: AppSourceFile['app'], type: ts.Type) {
@@ -1442,38 +1780,13 @@ function getClassNode(app: AppSourceFile['app'], type: ts.Type) {
 
   const classNode = new NodeClassDeclaration(app, declaration);
 
-  return classNode.isDeclared ? undefined : classNode;
+  return classNode.isAmbient ? undefined : classNode;
 }
 
 function getClassStorage(classNode: NodeClassDeclaration, node: AbstractNode<ast.Node>) {
   const isSameFile = classNode.getSourceFile().fileName === node.getSourceFile().fileName;
 
   return isSameFile ? getTopLevelClassStorage(classNode) : 'imported';
-}
-
-function addImportedClassForward(
-  classNode: NodeClassDeclaration,
-  node: AbstractNode<ast.Node>,
-  context: LowerContext,
-) {
-  if (classNode.getSourceFile().fileName === node.getSourceFile().fileName) {
-    return;
-  }
-
-  const realPath = node.app.parser.tsPathToRealPath(classNode.getSourceFile().fileName);
-  const classDeclaration = declareClass(classNode, context);
-
-  assert(
-    classNode.isExported,
-    `${node.location()}: '${classNode.identifier.text}' is declared in ${realPath}, but it has no 'export' modifier`,
-  );
-
-  addImportedForward(
-    context,
-    realPath,
-    classDeclaration.reference.code(),
-    classDeclaration.code().split('\n'),
-  );
 }
 
 function getPropertyShape(node: AbstractNode<ast.Expression>, context: LowerContext) {
@@ -1485,10 +1798,8 @@ function getPropertyShape(node: AbstractNode<ast.Expression>, context: LowerCont
     return { shapeDefinition, structName: shapeDefinition.structName };
   }
 
-  const classDeclaration = declareClass(classNode, context);
+  const classDeclaration = declareClass(classNode, node, context);
   const { shapeDefinition } = classDeclaration;
-
-  addImportedClassForward(classNode, node, context);
 
   return {
     shapeDefinition,
@@ -2414,7 +2725,7 @@ function getDescriptorName(shape: CppShapeDefinition, keys: string[], context: L
     }
 
     definitions.set(name, [
-      `inline constexpr ssc__core__struct__descriptor ${name}{__builtin_addressof(${shape.structName}__shape), nullptr, nullptr, ssc__core__fn__object_inspect, ${keySpan}};`,
+      `inline constexpr ssc__core__struct__descriptor ${name}{__builtin_addressof(${shape.structName}__shape), nullptr, nullptr, ssc__core__fn__object_inspect, ${[keySpan, 'nullptr', 'nullptr', shape.memberTable.descriptorField()].join(', ')}};`,
     ]);
   }
 
@@ -2842,6 +3153,20 @@ function lowerValue(node: AbstractNode<ast.Expression>, context: LowerContext) {
   }
 
   checkSharedRepresentation(node, targetType);
+
+  if (
+    isFunctionType(node.app, targetType)
+    && !(node instanceof NodeFunctionExpression)
+    && !(node instanceof NodeIdentifier && ast.isFunctionDeclaration(node.getValueDeclaration()))
+  ) {
+    const source = getFunctionSignature(node.app, node.getType());
+    const target = getFunctionSignature(node.app, targetType);
+    const text = lowerExpression(node, context);
+
+    return isSameTsFunctionSignature(source, target) ? text : (
+        adaptFunctionValue(text, source, target)
+      );
+  }
 
   const type = getSscTypeName(node.app, targetType);
 

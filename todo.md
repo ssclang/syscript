@@ -392,14 +392,49 @@ shape
 - 필드 순서는 선언 순서. 초기값 없는 필드는 `allocate_object`가 기본값(숫자 0, ref null, union undefined)으로 채움
 - `new C(a)` → `C::constructor(allocate_object(sizeof, &C::descriptor), a)`. 할당은 `new` 자리에서 하고 생성자는 `this`를 받아
   필드 초기값 → 본문 → `this` 반환. `super()`도 부모 생성자에 같은 `this`를 넘기면 됨(JS의 new.target과 같은 결과)
-- 메소드는 `this`를 첫 인자로 받는 함수, 직접 호출. 화살표 함수의 `this`는 클로저 캡처(ref)
+- 메소드는 `this`를 첫 인자로 받는 함수. 화살표 함수의 `this`는 클로저 캡처(ref)
 - 다른 파일의 클래스는 쓰는 곳에서 클래스 블록을 forward로 다시 냄
 - 막아 둔 것(컴파일 에러): extends, abstract, static, 접근자, `#private`, 파라미터 프로퍼티, 지역 클래스, 생성자 반환값,
   메소드를 값으로 꺼내기, `declare class`
 
+2단계(상속) ✅ 2026-11-06
+- 구조체는 부모 필드 → 자기 필드 순서. `super(...)` 자리에서 부모 생성자 호출 → 자기 필드 초기값. 생성자가 없으면 인자를 그대로 넘김
+- `super.m()`은 부모 쪽 구현을 직접 호출. `instanceof`는 descriptor의 부모 포인터 체인
+- 재정의 메소드의 C++ 시그니처가 부모와 다르면 아직 컴파일 에러(함수 값 어댑터로 풀 수 있음)
+
+메소드 호출 = key → 값 조회 + 호출 (2026-11-06 결정)
+- JS의 메소드는 값이 함수인 속성일 뿐(프로토타입에 있느냐, 객체에 있느냐 차이). 호출하는 쪽은 메소드와 함수 필드를 구분하지 않음
+- descriptor마다 key → 값 위치 완전 해시 표 하나(`ssc__core__struct__member`): 필드는 객체 안 오프셋, 메소드는 클래스 쪽 정적 함수 값
+  (`ssc__ts__value__<이름>`). 상속받은 메소드와 재정의는 클래스를 만들 때 표에 확정
+- `obj.m(a)` → `ssc__core__fn__call<R, A>(member<ref>(obj, H), obj, a)`. 인스턴스 여부, 상속, 정적 타입과 무관. plain object를 클래스
+  타입으로 받거나 클래스 인스턴스를 구조적 타입으로 받아도 같은 경로
+- 처음 구현(정적 타입 클래스의 vtable 직접 호출)은 plain object가 들어오면 잘못된 메모리를 호출해서 버림
+- 함수 값 호출 규약 통일: `R (*)(const closure*, ref this, A...)`. 인자는 정적 함수 타입을 lower한 타입 그대로(union 배열 폐기).
+  화살표/함수 식은 놓인 자리의 기대 타입 시그니처로 만들고, 시그니처가 다른 함수 타입 자리에 기존 함수 값을 넣을 때만 어댑터 클로저 생성.
+  `this`는 시그니처에서 정해짐(지금은 ref). TS `this: T` 선언과 call/apply는 그 자리 타입만 바꾸면 됨
+- 측정(2026-11-06, Ryzen 9 9950X, -O2, ns/호출, 벤치 tmp/object-layout/dispatch.cpp, call-abi.cpp)
+  - 클래스 계층 메소드 호출, 4096/100만 객체: 검사 없는 vtable 0.90~1.45, 부모 체인 검사 + vtable 1.26~1.68(깊이 3에서 +0.6),
+    display(깊이별 배치 id) + vtable 0.91~1.38(검사 비용 0), 완전 해시 + 종류 분기 무작위에서 +0.5~1, 완전 해시 함수표 무작위에서 +0.3~0.6.
+    16종 무작위는 어느 방식이든 7~8(간접 호출 예측 실패가 지배)
+  - closure + this 인자 2개 추가: 1클럭 안팎으로 차이 없음(레지스터 mov). 5개 + 2개로 스택에 넘어가도 차이 없음
+- 나중에 볼 최적화: `ssc__core__fn__closure`와 `ssc__core__fn__call`이 템플릿이라 시그니처마다 인스턴스가 생김.
+  컴파일 시간 측정(2026-11-07, 서로 다른 시그니처 5,000개 × 호출부 20개, 단일 파일 약 47만 줄, -O1 ThinLTO): 지금 23.9초,
+  closure 템플릿 제거 21.8초(-9%), 둘 다 제거하고 호출부에서 직접 캐스팅 19.4초(-19%). -O0에서는 직접 캐스팅이 오히려 조금 느림(9.3 → 9.1~9.3초).
+  한 단계 중첩 템플릿에서도 폭발적 증가는 없었음. 지금 단계에서는 감수하고 유지. 측정 코드는 tmp/closure-compile/gen.py(시그니처 수, 호출부 수, 방식을 인자로 받아 C++ 파일 생성)
+
 다음 단계
-2. 상속: 부모 레이아웃을 앞에 두는 구조체, `super(...)`/`super.m()`, descriptor의 메소드 테이블(vtable), `instanceof`(부모 descriptor 체인)
-3. 필드 접근: 클래스 타입 수신자는 정적 읽기, 그 밖은 완전 해시. 지금의 shape id 비교 → strcmp 검색을 대체
+3. 필드 접근 (2026-11-06 방향 결정, 측정 후 확정)
+   - 클래스 타입 수신자라도 plain object가 들어올 수 있음(구조적 타입). 필드가 더 많은 plain object는 오프셋이 달라 정적 읽기가 안전하지 않음
+   - 클래스 필드를 단계별로 정렬(부모 필드 정렬 → 자기 필드 정렬). 출력 순서는 descriptor keys로 선언 순서 유지.
+     상속 없는 클래스는 같은 필드의 plain object와 shape가 같아짐
+   - descriptor에 레이아웃 display: 깊이별로 그 단계까지의 shape id. plain object는 [자기 shape id]
+   - 클래스 C(깊이 k) 타입 수신자: `display_length > k && display[k] == C의 shape id`면 C의 정적 오프셋, 아니면 key → 값 표(완전 해시).
+     자식 클래스와 같은 필드의 plain object는 정적, 나머지는 해시라 최악이 없음. 클래스가 아닌 타입 수신자는 처음부터 해시
+   - 지금의 shape id 비교 → strcmp 검색은 제거
+   - 측정: display + 정적 / 순수 해시 / 정적 기준선을 tmp/object-layout에 추가해서 비교한 뒤 확정
+   - descriptor 필드 순서: 지금은 추가한 순서라 가장 자주 읽는 member_table이 88바이트 중 끝(64~88, 두 번째 캐시 줄)에 있음.
+     자주 쓰는 필드(member_table, display, shape_pointer, destroy, super)를 앞 64바이트로, 출력용(to_string, inspect, keys, class_name)을
+     뒤로 옮기고 alignas(64)로 정렬하는 것이 유효한지 같은 벤치에서 측정. 바꾸면 descriptor 초기화를 지정 초기화(.member = …)로 전환
 4. 접근자, static, `#private`, abstract, 메소드 값
 5. Error 클래스와 prelude 에러를 Error 객체로 전환
 

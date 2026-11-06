@@ -418,7 +418,6 @@ test('finally is not implemented', async () => {
 });
 
 test.each([
-  ['class A {}\nclass B extends A {}', 'not implemented class heritage'],
   ['abstract class A {}', 'not implemented abstract class'],
   ['class A {\n  static x: number = 1;\n}', 'not implemented static or abstract member'],
   ['class A {\n  get x(): number {\n    return 1;\n  }\n}', 'not implemented class member'],
@@ -557,6 +556,20 @@ test('array-callback.ts', async () => {
   });
 });
 
+test('function-value-adapter.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'function-value-adapter.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      '<1> [2] 4',
+      "[ 2, 4, 6 ] [ 2, 3, 4 ] [ '<1>', '<2>', '<3>' ]",
+      '6 123',
+      '2 [ 1, 3 ] true false',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
 test('class.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'class.ts'))).toEqual({
     status: 0,
@@ -568,6 +581,28 @@ test('class.ts', async () => {
       '2 Link { value: 1, next: Link { value: 2, next: undefined } }',
       '',
     ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('class-inheritance.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'class-inheritance.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      'cat says generic animal:cat animal false false',
+      'rex says woof! dog:rex dog true false',
+      'bit says woof! small dog:bit small dog true true',
+      "Dog { name: 'max', sound: 'woof', log: 'dog', tricks: 2 } 2 max says woof true",
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('member-call.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'member-call.ts'))).toEqual({
+    status: 0,
+    stdout: '100 1 2\n[ 1, 10, 100 ]\n',
     stderr: '',
   });
 });

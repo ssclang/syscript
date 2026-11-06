@@ -1,7 +1,7 @@
 // TODO: review
 import { assertNever } from '@syscript/share/util';
 import * as ast from 'typescript7/ast';
-import { AppSourceFile } from '~/ts/node.js';
+import { AppSourceFile, isNodeFlagMatch } from '~/ts/node.js';
 
 export type Capture = { kind: 'variable'; symbolId: number; name: string } | { kind: 'this' };
 
@@ -47,7 +47,7 @@ export function analyzeClosure(sourceFiles: readonly AppSourceFile[]) {
     const { checker } = app;
 
     const visit = (node: ast.Node) => {
-      if (ast.isThisExpression(node)) {
+      if (ast.isThisExpression(node) || ast.isSuperExpression(node)) {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         for (let current = node.parent; current; current = current.parent) {
           if (ast.isArrowFunction(current)) {
@@ -62,7 +62,12 @@ export function analyzeClosure(sourceFiles: readonly AppSourceFile[]) {
         const symbol = checker.getSymbolAtLocation(node);
         const declaration = symbol?.valueDeclaration?.resolve();
 
-        if (symbol && declaration && ast.isVariableOrParameterDeclaration(declaration)) {
+        if (
+          symbol
+          && declaration
+          && ast.isVariableOrParameterDeclaration(declaration)
+          && !isNodeFlagMatch(declaration, ast.NodeFlags.Ambient)
+        ) {
           const declaringFunction = getEnclosingFunction(declaration);
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition

@@ -448,6 +448,85 @@ export class CppFunctionCall extends CppExpression {
   }
 }
 
+// region member
+
+export type CppMember = { tsMemberName: string; initializer: string };
+
+export class CppMemberTableDefinition extends CppNode {
+  readonly tableName: string;
+  readonly members: CppMember[];
+  readonly hashShift: bigint;
+  readonly slotCount: number;
+
+  constructor(tableName: string, members: CppMember[]) {
+    super();
+    this.tableName = tableName;
+    this.members = members;
+
+    const hashes = this.members.map((m) => CppMemberTableDefinition.getMemberHash(m.tsMemberName));
+
+    for (let slotCount = 1; ; slotCount *= 2) {
+      if (slotCount < hashes.length) {
+        continue;
+      }
+
+      for (let hashShift = 0n; hashShift < 64n; hashShift++) {
+        const slots = hashes.map((h) => (h >> hashShift) & BigInt(slotCount - 1));
+
+        if (new Set(slots).size === slots.length) {
+          this.hashShift = hashShift;
+          this.slotCount = slotCount;
+
+          return;
+        }
+      }
+    }
+  }
+
+  static getMemberHash(tsMemberName: string) {
+    let hash = 0xcbf29ce484222325n;
+
+    for (const byte of new TextEncoder().encode(tsMemberName)) {
+      hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+
+    return hash;
+  }
+
+  static toCppMemberHash(tsMemberName: string) {
+    return `0x${CppMemberTableDefinition.getMemberHash(tsMemberName).toString(16).padStart(16, '0')}ull`;
+  }
+
+  lines() {
+    const entries = Array.from({ length: this.slotCount }, () => '{0, nullptr}');
+
+    for (const m of this.members) {
+      const slot =
+        (CppMemberTableDefinition.getMemberHash(m.tsMemberName) >> this.hashShift)
+        & BigInt(this.slotCount - 1);
+
+      entries[Number(slot)] = m.initializer;
+    }
+
+    const w = new CppWriter();
+
+    w.block(`inline constexpr ssc__core__struct__member ${this.tableName}[] =`, () =>
+      entries.map((e) => `${e},`),
+    );
+    w.inline(';');
+
+    return w.lines();
+  }
+
+  descriptorField() {
+    return `{${this.hashShift}, {${this.slotCount}, ${this.tableName}}}`;
+  }
+
+  code() {
+    return this.lines().join('\n');
+  }
+}
+
 // region shape
 
 export type CppShapeProperty = { tsPropertyName: string; tsTypeName: string };
@@ -456,12 +535,24 @@ export class CppShapeDefinition extends CppNode {
   readonly structName: string;
   readonly properties: CppShapeProperty[];
   readonly shapeId: string;
+  readonly memberTable: CppMemberTableDefinition;
 
   constructor(properties: CppShapeProperty[]) {
     super();
     this.properties = properties;
     this.shapeId = CppShapeDefinition.getShapeId(this.properties);
     this.structName = `ssc__ts__shape__${this.shapeId}`;
+    this.memberTable = new CppMemberTableDefinition(
+      `${this.structName}__member_slots`,
+      this.properties.map((p) => this.getFieldMember(p.tsPropertyName)),
+    );
+  }
+
+  getFieldMember(tsPropertyName: string): CppMember {
+    return {
+      tsMemberName: tsPropertyName,
+      initializer: `{__builtin_offsetof(${this.structName}, ssc__ts__member__${tsPropertyName}), nullptr}`,
+    };
   }
 
   static getShapeId(properties: CppShapeProperty[]) {
@@ -525,6 +616,10 @@ export class CppShapeDefinition extends CppNode {
     );
     w.inline(';');
 
+    for (const line of this.memberTable.lines()) {
+      w.newline(line);
+    }
+
     return w.lines();
   }
 
@@ -535,20 +630,32 @@ export class CppShapeDefinition extends CppNode {
 
 // region class
 
+export type CppMethod = { tsMethodName: string; declaration: CppFunctionDeclaration };
+
 export class CppClassDeclaration extends CppNode {
   readonly pathId: string;
   readonly tsClassName: string;
   readonly cppClassName: string;
+  readonly superClassDeclaration: CppClassDeclaration | undefined;
   readonly shapeDefinition: CppShapeDefinition;
   readonly functionDeclarations: CppFunctionDeclaration[] = [];
   readonly reference: CppClassReference;
 
-  constructor(pathId: string, tsClassName: string, properties: CppShapeProperty[]) {
+  constructor(
+    pathId: string,
+    tsClassName: string,
+    superClassDeclaration: CppClassDeclaration | undefined,
+    properties: CppShapeProperty[],
+  ) {
     super();
     this.pathId = pathId;
     this.tsClassName = tsClassName;
     this.cppClassName = CppNode.toCppClassName(this.tsClassName);
-    this.shapeDefinition = new CppShapeDefinition(properties);
+    this.superClassDeclaration = superClassDeclaration;
+    this.shapeDefinition = new CppShapeDefinition([
+      ...(superClassDeclaration?.shapeDefinition.properties ?? []),
+      ...properties,
+    ]);
     this.reference = new CppClassReference(this);
   }
 
@@ -579,10 +686,43 @@ export class CppClassDeclaration extends CppNode {
     return newDeclaration;
   }
 
+  getMethods(): CppMethod[] {
+    const ownMethods = this.functionDeclarations.filter((d) => d.tsFunctionName !== 'constructor');
+    const methods = (this.superClassDeclaration?.getMethods() ?? []).filter(
+      (m) => !ownMethods.some((d) => d.tsFunctionName === m.tsMethodName),
+    );
+
+    return [
+      ...methods,
+      ...ownMethods.map((declaration) => ({
+        tsMethodName: declaration.tsFunctionName,
+        declaration,
+      })),
+    ];
+  }
+
+  getMemberTable() {
+    return new CppMemberTableDefinition('ssc__ts__member_slots', [
+      ...this.shapeDefinition.properties.map((p) =>
+        this.shapeDefinition.getFieldMember(p.tsPropertyName),
+      ),
+      ...this.getMethods().map(({ tsMethodName, declaration }) => ({
+        tsMemberName: tsMethodName,
+        initializer: `{0, __builtin_addressof(${declaration.classDeclaration?.reference.code()}::ssc__ts__value__${tsMethodName})}`,
+      })),
+    ]);
+  }
+
   code() {
     const keys = this.shapeDefinition.properties.map((_, index) => index);
     const keySpan = keys.length === 0 ? '{}' : `{${keys.length}, ssc__ts__descriptor__keys}`;
     const className = new CppCStringLiteral(this.tsClassName).code();
+    const superClassDescriptor =
+      this.superClassDeclaration ?
+        `__builtin_addressof(${this.superClassDeclaration.reference.code()}::ssc__ts__descriptor)`
+      : 'nullptr';
+    const memberTable = this.getMemberTable();
+    const ownMethods = this.functionDeclarations.filter((d) => d.tsFunctionName !== 'constructor');
     const w = new CppWriter();
 
     w.block(`namespace ${this.cppClassName}`, () => {
@@ -607,18 +747,42 @@ export class CppClassDeclaration extends CppNode {
             'ssc__core__fn__object_inspect',
             keySpan,
             className,
+            superClassDescriptor,
+            memberTable.descriptorField(),
           ].map((i) => `${i},`),
       );
       descriptorWriter.inline(';');
 
       return [
         ...this.shapeDefinition.lines(),
-        ...descriptorWriter.lines(),
         ...this.functionDeclarations.map((d) => new CppDeclarationStatement(d).code()),
+        ...ownMethods.flatMap((d) => CppClassDeclaration.methodValueLines(d)),
+        ...memberTable.lines(),
+        ...descriptorWriter.lines(),
       ];
     });
 
     return w.code();
+  }
+
+  private static methodValueLines(declaration: CppFunctionDeclaration) {
+    const parameters = declaration.parameters.slice(1);
+    const lambdaParameters = [
+      'const ssc__core__struct__closure*',
+      'ssc__core__type__ref ssc__ts__var__this',
+      ...parameters.map((p, index) => `${p.cppTypeName} ssc__core__var__argument_${index}`),
+    ];
+    const args = [
+      'ssc__ts__var__this',
+      ...parameters.map((_, index) => `ssc__core__var__argument_${index}`),
+    ];
+    const lambda = `+[](${lambdaParameters.join(', ')}) -> ${declaration.cppReturnTypeName} { return ${declaration.reference.code()}(${args.join(', ')}); }`;
+    const name = declaration.tsFunctionName;
+
+    return [
+      `inline const ssc__core__struct__closure ssc__ts__closure__${name}{{0, __builtin_addressof(ssc__core__var__closure_descriptor)}, reinterpret_cast<void (*)()>(${lambda}), {0, nullptr}};`,
+      `inline const ssc__core__type__ref ssc__ts__value__${name} = ssc__core__fn__function_value(ssc__ts__closure__${name});`,
+    ];
   }
 }
 
