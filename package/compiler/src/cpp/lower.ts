@@ -55,6 +55,7 @@ import {
   AbstractNode,
   AbstractStatement,
   AppSourceFile,
+  isSymbolFlagMatch,
   isTypeFlagMatch,
   NodeArrayLiteralExpression,
   NodeAsExpression,
@@ -413,23 +414,27 @@ function lowerFunctionBody(
   block: NodeBlock,
   context: FunctionContext | ConstructorContext,
 ) {
-  const boxes = parameters
+  return [...lowerParameterBoxes(parameters, context), ...lowerBlockStatements(block, context)];
+}
+
+function lowerParameterBoxes(
+  parameters: NodeParameterDeclaration[],
+  context: FunctionContext | ConstructorContext,
+) {
+  return parameters
     .map((p) => p.bindingName.identifier)
     .filter((i) => isBoxedVariable(i, context))
     .map(
       (i) =>
         `ssc__core__type__ref ${getSscBoxName(i.text)} = ${new CppCoreFunctionCall('ssc__core__fn__box', [], [getVariableReference(i, context)]).code()};`,
     );
+}
 
-  return [
-    ...boxes,
-    ...block.statements
-      .values()
-      .flatMap((s) =>
-        lowerStatement(s, context).flatMap((statement) => statement.code().split('\n')),
-      )
-      .toArray(),
-  ];
+function lowerBlockStatements(block: NodeBlock, context: FunctionContext | ConstructorContext) {
+  return block.statements
+    .values()
+    .flatMap((s) => lowerStatement(s, context).flatMap((statement) => statement.code().split('\n')))
+    .toArray();
 }
 
 function getTopLevelClassStorage(node: NodeClassDeclaration) {
@@ -482,10 +487,18 @@ function declareClass(
   const storage = getClassStorage(node, useNode);
   const superClassNode = getSuperClassNode(node);
   const superClassDeclaration = superClassNode && declareClass(superClassNode, useNode, context);
-  const properties = node.properties.map((p) => ({
-    tsPropertyName: p.name,
-    tsTypeName: getSscTypeName(node.app, p.getType()),
-  }));
+  const properties = [
+    ...(node.constructorDeclaration?.parameterProperties ?? []).map((p) => ({
+      tsPropertyName: p.bindingName.identifier.text,
+      tsTypeName: getSscTypeName(node.app, p.bindingName.identifier.getType()),
+    })),
+    ...node.properties
+      .filter((p) => !p.isAbstract)
+      .map((p) => ({
+        tsPropertyName: p.name,
+        tsTypeName: getSscTypeName(node.app, p.getType()),
+      })),
+  ];
   const newDeclaration = new CppClassDeclaration(
     getPathId(identifier, context),
     identifier.text,
@@ -506,21 +519,25 @@ function declareClass(
   );
 
   for (const method of node.methods) {
-    const methodDeclaration = newDeclaration.declareFunction(
-      storage,
-      getSscTypeName(node.app, method.getReturnType()),
-      method.name,
-      declareParameters(method.parameters),
-    );
-    const superClassMethod = superClassDeclaration
-      ?.getMethods()
-      .find((m) => m.tsMethodName === method.name);
+    const superClassMethod = getSuperClassMethodNode(node, method.name);
 
     assert(
       !superClassMethod
-        || isSameCppFunctionSignature(superClassMethod.declaration, methodDeclaration),
+        || isSameTsFunctionSignature(
+          getFunctionSignature(node.app, superClassMethod.getType()),
+          getFunctionSignature(node.app, method.getType()),
+        ),
       `${method.location()}: not implemented override with a different signature: ${method.name}`,
     );
+
+    if (!method.isAbstract) {
+      newDeclaration.declareFunction(
+        storage,
+        getSscTypeName(node.app, method.getReturnType()),
+        method.name,
+        declareParameters(method.parameters),
+      );
+    }
   }
 
   if (storage === 'imported') {
@@ -535,12 +552,20 @@ function declareClass(
   return newDeclaration;
 }
 
-function isSameCppFunctionSignature(left: CppFunctionDeclaration, right: CppFunctionDeclaration) {
-  return (
-    left.cppReturnTypeName === right.cppReturnTypeName
-    && left.parameters.length === right.parameters.length
-    && left.parameters.every((p, index) => p.cppTypeName === right.parameters[index]?.cppTypeName)
-  );
+function getSuperClassMethodNode(node: NodeClassDeclaration, tsMethodName: string) {
+  for (
+    let superClassNode = getSuperClassNode(node);
+    superClassNode;
+    superClassNode = getSuperClassNode(superClassNode)
+  ) {
+    const method = superClassNode.methods.find((m) => m.name === tsMethodName);
+
+    if (method) {
+      return method;
+    }
+  }
+
+  return undefined;
 }
 
 function getClassFunction(classDeclaration: CppClassDeclaration, tsFunctionName: string) {
@@ -555,18 +580,28 @@ function getClassFunction(classDeclaration: CppClassDeclaration, tsFunctionName:
 
 function lowerFieldInitializers(node: NodeClassDeclaration, context: ConstructorContext) {
   const { structName } = declareClass(node, node, context).shapeDefinition;
+  const assign = (tsPropertyName: string, value: string) =>
+    new CppExpressionStatement(
+      new CppUnknownExpression(
+        `reinterpret_cast<${structName}*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer())->ssc__ts__member__${tsPropertyName} = ${value}`,
+      ),
+    );
 
-  return node.properties.flatMap((p) =>
-    p.initializer ?
-      [
-        new CppExpressionStatement(
-          new CppUnknownExpression(
-            `reinterpret_cast<${structName}*>(ssc__ts__var__this.ssc__core__member__get_object_header_pointer())->ssc__ts__member__${p.name} = ${lowerValue(p.initializer, context)}`,
-          ),
+  return [
+    ...node.properties.flatMap((p) =>
+      p.initializer ? [assign(p.name, lowerValue(p.initializer, context))] : [],
+    ),
+    ...(node.constructorDeclaration?.parameterProperties ?? []).map((p) =>
+      assign(
+        p.bindingName.identifier.text,
+        narrowUnion(
+          p.bindingName.identifier,
+          lowerVariableReference(p.bindingName.identifier, context),
+          context,
         ),
-      ]
-    : [],
-  );
+      ),
+    ),
+  ];
 }
 
 function lowerSuperConstructorCall(args: string[], context: ConstructorContext) {
@@ -610,18 +645,15 @@ function lowerClass(node: NodeClassDeclaration, topLevelContext: TopLevelContext
     const memberWriter = new CppWriter();
 
     memberWriter.block(getClassFunction(classDeclaration, 'constructor').code(), () => [
+      ...lowerParameterBoxes(constructorDeclaration?.parameters ?? [], constructorContext),
       ...constructorStatements.flatMap((statement) => statement.code().split('\n')),
       ...(constructorDeclaration?.block ?
-        lowerFunctionBody(
-          constructorDeclaration.parameters,
-          constructorDeclaration.block,
-          constructorContext,
-        )
+        lowerBlockStatements(constructorDeclaration.block, constructorContext)
       : []),
       'return ssc__ts__var__this;',
     ]);
 
-    for (const method of node.methods) {
+    for (const method of node.methods.filter((m) => !m.isAbstract)) {
       const { block } = method;
       const methodContext = { kind: 'function', globalContext } as const satisfies FunctionContext;
 
@@ -1789,12 +1821,33 @@ function getClassStorage(classNode: NodeClassDeclaration, node: AbstractNode<ast
   return isSameFile ? getTopLevelClassStorage(classNode) : 'imported';
 }
 
-function getPropertyShape(node: AbstractNode<ast.Expression>, context: LowerContext) {
-  const classNode = getClassNode(node.app, node.getType());
+function getPropertyTypeName(node: NodePropertyAccessExpression) {
+  const { checker } = node.app;
+  const symbol = checker.getSymbolAtLocation(node.tsNode.name);
 
-  return classNode ?
-      declareClass(classNode, node, context).shapeDefinition
-    : getShape(node, context);
+  assert(symbol, `${node.location()}: not implemented property: ${node.getText()}`);
+  assert(
+    !isSymbolFlagMatch(symbol, ts.SymbolFlags.Method),
+    `${node.location()}: not implemented method value: ${node.getText()}`,
+  );
+
+  const typeNames = new Set(
+    symbol.declarations.map((d) => {
+      const declaration = d.resolve();
+
+      assert(declaration, `${node.location()}: property declaration not found: ${node.getText()}`);
+
+      return getSscTypeName(node.app, checker.getTypeAtLocation(declaration));
+    }),
+  );
+  const [typeName] = typeNames;
+
+  assert(
+    typeName !== undefined && typeNames.size === 1,
+    `${node.location()}: not implemented property with different representations: ${node.getText()}`,
+  );
+
+  return typeName;
 }
 
 function lowerArrayLiteralExpression(node: NodeArrayLiteralExpression, context: LowerContext) {
@@ -2657,9 +2710,7 @@ function lowerPropertyAccessExpression(node: NodePropertyAccessExpression, conte
     || getClassNode(node.app, node.expression.getType())
   ) {
     const text = lowerFieldReference(node, context);
-    const propertyTypeName = getPropertyShape(node.expression, context).properties.find(
-      (p) => p.tsPropertyName === node.name,
-    )?.tsTypeName;
+    const propertyTypeName = getPropertyTypeName(node);
     const typeName = getSscTypeName(node.app, node.getType());
 
     if (propertyTypeName === 'union' && typeName !== 'union') {
@@ -2760,18 +2811,12 @@ function lowerObjectLiteralExpression(node: NodeObjectLiteralExpression, context
 }
 
 function lowerFieldReference(node: NodePropertyAccessExpression, context: LowerContext) {
-  const property = getPropertyShape(node.expression, context).properties.find(
-    (p) => p.tsPropertyName === node.name,
-  );
-
-  assert(property, `${node.location()}: not implemented property: ${node.getText()}`);
-
   const args = [
     new CppUnknownExpression(lowerExpression(node.expression, context)),
     new CppUnknownExpression(CppMemberTableDefinition.toCppMemberHash(node.name)),
   ];
 
-  return new CppCoreFunctionCall('ssc__core__fn__member', [property.tsTypeName], args).code();
+  return new CppCoreFunctionCall('ssc__core__fn__member', [getPropertyTypeName(node)], args).code();
 }
 
 function isObjectType(app: AppSourceFile['app'], type: ts.Type) {

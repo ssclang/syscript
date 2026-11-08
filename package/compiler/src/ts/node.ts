@@ -45,6 +45,14 @@ export abstract class AbstractNode<T extends ast.Node> {
     const symbol =
       ast.isShorthandPropertyAssignment(parent) && parent.name === (this.tsNode as ast.Node) ?
         checker.getShorthandAssignmentValueSymbol(parent)
+      : (
+        ast.isParameterDeclaration(parent)
+        && parent.name === (this.tsNode as ast.Node)
+        && ast.isFunctionLikeDeclaration(parent.parent)
+      ) ?
+        checker.getSignatureFromDeclaration(parent.parent).getParameters()[
+          parent.parent.parameters.indexOf(parent)
+        ]
       : checker.getSymbolAtLocation(this.tsNode);
 
     assert(symbol, `${this.location()}: symbol not found: ${this.getText()}`);
@@ -302,6 +310,7 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
   readonly isAmbient: boolean;
   readonly identifier: NodeIdentifier;
   readonly superClassIdentifier: NodeIdentifier | undefined;
+  readonly isAbstract: boolean;
   readonly properties: NodePropertyDeclaration[] = [];
   readonly methods: NodeMethodDeclaration[] = [];
   readonly constructorDeclaration?: NodeConstructorDeclaration;
@@ -332,15 +341,12 @@ export class NodeClassDeclaration extends AbstractStatement<ast.ClassDeclaration
     );
 
     assert(!typeParameters?.length, notImplemented('generic class'));
-    assert(
-      !isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract),
-      notImplemented('abstract class'),
-    );
 
     this.isExported = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Export);
     this.hasDeclareKeyword = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Ambient);
     this.isAmbient = isNodeFlagMatch(this.tsNode, ast.NodeFlags.Ambient);
     this.identifier = new NodeIdentifier(app, name);
+    this.isAbstract = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract);
     this.superClassIdentifier =
       superClassExpression && ast.isIdentifier(superClassExpression) ?
         new NodeIdentifier(app, superClassExpression)
@@ -374,8 +380,8 @@ function assertSimpleClassMember(
     `${node.location()}: not implemented class member name: ${node.getText()}`,
   );
   assert(
-    !isModifierFlagMatch(node.tsNode, ast.ModifierFlags.Static | ast.ModifierFlags.Abstract),
-    `${node.location()}: not implemented static or abstract member: ${node.getText()}`,
+    !isModifierFlagMatch(node.tsNode, ast.ModifierFlags.Static),
+    `${node.location()}: not implemented static member: ${node.getText()}`,
   );
 
   return name;
@@ -383,11 +389,13 @@ function assertSimpleClassMember(
 
 export class NodePropertyDeclaration extends AbstractNode<ast.PropertyDeclaration> {
   readonly name: string;
+  readonly isAbstract: boolean;
   readonly initializer?: AbstractExpression;
 
   constructor(app: TsApp, tsNode: ast.PropertyDeclaration) {
     super(app, tsNode);
     this.name = assertSimpleClassMember(this).text;
+    this.isAbstract = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract);
     this.initializer =
       this.tsNode.initializer && AbstractExpression.of(app, this.tsNode.initializer);
   }
@@ -395,12 +403,14 @@ export class NodePropertyDeclaration extends AbstractNode<ast.PropertyDeclaratio
 
 export class NodeMethodDeclaration extends AbstractNode<ast.MethodDeclaration> {
   readonly name: string;
+  readonly isAbstract: boolean;
   readonly parameters: NodeParameterDeclaration[];
   readonly block: NodeBlock | undefined;
 
   constructor(app: TsApp, tsNode: ast.MethodDeclaration) {
     super(app, tsNode);
     this.name = assertSimpleClassMember(this).text;
+    this.isAbstract = isModifierFlagMatch(this.tsNode, ast.ModifierFlags.Abstract);
     this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
     this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
   }
@@ -412,19 +422,15 @@ export class NodeMethodDeclaration extends AbstractNode<ast.MethodDeclaration> {
 
 export class NodeConstructorDeclaration extends AbstractNode<ast.ConstructorDeclaration> {
   readonly parameters: NodeParameterDeclaration[];
+  readonly parameterProperties: NodeParameterDeclaration[];
   readonly block: NodeBlock | undefined;
 
   constructor(app: TsApp, tsNode: ast.ConstructorDeclaration) {
     super(app, tsNode);
-
-    for (const parameter of this.tsNode.parameters) {
-      assert(
-        !isModifierFlagMatch(parameter, ast.ModifierFlags.ParameterPropertyModifier),
-        `${this.location()}: not implemented parameter property: ${parameter.getText()}`,
-      );
-    }
-
     this.parameters = this.tsNode.parameters.map((p) => new NodeParameterDeclaration(app, p));
+    this.parameterProperties = this.parameters.filter((p) =>
+      isModifierFlagMatch(p.tsNode, ast.ModifierFlags.ParameterPropertyModifier),
+    );
     this.block = this.tsNode.body && new NodeBlock(app, this.tsNode.body);
   }
 }

@@ -1967,24 +1967,6 @@ test('object-literal.ts', async () => {
         {__builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__y), nullptr},
         {__builtin_offsetof(ssc__ts__shape__76a1102b326949c2, ssc__ts__member__x), nullptr},
       };
-      struct ssc__ts__shape__80bdf0a5cc1c9a6f {
-        ssc__core__struct__object_header ssc__core__member__object_header;
-        ssc__core__type__ref ssc__ts__member__name;
-      };
-      inline constexpr ssc__core__type__u64 ssc__ts__shape__80bdf0a5cc1c9a6f__ref_offsets[] = {
-        __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name),
-      };
-      inline constexpr ssc__core__struct__property ssc__ts__shape__80bdf0a5cc1c9a6f__properties[] = {
-        {"name", __builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), ssc__core__var__type_id<ssc__core__type__ref>},
-      };
-      inline constexpr ssc__core__struct__shape ssc__ts__shape__80bdf0a5cc1c9a6f__shape {
-        {1, ssc__ts__shape__80bdf0a5cc1c9a6f__ref_offsets},
-        {},
-        {1, ssc__ts__shape__80bdf0a5cc1c9a6f__properties},
-      };
-      inline constexpr ssc__core__struct__member ssc__ts__shape__80bdf0a5cc1c9a6f__member_slots[] = {
-        {__builtin_offsetof(ssc__ts__shape__80bdf0a5cc1c9a6f, ssc__ts__member__name), nullptr},
-      };
       inline constexpr ssc__core__type__u64 ssc__ts__shape__76a1102b326949c2__descriptor__1_0__keys[] = {1, 0};
       inline constexpr ssc__core__struct__descriptor ssc__ts__shape__76a1102b326949c2__descriptor__1_0{__builtin_addressof(ssc__ts__shape__76a1102b326949c2__shape), nullptr, nullptr, ssc__core__fn__object_inspect, {2, ssc__ts__shape__76a1102b326949c2__descriptor__1_0__keys}, nullptr, nullptr, {0, {2, ssc__ts__shape__76a1102b326949c2__member_slots}}};
       inline constexpr ssc__core__type__u64 ssc__ts__shape__76a1102b326949c2__descriptor__0_1__keys[] = {0, 1};

@@ -418,17 +418,15 @@ test('finally is not implemented', async () => {
 });
 
 test.each([
-  ['abstract class A {}', 'not implemented abstract class'],
-  ['class A {\n  static x: number = 1;\n}', 'not implemented static or abstract member'],
+  ['class A {\n  static x: number = 1;\n}', 'not implemented static member'],
   ['class A {\n  get x(): number {\n    return 1;\n  }\n}', 'not implemented class member'],
   ['class A {\n  #x: number = 1;\n}', 'not implemented class member name'],
-  ['class A {\n  constructor(public x: number) {}\n}', 'not implemented parameter property'],
   ['function f(): void {\n  class A {}\n}', 'not implemented local class'],
   [
     'class A {\n  constructor() {\n    return this;\n  }\n}',
     'not implemented constructor return value',
   ],
-  ['class A {\n  m(): void {}\n}\nconst f = new A().m;', 'not implemented property'],
+  ['class A {\n  m(): void {}\n}\nconst f = new A().m;', 'not implemented method value'],
 ])('class %s is not implemented', async (source, message) => {
   await expect(runSource(source)).rejects.toThrow(message);
 });
@@ -603,6 +601,32 @@ test('member-call.ts', async () => {
   expect(await spawn(path.join(fixtureDir, 'member-call.ts'))).toEqual({
     status: 0,
     stdout: '100 1 2\n[ 1, 10, 100 ]\n',
+    stderr: '',
+  });
+});
+
+test('class-parameter-property.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'class-parameter-property.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      "Point { x: 1, y: 2, label: 'p3' } 7",
+      "Point3 { x: 5, y: 5, label: 'p10', z: 6, depth: 60 }",
+      '8 7',
+      'Capture { value: 7 }',
+      '',
+    ].join('\n'),
+    stderr: '',
+  });
+});
+
+test('class-abstract.ts', async () => {
+  expect(await spawn(path.join(fixtureDir, 'class-abstract.ts'))).toEqual({
+    status: 0,
+    stdout: [
+      "square:4 4 Square { scale: 1, side: 2, name: 'square' }",
+      "circle:3 3 Circle { scale: 1, name: 'circle' }",
+      '',
+    ].join('\n'),
     stderr: '',
   });
 });
