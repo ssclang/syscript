@@ -87,6 +87,12 @@ importers:
         specifier: workspace:^
         version: link:../share
 
+  package/poc:
+    devDependencies:
+      '@syscript/share':
+        specifier: workspace:^
+        version: link:../share
+
   package/share:
     devDependencies:
       zod:

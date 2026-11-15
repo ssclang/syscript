@@ -1,6 +1,6 @@
 {
-  "js/ts.experimental.useTsgo": true,
-  "js/ts.tsdk.path": "../ssclang/TypeScript/built/local",
+  // "js/ts.experimental.useTsgo": true,
+  // "js/ts.tsdk.path": "../ssclang/TypeScript/built/local",
   "clangd.path": "${workspaceFolder}/../../tool/llvm/bin/clangd",
   "clangd.fallbackFlags": [
     "-std=c++26",
