@@ -134,3 +134,21 @@ export class NodeMemberExpression extends AbstractExpression {
     this.identifier = identifier;
   }
 }
+
+export class NodeFunctionExpression extends AbstractExpression {
+  readonly body: AbstractExpression;
+
+  constructor(span: SourceFileSpan, body: AbstractExpression) {
+    super(span);
+    this.body = body;
+  }
+}
+
+export class NodeBlockExpression extends AbstractExpression {
+  readonly statements: AbstractStatement[];
+
+  constructor(span: SourceFileSpan, statements: AbstractStatement[]) {
+    super(span);
+    this.statements = statements;
+  }
+}

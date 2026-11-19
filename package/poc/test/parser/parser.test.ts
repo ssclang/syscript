@@ -193,3 +193,96 @@ test('precedence', () => {
     }
   `);
 });
+
+test('function with block body', () => {
+  expect(parse('val main = fn () {\n  val a = 7\n  a\n}')).toMatchInlineSnapshot(`
+    NodeSourceFile {
+      "span": {
+        "end": 36,
+        "start": 0,
+      },
+      "statements": [
+        NodeVariableDeclarationStatement {
+          "keyword": "val",
+          "reference": NodeVariableReferenceExpression {
+            "identifier": NodeIdentifier {
+              "name": "main",
+              "span": {
+                "end": 8,
+                "start": 4,
+              },
+            },
+            "span": {
+              "end": 8,
+              "start": 4,
+            },
+          },
+          "span": {
+            "end": 36,
+            "start": 0,
+          },
+          "value": NodeFunctionExpression {
+            "body": NodeBlockExpression {
+              "span": {
+                "end": 36,
+                "start": 17,
+              },
+              "statements": [
+                NodeVariableDeclarationStatement {
+                  "keyword": "val",
+                  "reference": NodeVariableReferenceExpression {
+                    "identifier": NodeIdentifier {
+                      "name": "a",
+                      "span": {
+                        "end": 26,
+                        "start": 25,
+                      },
+                    },
+                    "span": {
+                      "end": 26,
+                      "start": 25,
+                    },
+                  },
+                  "span": {
+                    "end": 30,
+                    "start": 21,
+                  },
+                  "value": NodeNumberLiteralExpression {
+                    "span": {
+                      "end": 30,
+                      "start": 29,
+                    },
+                    "value": "7",
+                  },
+                },
+                NodeExpressionStatement {
+                  "expression": NodeVariableReferenceExpression {
+                    "identifier": NodeIdentifier {
+                      "name": "a",
+                      "span": {
+                        "end": 34,
+                        "start": 33,
+                      },
+                    },
+                    "span": {
+                      "end": 34,
+                      "start": 33,
+                    },
+                  },
+                  "span": {
+                    "end": 34,
+                    "start": 33,
+                  },
+                },
+              ],
+            },
+            "span": {
+              "end": 36,
+              "start": 11,
+            },
+          },
+        },
+      ],
+    }
+  `);
+});

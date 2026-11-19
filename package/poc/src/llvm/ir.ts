@@ -30,10 +30,6 @@ export class LlvmFunction {
     this.blocks = [new LlvmBlock()];
   }
 
-  static main() {
-    return new LlvmFunction('main', 'i32', []);
-  }
-
   getBlock(index: number) {
     const block = this.blocks[index];
 
@@ -56,10 +52,59 @@ export class LlvmParameter {
 }
 
 export class LlvmBlock {
+  readonly allocas: LlvmAllocaStatement[] = [];
   readonly statements: LlvmStatement[] = [];
 }
 
-export type LlvmStatement = LlvmReturnStatement | LlvmUnknownStatement;
+export type LlvmStatement =
+  | LlvmAllocaStatement
+  | LlvmStoreStatement
+  | LlvmReturnStatement
+  | LlvmCallStatement
+  | LlvmUnknownStatement;
+
+export abstract class LlvmValue {
+  readonly type: LlvmType;
+
+  constructor(type: LlvmType) {
+    this.type = type;
+  }
+}
+
+export class LlvmAddress extends LlvmValue {
+  constructor() {
+    super('ptr');
+  }
+}
+
+export class LlvmNumberLiteral extends LlvmValue {
+  readonly value: string;
+
+  constructor(type: LlvmPrimitiveType, value: string) {
+    super(type);
+    this.value = value;
+  }
+}
+
+export class LlvmAllocaStatement {
+  readonly type: LlvmType;
+  readonly address: LlvmAddress;
+
+  constructor(type: LlvmType) {
+    this.type = type;
+    this.address = new LlvmAddress();
+  }
+}
+
+export class LlvmStoreStatement {
+  readonly value: LlvmValue;
+  readonly address: LlvmAddress;
+
+  constructor(value: LlvmValue, address: LlvmAddress) {
+    this.value = value;
+    this.address = address;
+  }
+}
 
 export class LlvmReturnStatement {
   readonly value?: LlvmNumberLiteral;
@@ -69,21 +114,21 @@ export class LlvmReturnStatement {
   }
 }
 
+export class LlvmCallStatement {
+  readonly returnType: LlvmPrimitiveType;
+  readonly calleeId: string;
+
+  constructor(returnType: LlvmPrimitiveType, calleeId: string) {
+    this.returnType = returnType;
+    this.calleeId = calleeId;
+  }
+}
+
 export class LlvmUnknownStatement {
   readonly text: string;
 
   constructor(text: string) {
     this.text = text;
-  }
-}
-
-export class LlvmNumberLiteral {
-  readonly type: LlvmPrimitiveType;
-  readonly value: string;
-
-  constructor(type: LlvmPrimitiveType, value: string) {
-    this.type = type;
-    this.value = value;
   }
 }
 

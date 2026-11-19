@@ -1,14 +1,20 @@
 import { assertNever } from '@syscript/share/util';
 import {
+  LlvmAddress,
+  LlvmAllocaStatement,
   LlvmArrayType,
+  LlvmBlock,
+  LlvmCallStatement,
   LlvmFunction,
   LlvmModule,
   LlvmNumberLiteral,
   LlvmReturnStatement,
   LlvmStatement,
+  LlvmStoreStatement,
   LlvmStructType,
   LlvmType,
   LlvmUnknownStatement,
+  LlvmValue,
 } from '~/llvm/ir.js';
 // import { assertNever } from '@syscript/share/util';
 // import {
@@ -24,16 +30,21 @@ import {
 //   LlvmUnknownStatement,
 // } from '~/llvm/ir.js';
 import {
-  //   AbstractExpression,
+  AbstractExpression,
   AbstractStatement,
   //   NodeAssignmentStatement,
   //   NodeBinaryExpression,
+  NodeBlockExpression,
   //   NodeCallExpression,
   //   NodeExpressionStatement,
+  NodeFunctionExpression,
   //   NodeMemberExpression,
-  //   NodeNumberLiteralExpression,
+  NodeNumberLiteralExpression,
   NodeSourceFile,
+  NodeVariableDeclarationStatement,
 } from '~/parser/ast.js';
+
+type LocalIdMap = Map<LlvmAddress, number>;
 
 // const binaryInstructions = {
 //   '+': 'add',
@@ -45,23 +56,104 @@ import {
 export function emitLlvmIr(sourceFile: NodeSourceFile) {
   const emitter = new LlvmIrEmitter();
   const module = new LlvmModule();
-  const mainFn = LlvmFunction.main();
-
-  module.functions.push(mainFn);
-
-  for (const statement of sourceFile.statements) {
-    emitter.lowerStatement(statement);
-  }
+  const userMainFn = emitter.lowerUserMain(sourceFile);
+  const mainFn = new LlvmFunction('main', 'i32', []);
 
   mainFn
     .getEntryBlock()
-    .statements.push(new LlvmReturnStatement(new LlvmNumberLiteral('i32', '0')));
+    .statements.push(
+      new LlvmCallStatement('void', userMainFn.id),
+      new LlvmReturnStatement(new LlvmNumberLiteral('i32', '0')),
+    );
+
+  module.functions.push(userMainFn, mainFn);
 
   return emitter.moduleIr(module);
 }
 
 class LlvmIrEmitter {
-  lowerStatement(statement: AbstractStatement) {
+  // ssc.<module path>.<name>
+  private static functionId(modulePath: string, name: string) {
+    return `ssc.${modulePath}.${name}`;
+  }
+
+  lowerUserMain(sourceFile: NodeSourceFile) {
+    let mainDeclaration: NodeVariableDeclarationStatement | undefined;
+
+    for (const statement of sourceFile.statements) {
+      if (
+        statement instanceof NodeVariableDeclarationStatement
+        && statement.reference.identifier.name === 'main'
+      ) {
+        mainDeclaration = statement;
+        continue;
+      }
+
+      throw new Error(`not implemented statement ${statement.constructor.name}`);
+    }
+
+    if (!mainDeclaration) {
+      throw new Error('entry file must declare main');
+    }
+
+    if (!(mainDeclaration.value instanceof NodeFunctionExpression)) {
+      throw new Error('main must be a function');
+    }
+
+    // Module path is the entry-relative path without extension, fixed to 'main' until multiple files are supported
+    return this.lowerFunction(LlvmIrEmitter.functionId('main', 'main'), mainDeclaration.value);
+  }
+
+  private lowerFunction(id: string, node: NodeFunctionExpression) {
+    const fn = new LlvmFunction(id, 'void', []);
+    const entryBlock = fn.getEntryBlock();
+
+    this.lowerExpression(fn, entryBlock, node.body);
+    entryBlock.statements.push(new LlvmReturnStatement());
+
+    return fn;
+  }
+
+  private lowerExpression(
+    currentFunction: LlvmFunction,
+    currentBlock: LlvmBlock,
+    expression: AbstractExpression,
+  ): LlvmValue | undefined {
+    if (expression instanceof NodeNumberLiteralExpression) {
+      // Every number is i64 until types are checked
+      return new LlvmNumberLiteral('i64', expression.value);
+    }
+
+    if (expression instanceof NodeBlockExpression) {
+      for (const statement of expression.statements) {
+        this.lowerStatement(currentFunction, currentBlock, statement);
+      }
+
+      return undefined;
+    }
+
+    throw new Error(`not implemented expression ${expression.constructor.name}`);
+  }
+
+  private lowerStatement(
+    currentFunction: LlvmFunction,
+    currentBlock: LlvmBlock,
+    statement: AbstractStatement,
+  ) {
+    if (statement instanceof NodeVariableDeclarationStatement) {
+      const value = this.lowerExpression(currentFunction, currentBlock, statement.value);
+
+      if (!value) {
+        throw new Error(`expression has no value at ${statement.value.span.start}`);
+      }
+
+      const alloca = new LlvmAllocaStatement('i64');
+
+      currentFunction.getEntryBlock().allocas.push(alloca);
+      currentBlock.statements.push(new LlvmStoreStatement(value, alloca.address));
+      return;
+    }
+
     throw new Error(`not implemented statement ${statement.constructor.name}`);
   }
 
@@ -77,16 +169,34 @@ class LlvmIrEmitter {
   }
 
   private functionIr(fn: LlvmFunction) {
-    const parameters = fn.parameters.map((p, idx) => `${this.typeIr(p.type)} %${idx}`);
+    const parameterIrs: string[] = [];
+    const localIdMap: LocalIdMap = new Map();
     const lines: string[] = [];
+    let order = 0;
 
-    lines.push(`define ${fn.returnType} @${fn.id}(${parameters.join(', ')}) {`);
+    for (const parameter of fn.parameters) {
+      parameterIrs.push(`${this.typeIr(parameter.type)} %${order}`);
+      order++;
+    }
+
+    for (const block of fn.blocks) {
+      for (const alloca of block.allocas) {
+        localIdMap.set(alloca.address, order);
+        order++;
+      }
+    }
+
+    lines.push(`define ${fn.returnType} @${fn.id}(${parameterIrs.join(', ')}) {`);
 
     for (const [index, block] of fn.blocks.entries()) {
       lines.push(`block.${index}:`);
 
+      for (const alloca of block.allocas) {
+        lines.push(`  ${this.statementIr(alloca, localIdMap)}`);
+      }
+
       for (const statement of block.statements) {
-        lines.push(`  ${this.statementIr(statement)}`);
+        lines.push(`  ${this.statementIr(statement, localIdMap)}`);
       }
     }
 
@@ -115,13 +225,28 @@ class LlvmIrEmitter {
     assertNever(type);
   }
 
-  private statementIr(statement: LlvmStatement) {
+  private statementIr(statement: LlvmStatement, localIdMap: LocalIdMap) {
+    if (statement instanceof LlvmAllocaStatement) {
+      return `${this.localIr(statement.address, localIdMap)} = alloca ${this.typeIr(statement.type)}`;
+    }
+
+    if (statement instanceof LlvmStoreStatement) {
+      const value = this.valueIr(statement.value, localIdMap);
+      const address = this.valueIr(statement.address, localIdMap);
+
+      return `store ${value}, ${address}`;
+    }
+
     if (statement instanceof LlvmReturnStatement) {
       if (!statement.value) {
         return 'ret void';
       }
 
-      return `ret ${this.valueIr(statement.value)}`;
+      return `ret ${this.valueIr(statement.value, localIdMap)}`;
+    }
+
+    if (statement instanceof LlvmCallStatement) {
+      return `call ${statement.returnType} @${statement.calleeId}()`;
     }
 
     if (statement instanceof LlvmUnknownStatement) {
@@ -131,8 +256,28 @@ class LlvmIrEmitter {
     assertNever(statement);
   }
 
-  private valueIr(value: LlvmNumberLiteral) {
-    return `${value.type} ${value.value}`;
+  private valueIr(value: LlvmValue, localIdMap: LocalIdMap) {
+    const type = this.typeIr(value.type);
+
+    if (value instanceof LlvmNumberLiteral) {
+      return `${type} ${value.value}`;
+    }
+
+    if (value instanceof LlvmAddress) {
+      return `${type} ${this.localIr(value, localIdMap)}`;
+    }
+
+    throw new Error(`not implemented value ${value.constructor.name}`);
+  }
+
+  private localIr(value: LlvmAddress, localIdMap: LocalIdMap) {
+    const id = localIdMap.get(value);
+
+    if (id === undefined) {
+      throw new Error('local is not numbered');
+    }
+
+    return `%${id}`;
   }
 }
 

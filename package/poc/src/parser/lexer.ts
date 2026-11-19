@@ -22,6 +22,7 @@ const asciiCodeMap = {
   ' ': ' '.charCodeAt(0),
   '\t': '\t'.charCodeAt(0),
   '\r': '\r'.charCodeAt(0),
+  '\n': '\n'.charCodeAt(0),
   '{': '{'.charCodeAt(0),
   '}': '}'.charCodeAt(0),
   '(': '('.charCodeAt(0),
@@ -88,6 +89,10 @@ class Tokenizer {
 
   constructor(source: string) {
     this.bytes = Tokenizer.textEncoder.encode(source);
+  }
+
+  private static isNewline(byte: number) {
+    return byte === asciiCodeMap['\n'];
   }
 
   private static isInlineWhitespace(byte: number) {
@@ -299,6 +304,18 @@ class Tokenizer {
     return { kind: 'comma', text: ',', span: { start, end: this.index } };
   }
 
+  private readExpressionEnd(): Token {
+    const start = this.index;
+
+    if (this.peek() !== asciiCodeMap['\n']) {
+      throw new Error(`expected newline at ${start}`);
+    }
+
+    this.index++;
+
+    return { kind: 'expression-end', text: '\n', span: { start, end: this.index } };
+  }
+
   // Reads an escape starting at '\' and returns the bytes it stands for
   private readEscape() {
     if (this.peek() !== asciiCodeMap['\\']) {
@@ -364,9 +381,30 @@ class Tokenizer {
     return codePoint;
   }
 
+  // Skips whitespace and newlines that do not end an expression
+  private skipTrivia() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
+      this.readWhile((b) => Tokenizer.isInlineWhitespace(b));
+
+      const byte = this.peek();
+
+      if (byte === undefined || !Tokenizer.isNewline(byte)) {
+        return;
+      }
+
+      const innerBracket = this.bracketStack.at(-1);
+
+      if (innerBracket !== '(' && innerBracket !== '[') {
+        return;
+      }
+
+      this.index++;
+    }
+  }
+
   nextToken(): Token | undefined {
-    // skip whitespace
-    this.readWhile((b) => Tokenizer.isInlineWhitespace(b));
+    this.skipTrivia();
 
     const byte = this.peek();
 
@@ -378,6 +416,10 @@ class Tokenizer {
       }
 
       return undefined;
+    }
+
+    if (Tokenizer.isNewline(byte)) {
+      return this.readExpressionEnd();
     }
 
     // Numbers must be handled first so that identifiers never start with a digit

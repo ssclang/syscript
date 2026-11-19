@@ -3,9 +3,37 @@ import { emitLlvmIr } from '~/llvm/emitter.js';
 import { parse } from '~/parser/parser.js';
 
 test('empty source file', () => {
-  expect(emitLlvmIr(parse(''))).toMatchInlineSnapshot(`
-    "define i32 @main() {
+  expect(() => emitLlvmIr(parse(''))).toThrow('entry file must declare main');
+});
+
+test('empty main', () => {
+  expect(emitLlvmIr(parse('val main = fn () {}'))).toMatchInlineSnapshot(`
+    "define void @ssc.main.main() {
     block.0:
+      ret void
+    }
+
+    define i32 @main() {
+    block.0:
+      call void @ssc.main.main()
+      ret i32 0
+    }
+    "
+  `);
+});
+
+test('local val', () => {
+  expect(emitLlvmIr(parse('val main = fn () {\n  val a = 7\n}'))).toMatchInlineSnapshot(`
+    "define void @ssc.main.main() {
+    block.0:
+      %0 = alloca i64
+      store i64 7, ptr %0
+      ret void
+    }
+
+    define i32 @main() {
+    block.0:
+      call void @ssc.main.main()
       ret i32 0
     }
     "

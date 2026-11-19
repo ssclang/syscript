@@ -33,5 +33,4 @@ export type Token =
   | { kind: 'operator'; text: Operator; span: SourceFileSpan }
   | { kind: 'bracket'; text: Bracket; span: SourceFileSpan }
   | { kind: 'comma'; text: ','; span: SourceFileSpan }
-  | { kind: 'statement-end'; text: string; span: SourceFileSpan }
-  | { kind: 'file-end'; text: ''; span: SourceFileSpan };
+  | { kind: 'expression-end'; text: string; span: SourceFileSpan };

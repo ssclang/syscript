@@ -20,7 +20,7 @@ test('newline after value ends statement', () => {
     ['identifier', 'a'],
     ['operator', '='],
     ['number', '7'],
-    ['statement-end', '\n'],
+    ['expression-end', '\n'],
     ['identifier', 'std'],
     ['operator', '.'],
     ['identifier', 'out'],
@@ -30,13 +30,14 @@ test('newline after value ends statement', () => {
   ]);
 });
 
-test('newline after operator continues statement', () => {
+test('newline after operator ends expression', () => {
   expect(tokenTexts('val a = 1 +\n2')).toEqual([
     ['keyword', 'val'],
     ['identifier', 'a'],
     ['operator', '='],
     ['number', '1'],
     ['operator', '+'],
+    ['expression-end', '\n'],
     ['number', '2'],
   ]);
 });
@@ -94,4 +95,14 @@ test('bracket errors', () => {
   expect(() => tokenize('(}')).toThrow('unmatched');
   expect(() => tokenize(')')).toThrow('unmatched');
   expect(() => tokenize('(')).toThrow('unclosed');
+});
+
+test('newline inside braces ends expression', () => {
+  expect(tokenTexts('{\na\n}')).toEqual([
+    ['bracket', '{'],
+    ['expression-end', '\n'],
+    ['identifier', 'a'],
+    ['expression-end', '\n'],
+    ['bracket', '}'],
+  ]);
 });

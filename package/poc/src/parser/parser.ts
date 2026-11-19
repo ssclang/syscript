@@ -3,8 +3,10 @@ import {
   AbstractStatement,
   NodeAssignmentStatement,
   NodeBinaryExpression,
+  NodeBlockExpression,
   NodeCallExpression,
   NodeExpressionStatement,
+  NodeFunctionExpression,
   NodeIdentifier,
   NodeMemberExpression,
   NodeNumberLiteralExpression,
@@ -35,25 +37,41 @@ class Parser {
   parseSourceFile() {
     const statements: AbstractStatement[] = [];
 
-    while (this.peek().kind !== 'file-end') {
-      statements.push(this.parseStatement());
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
+      this.skipExpressionEnds();
 
-      const token = this.next();
-
-      if (token.kind !== 'statement-end' && token.kind !== 'file-end') {
-        throw new Error(`expected end of statement at ${token.span.start}`);
+      if (!this.peek()) {
+        break;
       }
 
-      if (token.kind === 'file-end') {
-        return new NodeSourceFile({ start: 0, end: token.span.end }, statements);
+      statements.push(this.parseStatement());
+
+      const token = this.peek();
+
+      if (token && token.kind !== 'expression-end') {
+        throw new Error(`expected end of expression at ${token.span.start}`);
       }
     }
 
-    return new NodeSourceFile({ start: 0, end: this.peek().span.end }, statements);
+    const end = this.tokens.at(-1)?.span.end ?? 0;
+
+    return new NodeSourceFile({ start: 0, end }, statements);
+  }
+
+  // Blank lines produce consecutive expression ends
+  private skipExpressionEnds() {
+    while (this.peek()?.kind === 'expression-end') {
+      this.index++;
+    }
   }
 
   private parseStatement() {
     const token = this.peek();
+
+    if (!token) {
+      throw new Error('unexpected end of file');
+    }
 
     if (token.kind === 'keyword' && (token.text === 'val' || token.text === 'var')) {
       this.next();
@@ -71,7 +89,7 @@ class Parser {
     const expression = this.parseExpression();
     const nextToken = this.peek();
 
-    if (nextToken.kind === 'operator' && nextToken.text === '=') {
+    if (nextToken?.kind === 'operator' && nextToken.text === '=') {
       if (!(expression instanceof NodeVariableReferenceExpression)) {
         throw new Error(`invalid assignment target at ${expression.span.start}`);
       }
@@ -132,7 +150,7 @@ class Parser {
     for (;;) {
       const token = this.peek();
 
-      if (token.kind === 'operator' && token.text === '.') {
+      if (token?.kind === 'operator' && token.text === '.') {
         this.next();
 
         const identifier = this.parseIdentifier();
@@ -142,13 +160,13 @@ class Parser {
         continue;
       }
 
-      if (token.kind === 'bracket' && token.text === '(') {
+      if (token?.kind === 'bracket' && token.text === '(') {
         this.next();
 
         const args: AbstractExpression[] = [];
         const closeToken = this.peek();
 
-        if (!(closeToken.kind === 'bracket' && closeToken.text === ')')) {
+        if (!(closeToken?.kind === 'bracket' && closeToken.text === ')')) {
           args.push(this.parseExpression());
         }
 
@@ -174,7 +192,56 @@ class Parser {
       return new NodeVariableReferenceExpression(new NodeIdentifier(token.span, token.text));
     }
 
+    if (token.kind === 'keyword' && token.text === 'fn') {
+      return this.parseFunction(token);
+    }
+
+    if (token.kind === 'bracket' && token.text === '{') {
+      return this.parseBlock(token);
+    }
+
     throw new Error(`unexpected token '${token.text}' at ${token.span.start}`);
+  }
+
+  private parseFunction(fnToken: Token) {
+    this.expectBracket('(');
+    this.expectBracket(')');
+
+    const body = this.parseExpression();
+    const span = { start: fnToken.span.start, end: body.span.end };
+
+    return new NodeFunctionExpression(span, body);
+  }
+
+  private parseBlock(openToken: Token) {
+    const statements: AbstractStatement[] = [];
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
+      this.skipExpressionEnds();
+
+      const token = this.peek();
+
+      if (token?.kind === 'bracket' && token.text === '}') {
+        break;
+      }
+
+      statements.push(this.parseStatement());
+
+      const nextToken = this.peek();
+      const isEnd =
+        nextToken?.kind === 'expression-end'
+        || (nextToken?.kind === 'bracket' && nextToken.text === '}');
+
+      if (nextToken && !isEnd) {
+        throw new Error(`expected end of expression at ${nextToken.span.start}`);
+      }
+    }
+
+    const closeToken = this.expectBracket('}');
+    const span = { start: openToken.span.start, end: closeToken.span.end };
+
+    return new NodeBlockExpression(span, statements);
   }
 
   private parseIdentifier() {
@@ -190,7 +257,7 @@ class Parser {
   private findOperator(operators: NodeBinaryExpression['operator'][]) {
     const token = this.peek();
 
-    if (token.kind !== 'operator') {
+    if (token?.kind !== 'operator') {
       return undefined;
     }
 
@@ -224,17 +291,15 @@ class Parser {
   }
 
   private peek() {
-    const token = this.tokens[this.index];
-
-    if (!token) {
-      throw new Error('unexpected end of tokens');
-    }
-
-    return token;
+    return this.tokens[this.index];
   }
 
   private next() {
     const token = this.peek();
+
+    if (!token) {
+      throw new Error('unexpected end of file');
+    }
 
     this.index++;
 
