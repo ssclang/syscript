@@ -8,14 +8,14 @@ test('empty source file', () => {
 
 test('empty main', () => {
   expect(emitLlvmIr(parse('val main = fn () {}'))).toMatchInlineSnapshot(`
-    "define void @ssc.main.main() {
+    "define void @"ssc:main.ss:main"() {
     block.0:
       ret void
     }
 
-    define i32 @main() {
+    define i32 @"main"() {
     block.0:
-      call void @ssc.main.main()
+      call void @"ssc:main.ss:main"()
       ret i32 0
     }
     "
@@ -24,20 +24,41 @@ test('empty main', () => {
 
 test('local val', () => {
   expect(emitLlvmIr(parse('val main = fn () {\n  val a = 7\n}'))).toMatchInlineSnapshot(`
-    "define void @ssc.main.main() {
+    "define void @"ssc:main.ss:main"() {
     block.0:
       %0 = alloca i64
       store i64 7, ptr %0
       ret void
     }
 
-    define i32 @main() {
+    define i32 @"main"() {
     block.0:
-      call void @ssc.main.main()
+      call void @"ssc:main.ss:main"()
       ret i32 0
     }
     "
   `);
+});
+
+test('shadowing declaration in the same scope', () => {
+  expect(emitLlvmIr(parse('val main = fn () {\n  val a = 1\n  val a = 2\n}')))
+    .toMatchInlineSnapshot(`
+      "define void @"ssc:main.ss:main"() {
+      block.0:
+        %0 = alloca i64
+        %1 = alloca i64
+        store i64 1, ptr %0
+        store i64 2, ptr %1
+        ret void
+      }
+
+      define i32 @"main"() {
+      block.0:
+        call void @"ssc:main.ss:main"()
+        ret i32 0
+      }
+      "
+    `);
 });
 
 test('val i64', () => {

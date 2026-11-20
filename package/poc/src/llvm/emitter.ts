@@ -46,6 +46,38 @@ import {
 
 type LocalIdMap = Map<LlvmAddress, number>;
 
+type DeclarationSymbol = LlvmAddress | LlvmFunction;
+
+class Scope {
+  readonly parent: Scope | undefined;
+  private readonly declarationSymbolMap: Map<string, DeclarationSymbol>;
+
+  private constructor(parent: Scope | undefined) {
+    this.parent = parent;
+    this.declarationSymbolMap = new Map();
+  }
+
+  static moduleRoot() {
+    return new Scope(undefined);
+  }
+
+  createChild() {
+    return new Scope(this);
+  }
+
+  addDeclaration(name: string, symbol: DeclarationSymbol) {
+    this.declarationSymbolMap.set(name, symbol);
+  }
+
+  findDeclaration(name: string): DeclarationSymbol | undefined {
+    return this.declarationSymbolMap.get(name) || this.parent?.findDeclaration(name);
+  }
+
+  hasDeclarationInCurrentScope(name: string) {
+    return this.declarationSymbolMap.has(name);
+  }
+}
+
 // const binaryInstructions = {
 //   '+': 'add',
 //   '-': 'sub',
@@ -56,65 +88,98 @@ type LocalIdMap = Map<LlvmAddress, number>;
 export function emitLlvmIr(sourceFile: NodeSourceFile) {
   const emitter = new LlvmIrEmitter();
   const module = new LlvmModule();
-  const userMainFn = emitter.lowerUserMain(sourceFile);
+  const moduleScope = emitter.prepareModuleScope(sourceFile);
+  const userMainFn = moduleScope.findDeclaration('main');
+
+  if (!(userMainFn instanceof LlvmFunction)) {
+    throw new Error('entry file must declare main function');
+  }
+
   const mainFn = new LlvmFunction('main', 'i32', []);
 
   mainFn
     .getEntryBlock()
     .statements.push(
-      new LlvmCallStatement('void', userMainFn.id),
+      new LlvmCallStatement(userMainFn.returnType, userMainFn.id),
       new LlvmReturnStatement(new LlvmNumberLiteral('i32', '0')),
     );
 
-  module.functions.push(userMainFn, mainFn);
+  const userFunctions = emitter.lowerSourceFile(moduleScope, sourceFile);
+
+  module.functions.push(...userFunctions);
+  module.functions.push(mainFn);
 
   return emitter.moduleIr(module);
 }
 
 class LlvmIrEmitter {
-  // ssc.<module path>.<name>
+  // ssc:<module path>:<name>
   private static functionId(modulePath: string, name: string) {
-    return `ssc.${modulePath}.${name}`;
+    return `ssc:${modulePath}:${name}`;
   }
 
-  lowerUserMain(sourceFile: NodeSourceFile) {
-    let mainDeclaration: NodeVariableDeclarationStatement | undefined;
+  prepareModuleScope(sourceFile: NodeSourceFile) {
+    const moduleScope = Scope.moduleRoot();
 
     for (const statement of sourceFile.statements) {
-      if (
-        statement instanceof NodeVariableDeclarationStatement
-        && statement.reference.identifier.name === 'main'
-      ) {
-        mainDeclaration = statement;
-        continue;
+      if (!(statement instanceof NodeVariableDeclarationStatement)) {
+        throw new Error('top-level statement must be a declaration');
       }
 
-      throw new Error(`not implemented statement ${statement.constructor.name}`);
+      if (!(statement.value instanceof NodeFunctionExpression)) {
+        throw new Error('not implemented top-level non-function declaration');
+      }
+
+      const name = statement.reference.identifier.name;
+
+      if (moduleScope.hasDeclarationInCurrentScope(name)) {
+        throw new Error(`'${name}' is already declared at ${statement.span.start}`);
+      }
+
+      moduleScope.addDeclaration(
+        name,
+        new LlvmFunction(LlvmIrEmitter.functionId('main.ss', name), 'void', []),
+      );
     }
 
-    if (!mainDeclaration) {
-      throw new Error('entry file must declare main');
-    }
-
-    if (!(mainDeclaration.value instanceof NodeFunctionExpression)) {
-      throw new Error('main must be a function');
-    }
-
-    // Module path is the entry-relative path without extension, fixed to 'main' until multiple files are supported
-    return this.lowerFunction(LlvmIrEmitter.functionId('main', 'main'), mainDeclaration.value);
+    return moduleScope;
   }
 
-  private lowerFunction(id: string, node: NodeFunctionExpression) {
-    const fn = new LlvmFunction(id, 'void', []);
+  lowerSourceFile(moduleScope: Scope, sourceFile: NodeSourceFile) {
+    const functions: LlvmFunction[] = [];
+
+    for (const statement of sourceFile.statements) {
+      if (!(statement instanceof NodeVariableDeclarationStatement)) {
+        throw new Error('top-level statement must be a declaration');
+      }
+
+      if (!(statement.value instanceof NodeFunctionExpression)) {
+        throw new Error('not implemented top-level non-function declaration');
+      }
+
+      const fn = moduleScope.findDeclaration(statement.reference.identifier.name);
+
+      if (!(fn instanceof LlvmFunction)) {
+        throw new Error(`'${statement.reference.identifier.name}' is not declared as a function`);
+      }
+
+      functions.push(this.lowerFunction(moduleScope, fn, statement.value));
+    }
+
+    return functions;
+  }
+
+  private lowerFunction(moduleScope: Scope, fn: LlvmFunction, node: NodeFunctionExpression) {
     const entryBlock = fn.getEntryBlock();
 
-    this.lowerExpression(fn, entryBlock, node.body);
+    this.lowerExpression(moduleScope.createChild(), fn, entryBlock, node.body);
     entryBlock.statements.push(new LlvmReturnStatement());
 
     return fn;
   }
 
   private lowerExpression(
+    currentScope: Scope,
     currentFunction: LlvmFunction,
     currentBlock: LlvmBlock,
     expression: AbstractExpression,
@@ -125,8 +190,10 @@ class LlvmIrEmitter {
     }
 
     if (expression instanceof NodeBlockExpression) {
+      const blockScope = currentScope.createChild();
+
       for (const statement of expression.statements) {
-        this.lowerStatement(currentFunction, currentBlock, statement);
+        this.lowerStatement(blockScope, currentFunction, currentBlock, statement);
       }
 
       return undefined;
@@ -136,12 +203,20 @@ class LlvmIrEmitter {
   }
 
   private lowerStatement(
+    currentScope: Scope,
     currentFunction: LlvmFunction,
     currentBlock: LlvmBlock,
     statement: AbstractStatement,
   ) {
     if (statement instanceof NodeVariableDeclarationStatement) {
-      const value = this.lowerExpression(currentFunction, currentBlock, statement.value);
+      const name = statement.reference.identifier.name;
+      // Lowered before binding the name so that a shadowing declaration can read the previous one
+      const value = this.lowerExpression(
+        currentScope,
+        currentFunction,
+        currentBlock,
+        statement.value,
+      );
 
       if (!value) {
         throw new Error(`expression has no value at ${statement.value.span.start}`);
@@ -149,6 +224,7 @@ class LlvmIrEmitter {
 
       const alloca = new LlvmAllocaStatement('i64');
 
+      currentScope.addDeclaration(name, alloca.address);
       currentFunction.getEntryBlock().allocas.push(alloca);
       currentBlock.statements.push(new LlvmStoreStatement(value, alloca.address));
       return;
@@ -186,7 +262,7 @@ class LlvmIrEmitter {
       }
     }
 
-    lines.push(`define ${fn.returnType} @${fn.id}(${parameterIrs.join(', ')}) {`);
+    lines.push(`define ${fn.returnType} @"${fn.id}"(${parameterIrs.join(', ')}) {`);
 
     for (const [index, block] of fn.blocks.entries()) {
       lines.push(`block.${index}:`);
@@ -246,7 +322,7 @@ class LlvmIrEmitter {
     }
 
     if (statement instanceof LlvmCallStatement) {
-      return `call ${statement.returnType} @${statement.calleeId}()`;
+      return `call ${statement.returnType} @"${statement.calleeId}"()`;
     }
 
     if (statement instanceof LlvmUnknownStatement) {

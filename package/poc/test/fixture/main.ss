@@ -436,3 +436,10 @@ val callConnect = fn () {
 }
 val run = fn (callback: (a: i64) => i64) callback(a: 1)
 val runResult = fn () run(fn (x) x + 1)
+
+// 지역 변수는 같은 범위에서도 다시 선언할 수 있음 (섀도잉, Rust와 같음), 새 선언의 초기값에서는 이전 변수를 읽음
+// 전역 변수(최상위 선언)는 유일해야 해서 섀도잉 불가 (같은 이름을 다시 선언하면 에러)
+val shadowed = fn () {
+    val a = 1
+    val a = a + 1   // 2
+}
