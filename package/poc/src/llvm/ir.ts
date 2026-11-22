@@ -59,28 +59,23 @@ export class LlvmBlock {
 export type LlvmStatement =
   | LlvmAllocaStatement
   | LlvmStoreStatement
+  | LlvmLoadStatement
   | LlvmReturnStatement
   | LlvmCallStatement
   | LlvmUnknownStatement;
 
-export abstract class LlvmValue {
-  readonly type: LlvmType;
+export class LlvmValue<T extends LlvmType = LlvmType> {
+  readonly type: T;
 
-  constructor(type: LlvmType) {
+  constructor(type: T) {
     this.type = type;
   }
 }
 
-export class LlvmAddress extends LlvmValue {
-  constructor() {
-    super('ptr');
-  }
-}
-
-export class LlvmNumberLiteral extends LlvmValue {
+export class LlvmNumberLiteral extends LlvmValue<LlvmNumberType> {
   readonly value: string;
 
-  constructor(type: LlvmPrimitiveType, value: string) {
+  constructor(type: LlvmNumberType, value: string) {
     super(type);
     this.value = value;
   }
@@ -88,21 +83,31 @@ export class LlvmNumberLiteral extends LlvmValue {
 
 export class LlvmAllocaStatement {
   readonly type: LlvmType;
-  readonly address: LlvmAddress;
+  readonly address: LlvmValue<'ptr'>;
 
   constructor(type: LlvmType) {
     this.type = type;
-    this.address = new LlvmAddress();
+    this.address = new LlvmValue('ptr');
   }
 }
 
 export class LlvmStoreStatement {
   readonly value: LlvmValue;
-  readonly address: LlvmAddress;
+  readonly address: LlvmValue<'ptr'>;
 
-  constructor(value: LlvmValue, address: LlvmAddress) {
+  constructor(value: LlvmValue, address: LlvmValue<'ptr'>) {
     this.value = value;
     this.address = address;
+  }
+}
+
+export class LlvmLoadStatement<T extends LlvmType = LlvmType> {
+  readonly address: LlvmValue<'ptr'>;
+  readonly value: LlvmValue<T>;
+
+  constructor(type: T, address: LlvmValue<'ptr'>) {
+    this.address = address;
+    this.value = new LlvmValue(type);
   }
 }
 
@@ -134,7 +139,13 @@ export class LlvmUnknownStatement {
 
 export type LlvmType = LlvmPrimitiveType | LlvmAggregateType;
 
-export type LlvmPrimitiveType = 'void' | 'i1' | 'i8' | 'i32' | 'i64' | 'double' | 'ptr';
+export type LlvmIntegerType = 'i1' | 'i8' | 'i16' | 'i32' | 'i64';
+
+export type LlvmFloatType = 'float' | 'double';
+
+export type LlvmNumberType = LlvmIntegerType | LlvmFloatType;
+
+export type LlvmPrimitiveType = 'void' | 'ptr' | LlvmNumberType;
 
 export type LlvmAggregateType = LlvmArrayType | LlvmStructType;
 

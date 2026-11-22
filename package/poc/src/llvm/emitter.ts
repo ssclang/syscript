@@ -1,11 +1,11 @@
 import { assertNever } from '@syscript/share/util';
 import {
-  LlvmAddress,
   LlvmAllocaStatement,
   LlvmArrayType,
   LlvmBlock,
   LlvmCallStatement,
   LlvmFunction,
+  LlvmLoadStatement,
   LlvmModule,
   LlvmNumberLiteral,
   LlvmReturnStatement,
@@ -42,11 +42,12 @@ import {
   NodeNumberLiteralExpression,
   NodeSourceFile,
   NodeVariableDeclarationStatement,
+  NodeVariableReferenceExpression,
 } from '~/parser/ast.js';
 
-type LocalIdMap = Map<LlvmAddress, number>;
+type LocalIdMap = Map<LlvmValue, number>;
 
-type DeclarationSymbol = LlvmAddress | LlvmFunction;
+type DeclarationSymbol = LlvmAllocaStatement | LlvmFunction;
 
 class Scope {
   readonly parent: Scope | undefined;
@@ -189,6 +190,25 @@ class LlvmIrEmitter {
       return new LlvmNumberLiteral('i64', expression.value);
     }
 
+    if (expression instanceof NodeVariableReferenceExpression) {
+      const name = expression.identifier.name;
+      const declaration = currentScope.findDeclaration(name);
+
+      if (!declaration) {
+        throw new Error(`'${name}' is not declared`);
+      }
+
+      if (declaration instanceof LlvmFunction) {
+        throw new Error('not implemented function value');
+      }
+
+      const load = new LlvmLoadStatement(declaration.type, declaration.address);
+
+      currentBlock.statements.push(load);
+
+      return load.value;
+    }
+
     if (expression instanceof NodeBlockExpression) {
       const blockScope = currentScope.createChild();
 
@@ -224,7 +244,7 @@ class LlvmIrEmitter {
 
       const alloca = new LlvmAllocaStatement('i64');
 
-      currentScope.addDeclaration(name, alloca.address);
+      currentScope.addDeclaration(name, alloca);
       currentFunction.getEntryBlock().allocas.push(alloca);
       currentBlock.statements.push(new LlvmStoreStatement(value, alloca.address));
       return;
@@ -259,6 +279,13 @@ class LlvmIrEmitter {
       for (const alloca of block.allocas) {
         localIdMap.set(alloca.address, order);
         order++;
+      }
+
+      for (const statement of block.statements) {
+        if (statement instanceof LlvmLoadStatement) {
+          localIdMap.set(statement.value, order);
+          order++;
+        }
       }
     }
 
@@ -303,7 +330,7 @@ class LlvmIrEmitter {
 
   private statementIr(statement: LlvmStatement, localIdMap: LocalIdMap) {
     if (statement instanceof LlvmAllocaStatement) {
-      return `${this.localIr(statement.address, localIdMap)} = alloca ${this.typeIr(statement.type)}`;
+      return `${this.localIdIr(statement.address, localIdMap)} = alloca ${this.typeIr(statement.type)}`;
     }
 
     if (statement instanceof LlvmStoreStatement) {
@@ -311,6 +338,13 @@ class LlvmIrEmitter {
       const address = this.valueIr(statement.address, localIdMap);
 
       return `store ${value}, ${address}`;
+    }
+
+    if (statement instanceof LlvmLoadStatement) {
+      const value = this.localIdIr(statement.value, localIdMap);
+      const address = this.valueIr(statement.address, localIdMap);
+
+      return `${value} = load ${this.typeIr(statement.value.type)}, ${address}`;
     }
 
     if (statement instanceof LlvmReturnStatement) {
@@ -339,14 +373,10 @@ class LlvmIrEmitter {
       return `${type} ${value.value}`;
     }
 
-    if (value instanceof LlvmAddress) {
-      return `${type} ${this.localIr(value, localIdMap)}`;
-    }
-
-    throw new Error(`not implemented value ${value.constructor.name}`);
+    return `${type} ${this.localIdIr(value, localIdMap)}`;
   }
 
-  private localIr(value: LlvmAddress, localIdMap: LocalIdMap) {
+  private localIdIr(value: LlvmValue, localIdMap: LocalIdMap) {
     const id = localIdMap.get(value);
 
     if (id === undefined) {

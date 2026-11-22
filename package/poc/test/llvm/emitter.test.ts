@@ -61,6 +61,56 @@ test('shadowing declaration in the same scope', () => {
     `);
 });
 
+test('read local val', () => {
+  expect(emitLlvmIr(parse('val main = fn () {\n  val a = 7\n  val b = a\n}')))
+    .toMatchInlineSnapshot(`
+    "define void @"ssc:main.ss:main"() {
+    block.0:
+      %0 = alloca i64
+      %1 = alloca i64
+      store i64 7, ptr %0
+      %2 = load i64, ptr %0
+      store i64 %2, ptr %1
+      ret void
+    }
+
+    define i32 @"main"() {
+    block.0:
+      call void @"ssc:main.ss:main"()
+      ret i32 0
+    }
+    "
+  `);
+});
+
+test('shadowing declaration reads the previous one', () => {
+  expect(emitLlvmIr(parse('val main = fn () {\n  val a = 1\n  val a = a\n}')))
+    .toMatchInlineSnapshot(`
+    "define void @"ssc:main.ss:main"() {
+    block.0:
+      %0 = alloca i64
+      %1 = alloca i64
+      store i64 1, ptr %0
+      %2 = load i64, ptr %0
+      store i64 %2, ptr %1
+      ret void
+    }
+
+    define i32 @"main"() {
+    block.0:
+      call void @"ssc:main.ss:main"()
+      ret i32 0
+    }
+    "
+  `);
+});
+
+test('undeclared variable', () => {
+  expect(() => emitLlvmIr(parse('val main = fn () {\n  val b = c\n}'))).toThrow(
+    "'c' is not declared",
+  );
+});
+
 test('val i64', () => {
   const source = `
 val a = 7
